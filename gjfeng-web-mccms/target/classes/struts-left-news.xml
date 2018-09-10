@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.codebehind.pathPrefix" value="/WEB-INF/jsp/" />
+	
+	<package name="left" extends="struts-default" namespace="/">
+		
+		<interceptors>
+			<interceptor name="authority" class="cc.modules.security.AuthorityIntercept">
+			</interceptor>
+			
+			<interceptor-stack name="author">
+				<interceptor-ref name="authority"></interceptor-ref>
+				<interceptor-ref name="defaultStack"></interceptor-ref>
+			</interceptor-stack>
+		</interceptors>
+		
+		<default-interceptor-ref name="author"></default-interceptor-ref>
+		
+		<global-results>
+			<result name="login">/WEB-INF/jsp/index.jsp</result>
+		</global-results>
+		
+		<!-- 内容 -->
+		<action name="collectionleftFrame" class="collectionleftFrame">
+			<result>/WEB-INF/jsp/left/collection/left.jsp</result>
+		</action>
+		<!-- 栏目 -->
+		<action name="columnleftFrame" class="columnleftFrame">
+			<result>/WEB-INF/jsp/left/column/left.jsp</result>
+		</action>
+		
+		<!-- 栏目树 -->
+		<action name="epColumnTreeAction" class="cc.messcat.web.column.EpColumnAction">
+			<result name="tree">/WEB-INF/jsp/common/generate_epColumn_tree.jsp</result>
+		</action>
+
+	</package>
+</struts>

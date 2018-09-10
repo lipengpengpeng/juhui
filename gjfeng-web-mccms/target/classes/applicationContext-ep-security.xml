@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+                        http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-2.0.4.xsd"
+	default-autowire="byType" default-lazy-init="true">
+
+	<http auto-config="true">
+
+		<!--
+			<intercept-url pattern="/*login_index.action" filters="none" />
+			<intercept-url pattern="/index.jsp" filters="none" />
+			<intercept-url pattern="/epIndexNewsAction*.action" filters="none" />
+			login-page表示用户登陆时显示我们自定义的login.jsp
+			default-target-url表示登陆成功时，跳转到哪个页面
+			authentication-failure-url表示用户登陆失败时，跳转到哪个页面。
+		-->
+
+		<form-login login-page="/login_index.action"
+			default-target-url="/loginAction.action"
+			authentication-failure-url="/login_index.action" />
+
+		<logout logout-success-url="/login_index.action" />
+
+	</http>
+
+	<!-- 第一种方式 -->
+	<!--
+		<authentication-provider>
+		<user-service>
+		<user name="qqqqqq" password="123123" authorities="ROLE_USER,ROLE_DDD" />
+		<user name="admin" password="admin" authorities="ROLE_USER" />
+		</user-service>
+		</authentication-provider> 
+	-->
+	<!-- 第二种形式 -->
+	<!--
+		<authentication-provider>
+		<password-encoder hash="md5"/>
+		
+		<jdbc-user-service data-source-ref="dataSource" />
+		</authentication-provider>
+		
+		<beans:bean id="dataSource" class="com.springframework.jdbc.datasource.DriverManagerDataSource">
+		<beans:property name="driverClassName" value="com.microsoft.sqlserver.jdbc.SQLServerDriver"/>
+		<beans:property name="url" value="jdbc:sqlserver://localhost:1433;DatabaseName=test;SelectMethod=cursor"/>
+		<beans:property name="username" value="sa"/>
+		<beans:property name="password" value="888888"/>
+		</beans:bean>
+	-->
+	<!-- 第三种形式-->
+	<authentication-provider user-service-ref="userDetailsService">
+		<password-encoder ref="passwordEncoder">
+			<salt-source user-property="username" />
+		</password-encoder>
+	</authentication-provider>
+ 	
+	<beans:bean id="userDetailsService" class="userDetailsService">
+	</beans:bean>
+
+	<beans:bean id="passwordEncoder"
+		class="org.springframework.security.providers.encoding.Md5PasswordEncoder">
+	</beans:bean>
+	
+	<beans:bean id="localeResolver" class="org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver"/>
+		<beans:bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+		<beans:property name="basename" value="resources/security/messages"/>
+	</beans:bean>
+
+</beans:beans>

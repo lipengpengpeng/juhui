@@ -1,0 +1,327 @@
+/* CSS Document */
+
+body{
+	padding:0;
+	margin:0;
+	font-family:"Î¢ÈíÑÅºÚ";
+}
+div, h1, h2, h3, h4, p, form, label, input, textarea, img, span{
+	margin:0; padding:0;
+}
+
+ul{
+	margin:0; 
+	padding:0; 
+	list-style-type:none;
+	font-size:0;
+	line-height:0;
+}
+.spacer{
+	clear:both; 
+	font-size:0; 
+	line-height:0;
+}
+/*------------------------------------------------main--------------------*/
+
+/*------------------------------------------------top--------------------*/
+#topmain{
+	width:100%;
+	background:url(images/top_bg.gif) 0 0 repeat-x;
+	height:134px;
+	padding:0px 0px 0px 0px;
+}
+#top{
+	width:958px;
+	margin:0 auto;
+	height:132px;
+}
+/*------------------------------------------------Logo-------------------*/
+#top img.logo{
+	display:block;
+	font-size:0;
+	line-height:0;
+	float:left;
+    width:958px;
+	margin:0 auto;
+	height:112px;
+}
+/*------------------------------------------------Logo-------------------*/
+
+/*------------------------------------------------navigation--------------------*/
+#top ul.nav{
+	width:847px;
+	height:26px;
+	padding:0 0 0 56px;
+	float:left;
+}
+#top ul.nav li{
+	float:left;
+	margin:0 3px 0 0;
+	font-size:0;
+	line-height:0;
+}
+#top ul.nav li.noMargin{
+	margin:0;
+}
+#top ul.nav li a{
+	display:block;
+	background:url(images/nav_bg.gif) 0 0 no-repeat;
+	width:82px;
+	height:26px;
+	font:bold 11px/26px  "Trebuchet MS",Arial, Helvetica, sans-serif;
+	color:#EBEBEB;
+	background-color:inherit;
+	text-decoration:none;
+	text-align:center;
+}
+#top ul.nav li a:hover{
+	background:url(images/nav_bg_hover.gif) 0 0 no-repeat;
+	color:#444444;
+	background-color:inherit;
+}
+#top ul.nav li a.hover{
+	display:block;
+	background:url(images/nav_bg_hover.gif) 0 0 no-repeat;
+	width:82px;
+	height:26px;
+	font:bold 11px/26px  "Trebuchet MS",Arial, Helvetica, sans-serif;
+	color:#444444;
+	background-color:inherit;
+	text-decoration:none;
+	text-align:center;
+	cursor:text;
+}
+/*------------------------------------------------navigation--------------------*/
+
+
+/*------------------------------------------------top--------------------*/
+
+/*------------------------------------------------body--------------------*/
+#bodyMain{
+	width:100%;
+	background:url(images/body_bg.gif) 0 0 repeat-x #E8E8D0;
+	color:#000;
+	padding:35px 0 28px 0;
+}
+#body{
+	width:958px;
+	margin:0 auto;
+	background-attachment: scroll;
+	background-image: url(images/innerbg.gif);
+	background-repeat: repeat-y;
+	background-position: -23px;
+}
+/*------------------------------------------------left--------------------*/
+#left{
+	width:240px;
+	float:left;
+}
+#left h2{
+	display:block;
+	width:224px;
+	height:22px;
+	background:url(images/left_head_1px.gif) 0 0 repeat-x;
+	border-left:#404040 solid 0px;
+	border-right:#404040 solid 0px;
+	padding:4px 0 0 14px;
+	margin:0 0 1px 0;
+}
+#left h2 span{
+	background:url(images/arrow.gif) 0 3px no-repeat;
+	padding:0 0 0 16px;
+	font-size:12px;
+	font-weight:bold;
+	color:#F3F3F3;
+	background-color:inherit;
+}
+#left ul{
+	width:240px;
+}
+#left ul li{
+	margin:0 0 1px 0;
+}
+#left ul li a{
+	display:block;
+	background:url(images/arrow_green.gif) 19px 9px no-repeat #DBDBBE;
+	padding:0 21px 0 31px;
+	font-weight:normal;
+	color:#2F2F20;
+	font-size:11px;
+	line-height:24px;
+	text-decoration:none;
+}
+
+#left ul li a:hover{
+	color:#2F2F20;
+	background-color:#C6C6A5;
+}
+
+#left form{
+	width:210px;
+	padding:5px 15px 41px 15px;
+	background-color:#D2D2B4;
+	color:#000;
+}
+#left form label{
+	display:block;
+	font:bold 11px/23px Arial, Helvetica, sans-serif;
+	float:left;
+}
+#left form input.txtBox{
+	width:208px;
+	height:19px;
+	background-color:#fff;
+	color:#000;
+	border-bottom:#D4D0C8 solid 1px;
+	border-right:#D4D0C8 solid 1px;
+	border-left:#808080 solid 1px;
+	border-top:#808080 solid 1px;
+	float:left;
+}
+#left form a{
+	display:block;
+	font:bold 11px/21px Arial, Helvetica, sans-serif;
+	float:left;
+	color:#945E02;
+	background-color:inherit;
+	text-decoration:none;
+	margin:4px 0 0 0;
+}
+#left form a:hover{
+	text-decoration:underline;
+}
+#left input.login{
+	background:url(images/btn_login.gif) 0 0 no-repeat;
+	width:66px;
+	height:21px;
+	float:right;
+	font:bold 11px/21px Arial, Helvetica, sans-serif;
+	color:#F2F2E2;
+	background-color:#D2D2B4;
+	border:none;
+	cursor:pointer;
+	margin:4px 0 0 0;
+}
+/*------------------------------------------------left--------------------*/
+
+/*------------------------------------------------right--------------------*/
+#right{
+	width:695px;
+	float:right;
+}
+#green{
+	width:662px;
+	background:url(images/green_bg.jpg) 0 0 no-repeat;
+	height:181px;
+	margin:0 0 16px 0;
+	padding:34px 0 0 32px;
+}
+#green h2{
+	display:block;
+	background:url(images/pic.gif) 0 0 no-repeat;
+	height:63px;
+	margin:0 0 10px 0;
+	text-indent:-2000px;
+}
+#green p{
+	display:block;
+	font:normal 13px/18px Arial, Helvetica, sans-serif;
+	color:#FFFFC1;
+	background-color:inherit;
+	width:256px;
+}
+#green p span{
+	font-weight:bold;
+	color:#fff;
+	background-color:inherit;
+}
+#right h3{
+	display:block;
+	font:bold 17px/46px Arial, Helvetica, sans-serif;
+	color:#6B1420;
+	border-bottom:#C5C5A8 solid 1px;
+	background-color:inherit;
+	margin:0;
+}
+#right p.rightTxt1{
+	display:block;
+	font:bold 16px/23px Arial, Helvetica, sans-serif;
+	color:#B3770F;
+	background-color:inherit;
+	margin:0 0 18px 0;
+}
+#right p.rightTxt1 span{
+	font:normal 13px/23px Arial, Helvetica, sans-serif;
+	color:#000;
+	background-color:inherit;
+}
+#right p.rightTxt2{
+	display:block;
+	font:normal 13px/19px Arial, Helvetica, sans-serif;
+	color:#000;
+	background-color:inherit;
+	margin:0 0 28px 0;
+}
+#right p.rightTxt2 span{
+	color:#000;
+	background-color:#F4F4E3;
+}
+#right  a{
+	font-weight:normal;
+	color:#2F2F20;
+	font-size:11px;
+	line-height:24px;
+	text-decoration:underline;
+}
+
+#right a:hover{
+	color:blue;
+}
+#right a:visited{
+  color: red;
+}
+#table{
+  border:1px   solid ; 
+}
+#td{
+border:dotted red 1px;
+width:50px;
+color:#000;
+}
+#right ul{
+	width:240px;
+}
+#right ul li{
+	margin:0 0 1px 0;
+}
+
+
+
+/*------------------------------------------------right--------------------*/
+
+/*------------------------------------------------body--------------------*/
+
+/*------------------------------------------------footer--------------------*/
+#footerMain{
+	width:100%;
+	height:108px;
+	background:url(images/footer_bg.gif) 0 0 repeat-x;
+	width:100%;
+}
+#footer{
+	width:958px;
+	margin:0 auto;
+	position:relative;
+}
+
+#footer p.copyright{
+	font:normal 11px/18px "Trebuchet MS", Arial, Helvetica, sans-serif;
+	text-align:center;
+	position: absolute;
+    left:340px;
+	top:37px;
+	color:#FEDC3B;
+	background-color:inherit;
+}
+
+/*------------------------------------------------footer--------------------*/

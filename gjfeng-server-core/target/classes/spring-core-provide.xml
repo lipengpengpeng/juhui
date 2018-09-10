@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:dubbo="http://code.alibabatech.com/schema/dubbo" 
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-4.0.xsd 
+	http://code.alibabatech.com/schema/dubbo 
+    http://code.alibabatech.com/schema/dubbo/dubbo.xsd"
+	default-lazy-init="true"
+	default-autowire="byName">
+	
+	 <!-- 提供方应用信息，用于计算依赖关系 -->
+	 <dubbo:application name="${dubbo.application.server.core}" />
+	 
+	 <!-- 使用zookeeper注册中心暴露服务地址 -->
+	 <dubbo:registry protocol="zookeeper" address="${zookeeper.address}" />
+	 
+	 <!-- 用dubbo协议在20880端口暴露服务 -->
+	 <dubbo:protocol name="dubbo" port="${dubbo.port.server.core}" />
+	 
+	 <!-- 具体的实现bean -->
+	 <bean id="loginDubbo" class="cc.messcat.gjfeng.dubbo.GjfLoginDubboImpl"/>
+	 <bean id="indexDubbo" class="cc.messcat.gjfeng.dubbo.GjfIndexDubboImpl"/>
+	 <bean id="addressDubbo" class="cc.messcat.gjfeng.dubbo.GjfAddressDubboImpl"/>
+	 <bean id="cartInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfCartInfoDubboImpl"/>
+	 <bean id="storeInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfStoreInfoDubboImpl"/>
+	 <bean id="memberInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfMemberInfoDubboImpl"/>
+	 <bean id="productAttrDubbo" class="cc.messcat.gjfeng.dubbo.GjfProductAttrDubboImpl"/>
+	 <bean id="orderInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfOrderInfoDubboImpl"/>
+	 <bean id="productInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfProductInfoDubboImpl"/>
+	 <bean id="tradeDubbo" class="cc.messcat.gjfeng.dubbo.GjfTradeDubboImpl"/>
+	 <bean id="enterpriseColumnDubbo" class="cc.messcat.gjfeng.dubbo.GjfEnterpriseColumnDubboImpl"/>
+
+	 <bean id="prodcutCommetDubbo" class="cc.messcat.gjfeng.dubbo.GjfProductCommentDubboImpl"/>
+
+	 <bean id="productAttrStockDubbo" class="cc.messcat.gjfeng.dubbo.GjfProductAttrStockDubboImpl"/>
+	 <bean id="countInfoDubbo" class="cc.messcat.gjfeng.dubbo.CountInfoDubboImpl"/>
+	 <bean id="weixinInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfWeixinInfoDubboImpl"/>
+	  <bean id="appUpdateInfoDubbo" class="cc.messcat.gjfeng.dubbo.GjfAppUpdateInfoDubboImpl"/>
+	 <!-- 声明需要暴露的服务接口 -->
+	 <dubbo:service ref="loginDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfLoginDubbo" timeout="1200000"/>
+	 <dubbo:service ref="indexDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo" timeout="1200000"/>
+	 <dubbo:service ref="addressDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfAddressDubbo" timeout="1200000"/>
+	 <dubbo:service ref="cartInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfCartInfoDubbo" timeout="1200000"/>
+	 <dubbo:service ref="storeInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo" timeout="1200000"/>
+	 <dubbo:service ref="memberInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo" timeout="1200000"/>
+	 <dubbo:service ref="productAttrDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductAttrDubbo" timeout="1200000"/>
+	 <dubbo:service ref="orderInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfOrderInfoDubbo" timeout="1200000"/>
+	 <dubbo:service ref="productInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductInfoDubbo" timeout="1200000"/>
+	 <dubbo:service ref="tradeDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfTradeDubbo" timeout="1200000"/>
+	 <dubbo:service ref="enterpriseColumnDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo" timeout="1200000"/>
+
+	  <dubbo:service ref="prodcutCommetDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductCommentDubbo" timeout="1200000"/>
+
+	 <dubbo:service ref="productAttrStockDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductAttrStockDubbo" timeout="1200000"/>
+	 <dubbo:service ref="countInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.CountInfoDubbo" timeout="4800000"/>
+	 <!--  <dubbo:service ref="weixinInfoDubbo" interface="cc.messcat.gjfeng.dubbo.webclient.GjfWeixinInfoDubbo" timeout="1200000"/>-->
+	 <dubbo:service ref="appUpdateInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfAppUpdateInfoDubbo" timeout="1200000"/>
+</beans>

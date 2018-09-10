@@ -1,0 +1,459 @@
+package cc.messcat.gjfeng.dao.count;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.ParseException;
+import java.util.List;
+import java.util.Map;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.BaseHibernateDao;
+
+public interface CountInfoDao extends BaseHibernateDao<Serializable>{
+
+	/**
+	 * 查询余额
+	 * @param type 0:普通用户  1:商户   空：提现额
+	 * @return
+	 */
+	public BigDecimal findMemberBalanceMoney(String type);
+	
+	/**
+	 * 统计会员数量
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	public Pager findMemberAmount(int pageNo, int pageSize);
+	
+	/**
+	 * 根据会员类型统计会员数量
+	 * @param type
+	 * @return
+	 */
+	public BigInteger findMemberAmountByType(String type);
+	
+	/**
+	 * 会员分红权总额
+	 */
+	public BigDecimal findMemberDiviTotal();
+
+	/**
+	 * 商户分红权总额
+	 * 
+	 * @return
+	 */
+	public BigDecimal findStoreDiviTotal();
+	
+	/**
+	 *  分红发放总额
+	 */
+	public BigDecimal  findAllDiviAmount();
+	
+	/**
+	 * 分红实时余额
+	 * @param type
+	 * @return
+	 */
+	public BigDecimal findDiviMoneyBla(String type);
+	
+	/**
+	 * 商户剩余授信额度
+	 * @return
+	 */
+	public BigDecimal findSellerCreditLine();
+	
+	/**
+	 * 查询用户当日的订单总额
+	 * @param id
+	 * @return
+	 */
+	public BigDecimal findMemberOrderByday(Long id);
+	
+	/**
+	 * 查询当日授信充值额
+	 * @return
+	 */
+	public BigDecimal findCreditLineRecharge() throws ParseException;
+	
+	/**
+	 * 查询当日网上商城交易额
+	 * @return
+	 */
+	public BigDecimal findTodayStoreTurnover();
+	
+	/**
+	 * 查询当日O2O交易额
+	 * @return
+	 */
+	public BigDecimal findTodayO2OTurnover();
+	
+	/**
+	 * 查询近30天网上商城交易额
+	 * @return
+	 */
+	public BigDecimal[] findAlmostOneMonthStoreTurnover();
+	
+	/**
+	 * 查询近30天O2O交易额
+	 * @return
+	 */
+	public BigDecimal[] findAlmostOneMonth020Turnover();
+	
+	/**
+	 * 查询近30天会员增加数量,趋势
+	 * @return
+	 */
+	public BigInteger[] findAlmostOneMonthMemberAdd(String type);
+	
+	/**
+	 * 查询近三个月会员的消费额,趋势
+	 * @return
+	 */
+	public BigDecimal[] findAlmostThreeMonthMemberTurnover(Long id);
+	
+	/**
+	 * 统计资金池
+	 * @param type
+	 * @return
+	 */
+	public BigDecimal findCashPool(String type);
+	
+	/**
+	 * 查询提现手续费,责任险
+	 * @param type  0:手续费      1:责任险
+	 * @return
+	 */
+	public BigDecimal findTaxMoney(String type);
+	
+	/**
+	 * 查询订单累计成交额
+	 * @return
+	 */
+	public BigDecimal findOrderTotalAmount();
+	
+	
+	
+	/*****每天定时统计********/
+	/**
+	 * @描述 统计总报表
+	 * @author Karhs
+	 * @date 2017年2月17日
+	 * @return
+	 */
+	public ResultVo updateSummaryReport();
+	
+	/**
+	 * @描述 统计让利日报表
+	 * @author Karhs
+	 * @date 2017年2月17日
+	 * @return
+	 */
+	public ResultVo updateBenefitReport();
+	
+	/**
+	 * @描述 统计福利产出日报表
+	 * @author Karhs
+	 * @date 2017年2月17日
+	 * @return
+	 */
+	public ResultVo updateWealOutputReport();
+	
+	/**
+	 * @描述 统计福利派发报表
+	 * @author Karhs
+	 * @date 2017年2月17日
+	 * @return
+	 */
+	public ResultVo updateWealPayoutReport();
+	
+	/**
+	 * @描述 统计提现日报表
+	 * @author Karhs
+	 * @date 2017年2月17日
+	 * @return
+	 */
+	public ResultVo updateWithdrawReport();
+	
+	/**
+	 * @描述 修改总报表和福利派发报表的福利派发为实际派发额
+	 * @author Karhs
+	 * @date 2017年3月10日
+	 * @return
+	 */
+	public ResultVo updateSummaryAndPayoutReport();
+	
+	/**
+	 * 统计资金池表
+	 */
+	public ResultVo updatePoolReport();
+	
+	/*****每天定时统计 end********/
+	
+	/**
+	 * 查询历史交易总额
+	 * @return
+	 */
+	public BigDecimal findHistoryTurnover();
+	
+	/**
+	 * 统计各档分红权总数和人数
+	 * 
+	 * @param type
+	 * @param min
+	 * @param max
+	 * @return
+	 */
+	public Map<String, Object> countDivi(String type, String min, String max);
+
+	/**
+	 * 查询总授信充值额度
+	 * @return
+	 */
+	BigDecimal findCreditLineRechargeTotal();
+
+	/**
+	 * 查询近30天授信充值趋势
+	 * @return
+	 */
+	BigDecimal[] findAlmostOneMonthCLRecharge();
+	
+	/**
+	 * 查询商户未使用授信充值额  分页  模糊查询
+	 * @param storeNum
+	 * @param storeName
+	 * @param memeberName
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	public Pager findStoreCreditLine(String storeNum, String storeName, String memeberName, int pageNo,
+			int pageSize,String orderType);
+	
+	/**
+	 * 查找区域业绩
+	 * @param pageNo
+	 * @param pageSize
+	 * @param provinceId
+	 * @param cityId
+	 * @param areaId
+	 * @return
+	 */
+	public Pager findRegionalPerformance(int pageNo, int pageSize,Long provinceId,Long cityId,Long areaId,String startTime,String endTime);
+	
+	/**
+	 * 统计当前区域业绩
+	 */
+	public BigDecimal findCountRegionalPerformance(Long provinceId, Long cityId, Long areaId, String startTime,String endTime);
+	
+	/**
+	 * 查询分红趋势
+	 * @param type
+	 * @return
+	 */
+	public BigDecimal[] findAlmostOneMonthBenefitDay(String type);
+	
+	/**
+	 * 查询总报表
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @return
+	 */
+	public Pager findSummaryReport(int pageNo,int pageSize,String addTime,String endTime,String ste);
+	
+	/**
+	 * 查询福利产出表
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @return
+	 */
+	public Pager findWealOutputReport(int pageNo,int pageSize,String addTime,String endTime,String ste);
+	
+	/**
+	 * 查询福利派发表
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @return
+	 */
+	public Pager findWealPayoutReport(int pageNo,int pageSize,String addTime,String endTime,String ste);
+	
+	/**
+	 * 提现日报表
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @return
+	 */
+	public Pager findWithdrawReport (int pageNo,int pageSize,String addTime,String endTime,String ste);
+	
+	/**
+	 * 让利日报表
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @return
+	 */
+	public Pager findBenefitReport (int pageNo,int pageSize,String addTime,String endTime,String ste);
+	
+	/**
+	 * 今日O2O订单
+	 * @param pageNo
+	 * @param pageSize
+	 * @param startTime
+	 * @param endTime
+	 * @param tradeStatus
+	 * @return
+	 */
+	public Pager findTodayO2OOrders(int pageNo, int pageSize);
+	
+	/**
+	 * 查询会员实时分红单价
+	 * @return
+	 */
+	public BigDecimal findMemberDiviUnitPrice();
+	
+	/**
+	 * 查询商户实时分红单价
+	 * @return
+	 */
+	public BigDecimal findSellerDiviUnitPrice();
+	
+	/**
+	 * 查询池收入
+	 * @param pageNo
+	 * @param pageSize
+	 * @param op
+	 * @param type
+	 * @return
+	 */
+	public Pager findPoolIn(int pageNo, int pageSize, String op, String type);
+
+	/**
+	 * 查询池支出
+	 * @param pageNo
+	 * @param pageSize
+	 * @param op
+	 * @param type
+	 * @return
+	 */
+	public Pager findPoolOut(int pageNo, int pageSize, String op, String type);
+	
+	
+	/**
+	 * 查询池收入支出明细
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @param type
+	 * @return
+	 */
+	public Pager findPoolDetail(int pageNo, int pageSize, String addTime, String type);
+	
+	/**
+	 * 查询代理分红支出明细
+	 * @param pageNo
+	 * @param pageSize
+	 * @param op
+	 * @param type
+	 * @return
+	 */
+	public Pager findTradeDiviByAgent(int pageNo, int pageSize,String addTime,String type);
+	
+	/**
+	 * 获取每天销售录入的统计数据
+	 */
+	@SuppressWarnings("rawtypes")
+	public Map countBenefitByTime(String addTime);
+	
+	/**
+	 * 统计总额
+	 * @param beginTime
+	 * @param endTime
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public Map countTotalDataInfo(String beginTime,String endTime);
+	
+	/**
+	 * 查询日让利信息
+	 * @param pageNo
+	 * @param pageSize
+	 * @param addTime
+	 * @param endTime
+	 * @param ste
+	 * @return
+	 */
+	public Pager findBenefitDay(int pageNo, int pageSize, String addTime, String endTime, String ste);
+	
+	/**
+	 *获取每天统计交易记录
+	 *
+	 */
+	public Pager findTotalReport(Integer pageNo,Integer pageSize,String beginTime,String endTime);
+	/**
+	 * 今日会员池入池金额
+	 * @return
+	 */
+	public BigDecimal findMemberPoolMoneyByTime();
+	
+	/**
+	 * 今日商户池入池金额
+	 * @return
+	 */
+	public BigDecimal fingMerchantPoolMoneyByTime();
+	
+	/**
+	 * 会员实时参与分红权数
+	 */
+	public BigDecimal findMemberDiviNum();
+	
+	/**
+	 * 商户实时参与分红权数
+	 * @return
+	 */
+	public BigDecimal findMerchantDiviNum();
+	
+	/**
+	 * 获取会员或商家本周消费金额
+	 * @return
+	 */
+	public BigDecimal findCountCousumMoney(String type,Long id);
+	
+	
+	/**
+	 * 获取会员或商家本周分红金额
+	 * @param type
+	 * @param id
+	 * @return
+	 */
+	public BigDecimal findDiviMoneyByTime(String type,Long id);
+	
+	/**
+	 * 获取所以用户本周分红数据
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public List findAllDiviInfoByTime();
+	
+	/**
+	 * 更新是否为活跃会员
+	 * @return
+	 */
+	public ResultVo updateIsActivity();
+	
+	/**
+	 * 查询本周升级消费金额
+	 * @param memberId
+	 * @return
+	 */
+	public BigDecimal findMemberBenefitUpgradeMoney(Long memberId);
+	
+
+	
+			
+}

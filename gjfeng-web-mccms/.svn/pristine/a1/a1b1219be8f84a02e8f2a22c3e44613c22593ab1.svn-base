@@ -1,0 +1,1282 @@
+package cc.messcat.web.collection;
+
+import java.io.File;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.jms.core.JmsTemplate;
+
+import cc.messcat.entity.EnterpriseColumn;
+import cc.messcat.entity.GjfStoreInfo;
+import cc.messcat.entity.McParameter;
+import cc.messcat.entity.McProductInfo;
+import cc.messcat.entity.ProductColumn;
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.dto.Arrts;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.entity.GjfAttrValue;
+import cc.messcat.gjfeng.entity.GjfProductAttr;
+import cc.messcat.gjfeng.entity.GjfProductAttrStock;
+import cc.messcat.gjfeng.entity.GjfProductComment;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import cc.messcat.service.system.McParameterManagerDao;
+import cc.modules.commons.PageAction;
+import cc.modules.constants.ActionConstants;
+import cc.modules.util.CommonUpload;
+import cc.modules.util.StringUtil;
+import net.sf.json.JSONObject;
+
+public class McProductInfoAction extends PageAction {
+
+	private static final long serialVersionUID = 1L;
+
+	private Long id;
+	private String title;
+	private String father;
+	private String state;
+
+	private List<GjfProductInfo> gjfProductInfos;
+	private EnterpriseColumn column;
+
+	private McParameterManagerDao mcParameterManagerDao;
+	// 是否显示新增按钮
+	private String isShowInsert;
+	/**
+	 * 产品信息表
+	 */
+	private McProductInfo mcProductInfo;
+
+	private GjfProductInfo gjfProductInfo;
+
+	private cc.messcat.entity.GjfProductInfo productInfo;
+	/**
+	 * 可以工作状态的可选属性列及其值
+	 */
+	private Map<McParameter, String> parameterValue;
+	/**
+	 * 可以工作状态的可选属性列
+	 */
+	private List<McParameter> workOkMcParameterList;
+
+	private CommonUpload comUpload; // 上传图片、视频通用类
+	/**
+	 * 以下为上传的文件名
+	 */
+	private String uploadFileName;
+	private String para11FileName;
+	private String para12FileName;
+	private String para13FileName;
+	private String para14FileName;
+	private String para15FileName;
+	private String para16FileName;
+	private String para17FileName;
+	private String para18FileName;
+	private String para19FileName;
+	private String para20FileName;
+
+	private String[] productImageFileName;
+
+	/**
+	 * 后台管理删除图片时保存图片名称
+	 */
+	private String delectFileName;
+	/**
+	 * 是否删除成功标志
+	 */
+	private boolean deleteFlag;
+
+	/**
+	 * 产品id
+	 */
+	private Long productId;
+	/**
+	 * 商家名称
+	 */
+	private String storeName;
+
+	/**
+	 * 以下为上传的文件
+	 */
+	private File upload;
+	private File para11;
+	private File para12;
+	private File para13;
+	private File para14;
+	private File para15;
+	private File para16;
+	private File para17;
+	private File para18;
+	private File para19;
+	private File para20;
+	private String name;
+
+	private File[] productImage;
+
+	private String savePath = "/upload/enterprice/";
+
+	// 实收比例
+	private Double realIncomeRatio;
+	// 赠与比例
+	private Double giftRatio;
+	private String aduitStatus; // 商品审核 1通过，0未通过，10审核中
+	private String status; // 商品状态(0:下架 1:正常 2:违规)
+	private String op;// 操作
+	private String reason;// 违规原因
+
+	private Long firstColumnId; // 一级栏目Id
+	private Long columnId;
+	private List<EnterpriseColumn> enterpriseColumns;
+
+	private List<GjfProductAttrStock> gjfProductAttrStocks;
+
+	private GjfProductComment gjfProductComment;
+
+	Map<String, Object> dataMap = new HashMap<String, Object>();
+
+	List<Arrts> arrts = new ArrayList<Arrts>();
+
+	private JmsTemplate notifyJmsTemplate;
+
+	public McProductInfoAction() {
+		comUpload = new CommonUpload();
+	}
+
+	@SuppressWarnings("unchecked")
+	public String retrieveAllMcProductInfos() throws Exception {
+		try {
+			pager = this.mcProductInfoManagerDao.retrieveMcProductInfosPager(pageSize, pageNo);
+			this.gjfProductInfos = pager.getResultList();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			addActionMessage("Load page error!");
+		}
+		return "success";
+	}
+
+	@SuppressWarnings("unchecked")
+	public String retrieveMcProductInfoById() throws Exception {
+		try {
+			this.productInfo = this.mcProductInfoManagerDao.retrieveProductById(id);
+			pager = (Pager) this.productAttrStockDubbo.findProductAttrStockByProId(id, pageNo, pageSize).getResult();
+			this.gjfProductAttrStocks = (List<GjfProductAttrStock>) pager.getResultList();
+			if (gjfProductAttrStocks != null && gjfProductAttrStocks.size() > 0) {
+				for (GjfProductAttrStock gjfProductAttrStock : gjfProductAttrStocks) {
+					String[] id = gjfProductAttrStock.getProductAttrIds().split(",");
+					List<String> value = new ArrayList<String>();
+					for (int i = 0; i < id.length; i++) {
+						GjfProductAttr gjfProductAttr = (GjfProductAttr) this.productAttrDubbo
+							.retrieveProductAttrById(Long.parseLong(id[i])).getResult();
+						value.add(i, gjfProductAttr.getAttrValueId().getAttrValue());
+					}
+					Arrts arrt = new Arrts(gjfProductAttrStock.getPrice(), gjfProductAttrStock.getRepertory(), value,
+						gjfProductAttrStock.getId());
+					arrts.add(arrt);
+				}
+			}
+
+			/*
+			 * workOkMcParameterList =
+			 * this.mcParameterManagerDao.findAllWorkOkParameter(); //
+			 * this.productBrands=this.tagLibManagerDao.retrieveAllTagLibs(); if
+			 * (mcProductInfo != null && workOkMcParameterList != null)
+			 * putValue2Map();
+			 */
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			addActionMessage("Load page error!");
+		}
+		return "edit";
+	}
+
+	public String newPage() throws Exception {
+		try {
+			workOkMcParameterList = this.mcParameterManagerDao.findAllWorkOkParameter();
+			// 网上商城
+			EnterpriseColumn father = this.epColumnManagerDao.getEnterpriseColumn("ONLINE_SHOP");
+			// 一级栏目jihe
+			enterpriseColumns = this.epColumnManagerDao.findSubColumn(father.getId());
+			if (this.mcProductInfo != null)
+				this.setMcProductInfo(null);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "new";
+	}
+
+	/**
+	 * 查找二级栏目
+	 * 
+	 * @return
+	 */
+	public String findSecondColumn() {
+		try {
+			if (firstColumnId != null) {
+				List<EnterpriseColumn> secondEnterpriseColumns = this.epColumnManagerDao.findSubColumn(firstColumnId);
+				List<EnterpriseColumn> result = new ArrayList<EnterpriseColumn>();
+				// 只返回装载id和names的对象集合
+				for (EnterpriseColumn enterpriseColumn : secondEnterpriseColumns) {
+					EnterpriseColumn temp = new EnterpriseColumn();
+					temp.setId(enterpriseColumn.getId());
+					temp.setNames(enterpriseColumn.getNames());
+					result.add(temp);
+				}
+				printToJson(result);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * 根据栏目查找属性值 Ajax
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public String findArrtValueByColumnId() {
+		try {
+			if (columnId != null) {
+				List<GjfAttrValue> gjfAttrValues = (List<GjfAttrValue>) this.productAttrDubbo.retrieveAttrValueByColumnId(columnId)
+					.getResult();
+				for (GjfAttrValue attrV1 : gjfAttrValues) {
+					List<Object[]> list = new ArrayList<Object[]>();
+					for (GjfAttrValue attrV2 : gjfAttrValues) {
+						if (attrV1.getAttrId().getId().longValue() == attrV2.getAttrId().getId().longValue()) {
+							Object[] objects = { attrV2.getId(), attrV2.getAttrValue() };
+							list.add(objects);
+						}
+						dataMap.put(attrV1.getAttrId().getAttrName(), list);
+					}
+				}
+				return "ajaxFinAttr";
+			} else {
+				return null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	public String viewPage() throws Exception {
+		try {
+			this.productInfo = this.mcProductInfoManagerDao.retrieveProductById(id);
+			/*
+			 * workOkMcParameterList =
+			 * this.mcParameterManagerDao.findAllWorkOkParameter();
+			 * 
+			 * if (mcProductInfo != null && workOkMcParameterList != null)
+			 * putValue2Map();
+			 */
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			addActionMessage("Load page error!");
+		}
+		return "view";
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public String newMcProductInfo() throws Exception {
+		Map jsonMap = new HashMap<String, Object>();
+		JSONObject json = new JSONObject();
+		try {
+			if (ObjValid.isNotValid(gjfProductInfo)) {
+				// 商品信息有误
+				jsonMap.put("code", "400");
+				jsonMap.put("msg", "商品属性缺失");
+				json = JSONObject.fromObject(jsonMap);
+			} else {
+				// 新建产品图片
+				setPic();
+
+				if (null != uploadFileName) {
+					comUpload.setUpload(upload);// 上传的File文件
+					comUpload.setUploadFileName(uploadFileName);// 上传文件的文件名
+					// comUpload.setZipSavePath(Constants.FILE_SEPARATOR+"upload"+Constants.FILE_SEPARATOR+"enterprice");//压缩图片存放地方(前台不需要的话可以选用)
+					// comUpload.setZipWidth(300);//压缩图片宽度
+					// comUpload.setZipHeight(200);//压缩图片高度
+
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setImgUrl(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para11FileName) {
+					comUpload.setUpload(para11);// 上传的File文件
+					comUpload.setUploadFileName(para11FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara1(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para12FileName) {
+					comUpload.setUpload(para12);// 上传的File文件
+					comUpload.setUploadFileName(para12FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara2(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para13FileName) {
+					comUpload.setUpload(para13);// 上传的File文件
+					comUpload.setUploadFileName(para13FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara3(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para14FileName) {
+					comUpload.setUpload(para14);// 上传的File文件
+					comUpload.setUploadFileName(para14FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara4(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para15FileName) {
+					comUpload.setUpload(para15);// 上传的File文件
+					comUpload.setUploadFileName(para15FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara5(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para16FileName) {
+					comUpload.setUpload(para16);// 上传的File文件
+					comUpload.setUploadFileName(para16FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara6(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para17FileName) {
+					comUpload.setUpload(para17);// 上传的File文件
+					comUpload.setUploadFileName(para17FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara7(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				if (null != para18FileName) {
+					comUpload.setUpload(para18);// 上传的File文件
+					comUpload.setUploadFileName(para18FileName);// 上传文件的文件名
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara8(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				}
+
+				resultVo = productInfoDubbo.addShopProduct(gjfProductInfo, arrts, columnId);
+				json = JSONObject.fromObject(resultVo);
+				// 修改为mq
+				/*Map<String, Object> dataMap = new HashMap<String, Object>();
+
+				dataMap.put("gjfProductInfo", gjfProductInfo);
+				dataMap.put("arrts", arrts);
+				dataMap.put("columnId", columnId);
+				Object toJSON = JSONObject.fromObject(dataMap);
+
+				final String str = toJSON.toString();
+				notifyJmsTemplate.send("ProductInfoAddNotify", new MessageCreator() {
+					public Message createMessage(Session session) throws JMSException {
+						Message obj = session.createTextMessage(str);
+						return obj;
+					}
+				});
+				json = JSONObject.fromObject(new ResultVo(200, "添加成功", null));*/
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			this.addActionError(ex.getMessage());
+			jsonMap.put("code", "400");
+			jsonMap.put("msg", "添加失败!请稍后再试");
+			json = JSONObject.fromObject(jsonMap);
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+
+	/**
+	 * 删除上传文件
+	 */
+	public String delectFile() {
+		deleteFlag = false;
+		try {
+			this.delectFileName = URLDecoder.decode(delectFileName, "UTF-8");
+			if (delectFileName != null && productId != null) {
+				setPic();
+				this.comUpload.setOldUploadFileName(this.delectFileName);
+				McProductInfo info = this.mcProductInfoManagerDao.retrieveMcProductInfo(productId);
+				if (info != null && name != null) {
+					if (name.equals("para11")) {
+						info.setPara1(null);
+					} else if (name.equals("para12")) {
+						info.setPara2(null);
+					} else if (name.equals("para13")) {
+						info.setPara3(null);
+					} else if (name.equals("para14")) {
+						info.setPara4(null);
+					} else if (name.equals("para15")) {
+						info.setPara5(null);
+					}
+					// 更新数据库
+					this.mcProductInfoManagerDao.modifyMcProductInfo(info, false);
+					// 删除文件
+					if (this.comUpload.delectFile()) {
+						this.deleteFlag = true;
+					} else {
+						return renderText(String.valueOf(deleteFlag));
+					}
+				} else {
+					return renderText(String.valueOf(deleteFlag));
+				}
+			} else {
+				return renderText(String.valueOf(deleteFlag));
+			}
+			return renderText(String.valueOf(deleteFlag));
+		} catch (Exception e) {
+			e.printStackTrace();
+			return renderText(String.valueOf(deleteFlag));
+		}
+	}
+
+	/**
+	 * @描述 修改商品信息
+	 * @author Karhs
+	 * @date 2017年2月24日
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public String editMcProductInfo() throws Exception {
+		Map jsonMap = new HashMap<String, Object>();
+		JSONObject json = new JSONObject();
+		try {
+			if (ObjValid.isNotValid(gjfProductInfo)) {
+				// 商品信息有误
+				jsonMap.put("code", "400");
+				jsonMap.put("msg", "商品信息缺失！");
+				json = JSONObject.fromObject(jsonMap);
+			}
+			cc.messcat.entity.GjfProductInfo productInfo = this.mcProductInfoManagerDao.retrieveProductById(id);
+			if (null == productInfo) {
+				jsonMap.put("result", "400");
+				jsonMap.put("msg", "修改失败!商品不存在!");
+				json = JSONObject.fromObject(jsonMap);
+			} else {
+				// 更新产品图片
+				comUpload.setHandleType("update");
+				setPic();
+
+				if (uploadFileName != null) {
+					comUpload.setUpload(upload);// 上传的File文件
+					comUpload.setUploadFileName(uploadFileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setImgUrl(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setImgUrl(productInfo.getImgUrl());
+				}
+
+				if (para11FileName != null) {
+					comUpload.setUpload(para11);// 上传的File文件
+					comUpload.setUploadFileName(para11FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara1(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara1(productInfo.getPara1());
+				}
+
+				if (para12FileName != null) {
+					comUpload.setUpload(para12);// 上传的File文件
+					comUpload.setUploadFileName(para12FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara2(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara2(productInfo.getPara2());
+				}
+
+				if (para13FileName != null) {
+					comUpload.setUpload(para13);// 上传的File文件
+					comUpload.setUploadFileName(para13FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara3(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara3(productInfo.getPara3());
+				}
+
+				if (para14FileName != null) {
+					comUpload.setUpload(para14);// 上传的File文件
+					comUpload.setUploadFileName(para14FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara4(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara4(productInfo.getPara4());
+				}
+
+				if (para15FileName != null) {
+					comUpload.setUpload(para15);// 上传的File文件
+					comUpload.setUploadFileName(para15FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara5(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara5(productInfo.getPara5());
+				}
+
+				if (para16FileName != null) {
+					comUpload.setUpload(para16);// 上传的File文件
+					comUpload.setUploadFileName(para16FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara6(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara6(productInfo.getPara6());
+				}
+
+				if (para17FileName != null) {
+					comUpload.setUpload(para17);// 上传的File文件
+					comUpload.setUploadFileName(para17FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara7(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara7(productInfo.getPara7());
+				}
+
+				if (para18FileName != null) {
+					comUpload.setUpload(para18);// 上传的File文件
+					comUpload.setUploadFileName(para18FileName);// 上传文件的文件名
+					comUpload.setOldUploadFileName(productInfo.getImgUrl());// 旧文件的文件名，填上将删除旧文件
+					if (!comUpload.uploadFile()) {
+						return ActionConstants.INPUT_KEY;
+					} else {
+						gjfProductInfo
+							.setPara8(CommonProperties.GJFENG_MCCMS_PROJECT_URL + savePath + comUpload.getUploadFileName());
+					}
+				} else {
+					gjfProductInfo.setPara8(productInfo.getPara8());
+				}
+
+				// 为下面查询所有产品信息做准备
+				title = null;
+				
+				 resultVo = productInfoDubbo.updateShopProduct(id,gjfProductInfo, arrts);
+				 json = JSONObject.fromObject(resultVo);
+				 
+				// 修改为mq
+				/*Map<String, Object> dataMap = new HashMap<String, Object>();
+				dataMap.put("gjfProductInfo", gjfProductInfo);
+				dataMap.put("arrts", arrts);
+				dataMap.put("id", id);
+				Object toJSON = JSONObject.fromObject(dataMap);
+
+				final String str = toJSON.toString();
+				notifyJmsTemplate.send("ProductInfoUpdateNotify", new MessageCreator() {
+					public Message createMessage(Session session) throws JMSException {
+						Message obj = session.createTextMessage(str);
+						return obj;
+					}
+				});
+				json = JSONObject.fromObject(new ResultVo(200, "修改成功", null));*/
+
+			}
+		} catch (Exception ex) {
+			this.addActionError(ex.getMessage());
+			ex.printStackTrace();
+			jsonMap.put("result", "400");
+			jsonMap.put("msg", "修改失败!请稍后再试");
+			json = JSONObject.fromObject(jsonMap);
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+
+	public String delMcProductInfo() throws Exception {
+		try {
+			this.mcProductInfoManagerDao.removeMcProductInfo(this.id);
+			addActionMessage("Delete successfully!");
+		} catch (Exception ex) {
+			this.addActionError(ex.getMessage());
+			ex.printStackTrace();
+			addActionMessage("Delete fail!");
+		}
+		return this.query();
+	}
+
+	/**
+	 * 根据栏目分页查询新闻内容信息
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public String query() throws Exception {
+		try {
+			McProductInfo temp = null;
+
+			temp = new McProductInfo();
+
+			GjfStoreInfo gjfStoreInfo = new GjfStoreInfo();
+			temp.setStoreId(gjfStoreInfo);
+
+			if (null != title && !"".equals(title)) {
+				temp.setName(title);
+			}
+			if (null != storeName) {
+				temp.getStoreId().setStoreName(storeName);
+			}
+			// 商品状态
+			temp.setStatus(status);
+			// 审核状态
+			temp.setAduitStatus(aduitStatus);
+
+			pager = this.mcProductInfoManagerDao.findMCProductInfo(pageSize, pageNo, temp);
+			gjfProductInfos = pager.getResultList();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ActionConstants.SUCCESS_KEY;
+	}
+
+	/**
+	 * 把值按照各个可选参数放进对应的位置
+	 */
+	private void putValue2Map() {
+
+		this.parameterValue = new LinkedHashMap<McParameter, String>();
+
+		for (McParameter mcParameter : workOkMcParameterList) {
+			if (mcParameter.getMark().equals("para1")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara1());
+			} else if (mcParameter.getMark().equals("para2")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara2());
+			} else if (mcParameter.getMark().equals("para3")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara3());
+			} else if (mcParameter.getMark().equals("para4")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara4());
+			} else if (mcParameter.getMark().equals("para5")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara5());
+			} else if (mcParameter.getMark().equals("para6")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara6());
+			} else if (mcParameter.getMark().equals("para7")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara7());
+			} else if (mcParameter.getMark().equals("para8")) {
+				this.parameterValue.put(mcParameter, mcProductInfo.getPara8());
+			}
+		}
+	}
+
+	/**
+	 * 设置上传图片通用信息
+	 * 
+	 * @throws Exception
+	 */
+	private void setPic() throws Exception {
+		comUpload.setMaxSize(comUpload.getPhotoMaxSize());// 上传文件最大尺寸
+		// comUpload.setSavePath(Constants.FILE_SEPARATOR + "upload" +
+		// Constants.FILE_SEPARATOR + "goodImages");// 上传文件保存路径
+		comUpload.setSavePath("/upload/enterprice");// 上传文件保存路径
+		comUpload.setAllowTypes(comUpload.getAllowTypePhoto());// 上传文件所允许的格式
+	}
+
+	/**
+	 * 操作产品状态
+	 * 
+	 * @return
+	 */
+	public String updateProductStatus() {
+		try {
+			if (null == id && StringUtil.isNotBlank(op)) {
+				return renderText("操作失败!");
+			} else {
+				if (op.equals("notPassProduct"))// 不通过
+				{
+					McProductInfo mcProductInfo = mcProductInfoManagerDao.retrieveMcProductInfo(id);
+					mcProductInfo.setAduitStatus("0");
+					mcProductInfoManagerDao.modifyMcProductInfo(mcProductInfo, false);
+					return renderText("操作成功!");
+				} else if (op.equals("passProduct"))// 通过
+				{
+					McProductInfo mcProductInfo = mcProductInfoManagerDao.retrieveMcProductInfo(id);
+					mcProductInfo.setAduitStatus("1");
+					mcProductInfoManagerDao.modifyMcProductInfo(mcProductInfo, true);
+					// 添加到前台
+					ProductColumn productColumn = new ProductColumn();
+					productColumn.setMcProduct(mcProductInfo);
+					return renderText("操作成功!");
+				} else if (op.equals("downProduct"))// 违规下架
+				{
+					McProductInfo mcProductInfo = mcProductInfoManagerDao.retrieveMcProductInfo(id);
+					mcProductInfo.setStatus("2");
+					mcProductInfo.setRemark(reason);
+					mcProductInfoManagerDao.modifyMcProductInfo(mcProductInfo, false);
+					return renderText("操作成功!");
+				} else if (op.equals("upProduct"))// 上架
+				{
+					McProductInfo mcProductInfo = mcProductInfoManagerDao.retrieveMcProductInfo(id);
+					mcProductInfo.setStatus("1");
+					mcProductInfoManagerDao.modifyMcProductInfo(mcProductInfo, false);
+					return renderText("操作成功!");
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return renderText("操作出错!");
+		}
+		return NONE;
+	}
+
+	/**
+	 * 根据商品Id查找商品评论
+	 * 
+	 * @return
+	 */
+	public String findProductCommentById() {
+		try {
+			resultVo = prodcutCommetDubbo.getCommentByProId(pageNo, pageSize, productId);
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "productComment_list";
+	}
+
+	/**
+	 * 根据商品Id和评论Id查找单条评论明细
+	 * 
+	 * @return
+	 */
+	public String findProductCommentByIdAndProId() {
+		try {
+			resultVo = prodcutCommetDubbo.findProComById(id, productId);
+			gjfProductComment = (GjfProductComment) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "productComment_view";
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public McProductInfo getMcProductInfo() {
+		return mcProductInfo;
+	}
+
+	public void setMcProductInfo(McProductInfo mcProductInfo) {
+		this.mcProductInfo = mcProductInfo;
+	}
+
+	public List<GjfProductInfo> getGjfProductInfos() {
+		return gjfProductInfos;
+	}
+
+	public void setGjfProductInfos(List<GjfProductInfo> gjfProductInfos) {
+		this.gjfProductInfos = gjfProductInfos;
+	}
+
+	public String getFather() {
+		return father;
+	}
+
+	public void setFather(String father) {
+		this.father = father;
+	}
+
+	public EnterpriseColumn getColumn() {
+		return column;
+	}
+
+	public void setColumn(EnterpriseColumn column) {
+		this.column = column;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
+	public String getState() {
+		return state;
+	}
+
+	public void setState(String state) {
+		this.state = state;
+	}
+
+	public McParameterManagerDao getMcParameterManagerDao() {
+		return mcParameterManagerDao;
+	}
+
+	public void setMcParameterManagerDao(McParameterManagerDao mcParameterManagerDao) {
+		this.mcParameterManagerDao = mcParameterManagerDao;
+	}
+
+	public Map<McParameter, String> getParameterValue() {
+		return parameterValue;
+	}
+
+	public void setParameterValue(Map<McParameter, String> parameterValue) {
+		this.parameterValue = parameterValue;
+	}
+
+	public List<McParameter> getWorkOkMcParameterList() {
+		return workOkMcParameterList;
+	}
+
+	public void setWorkOkMcParameterList(List<McParameter> workOkMcParameterList) {
+		this.workOkMcParameterList = workOkMcParameterList;
+	}
+
+	public String getUploadFileName() {
+		return uploadFileName;
+	}
+
+	public void setUploadFileName(String uploadFileName) {
+		this.uploadFileName = uploadFileName;
+	}
+
+	public File getUpload() {
+		return upload;
+	}
+
+	public void setUpload(File upload) {
+		this.upload = upload;
+	}
+
+	public CommonUpload getComUpload() {
+		return comUpload;
+	}
+
+	public void setComUpload(CommonUpload comUpload) {
+		this.comUpload = comUpload;
+	}
+
+	public String getPara11FileName() {
+		return para11FileName;
+	}
+
+	public void setPara11FileName(String para11FileName) {
+		this.para11FileName = para11FileName;
+	}
+
+	public String getPara12FileName() {
+		return para12FileName;
+	}
+
+	public void setPara12FileName(String para12FileName) {
+		this.para12FileName = para12FileName;
+	}
+
+	public String getPara13FileName() {
+		return para13FileName;
+	}
+
+	public void setPara13FileName(String para13FileName) {
+		this.para13FileName = para13FileName;
+	}
+
+	public String getPara14FileName() {
+		return para14FileName;
+	}
+
+	public void setPara14FileName(String para14FileName) {
+		this.para14FileName = para14FileName;
+	}
+
+	public String getPara15FileName() {
+		return para15FileName;
+	}
+
+	public void setPara15FileName(String para15FileName) {
+		this.para15FileName = para15FileName;
+	}
+
+	public String getPara16FileName() {
+		return para16FileName;
+	}
+
+	public void setPara16FileName(String para16FileName) {
+		this.para16FileName = para16FileName;
+	}
+
+	public String getPara17FileName() {
+		return para17FileName;
+	}
+
+	public void setPara17FileName(String para17FileName) {
+		this.para17FileName = para17FileName;
+	}
+
+	public String getPara18FileName() {
+		return para18FileName;
+	}
+
+	public void setPara18FileName(String para18FileName) {
+		this.para18FileName = para18FileName;
+	}
+
+	public String getPara19FileName() {
+		return para19FileName;
+	}
+
+	public void setPara19FileName(String para19FileName) {
+		this.para19FileName = para19FileName;
+	}
+
+	public String getPara20FileName() {
+		return para20FileName;
+	}
+
+	public void setPara20FileName(String para20FileName) {
+		this.para20FileName = para20FileName;
+	}
+
+	public File getPara11() {
+		return para11;
+	}
+
+	public void setPara11(File para11) {
+		this.para11 = para11;
+	}
+
+	public File getPara12() {
+		return para12;
+	}
+
+	public void setPara12(File para12) {
+		this.para12 = para12;
+	}
+
+	public File getPara13() {
+		return para13;
+	}
+
+	public void setPara13(File para13) {
+		this.para13 = para13;
+	}
+
+	public File getPara14() {
+		return para14;
+	}
+
+	public void setPara14(File para14) {
+		this.para14 = para14;
+	}
+
+	public File getPara15() {
+		return para15;
+	}
+
+	public void setPara15(File para15) {
+		this.para15 = para15;
+	}
+
+	public File getPara16() {
+		return para16;
+	}
+
+	public void setPara16(File para16) {
+		this.para16 = para16;
+	}
+
+	public File getPara17() {
+		return para17;
+	}
+
+	public void setPara17(File para17) {
+		this.para17 = para17;
+	}
+
+	public File getPara18() {
+		return para18;
+	}
+
+	public void setPara18(File para18) {
+		this.para18 = para18;
+	}
+
+	public File getPara19() {
+		return para19;
+	}
+
+	public void setPara19(File para19) {
+		this.para19 = para19;
+	}
+
+	public File getPara20() {
+		return para20;
+	}
+
+	public void setPara20(File para20) {
+		this.para20 = para20;
+	}
+
+	public String getIsShowInsert() {
+		return isShowInsert;
+	}
+
+	public void setIsShowInsert(String isShowInsert) {
+		this.isShowInsert = isShowInsert;
+	}
+
+	public String[] getProductImageFileName() {
+		return productImageFileName;
+	}
+
+	public void setProductImageFileName(String[] productImageFileName) {
+		this.productImageFileName = productImageFileName;
+	}
+
+	public File[] getProductImage() {
+		return productImage;
+	}
+
+	public void setProductImage(File[] productImage) {
+		this.productImage = productImage;
+	}
+
+	public String getDelectFileName() {
+		return delectFileName;
+	}
+
+	public void setDelectFileName(String delectFileName) {
+		this.delectFileName = delectFileName;
+	}
+
+	public boolean isDeleteFlag() {
+		return deleteFlag;
+	}
+
+	public void setDeleteFlag(boolean deleteFlag) {
+		this.deleteFlag = deleteFlag;
+	}
+
+	public Long getProductId() {
+		return productId;
+	}
+
+	public void setProductId(Long productId) {
+		this.productId = productId;
+	}
+
+	public String getStoreName() {
+		return storeName;
+	}
+
+	public void setStoreName(String storeName) {
+		this.storeName = storeName;
+	}
+
+	public Double getRealIncomeRatio() {
+		return realIncomeRatio;
+	}
+
+	public void setRealIncomeRatio(Double realIncomeRatio) {
+		this.realIncomeRatio = realIncomeRatio;
+	}
+
+	public Double getGiftRatio() {
+		return giftRatio;
+	}
+
+	public void setGiftRatio(Double giftRatio) {
+		this.giftRatio = giftRatio;
+	}
+
+	public String getOp() {
+		return op;
+	}
+
+	public void setOp(String op) {
+		this.op = op;
+	}
+
+	public String getReason() {
+		return reason;
+	}
+
+	public void setReason(String reason) {
+		this.reason = reason;
+	}
+
+	public String getAduitStatus() {
+		return aduitStatus;
+	}
+
+	public void setAduitStatus(String aduitStatus) {
+		this.aduitStatus = aduitStatus;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public List<EnterpriseColumn> getEnterpriseColumns() {
+		return enterpriseColumns;
+	}
+
+	public void setEnterpriseColumns(List<EnterpriseColumn> enterpriseColumns) {
+		this.enterpriseColumns = enterpriseColumns;
+	}
+
+	public Long getFirstColumnId() {
+		return firstColumnId;
+	}
+
+	public void setFirstColumnId(Long firstColumnId) {
+		this.firstColumnId = firstColumnId;
+	}
+
+	public Long getColumnId() {
+		return columnId;
+	}
+
+	public void setColumnId(Long columnId) {
+		this.columnId = columnId;
+	}
+
+	public List<Arrts> getArrts() {
+		return arrts;
+	}
+
+	public void setArrts(List<Arrts> arrts) {
+		this.arrts = arrts;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public List<GjfProductAttrStock> getGjfProductAttrStocks() {
+		return gjfProductAttrStocks;
+	}
+
+	public void setGjfProductAttrStocks(List<GjfProductAttrStock> gjfProductAttrStocks) {
+		this.gjfProductAttrStocks = gjfProductAttrStocks;
+	}
+
+	public Map<String, Object> getDataMap() {
+		return dataMap;
+	}
+
+	public void setDataMap(Map<String, Object> dataMap) {
+		this.dataMap = dataMap;
+	}
+
+	public GjfProductInfo getGjfProductInfo() {
+		return gjfProductInfo;
+	}
+
+	public void setGjfProductInfo(GjfProductInfo gjfProductInfo) {
+		this.gjfProductInfo = gjfProductInfo;
+	}
+
+	public GjfProductComment getGjfProductComment() {
+		return gjfProductComment;
+	}
+
+	public void setGjfProductComment(GjfProductComment gjfProductComment) {
+		this.gjfProductComment = gjfProductComment;
+	}
+
+	public JmsTemplate getNotifyJmsTemplate() {
+		return notifyJmsTemplate;
+	}
+
+	public void setNotifyJmsTemplate(JmsTemplate notifyJmsTemplate) {
+		this.notifyJmsTemplate = notifyJmsTemplate;
+	}
+
+	public cc.messcat.entity.GjfProductInfo getProductInfo() {
+		return productInfo;
+	}
+
+	public void setProductInfo(cc.messcat.entity.GjfProductInfo productInfo) {
+		this.productInfo = productInfo;
+	}
+
+}

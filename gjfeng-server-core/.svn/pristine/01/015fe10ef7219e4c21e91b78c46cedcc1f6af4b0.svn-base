@@ -1,0 +1,64 @@
+package cc.messcat.gjfeng.dubbo;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo;
+import cc.messcat.gjfeng.service.system.GjfEnterpriseColumnService;
+
+public class GjfEnterpriseColumnDubboImpl implements GjfEnterpriseColumnDubbo {
+	@Autowired
+	@Qualifier("gjfEnterpriseColumnService")
+	private GjfEnterpriseColumnService gjfEnterpriseColumnService;
+
+	/*
+	 * 根据父类id查询子类栏目
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo#
+	 * findColumnByFatherId(java.lang.Long)
+	 */
+	@Override
+	public ResultVo findColumnByFatherId(Long fatherId) {
+		return gjfEnterpriseColumnService.findColumnByFatherId(fatherId);
+	}
+
+	/*
+	 * 查询所有一级栏目下的二级栏目
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo#
+	 * findColumnsByFatherId(java.lang.String, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findColumnsByFatherId(String goodsType, Long pageTypeId) {
+		return gjfEnterpriseColumnService.findColumnsByFatherId(goodsType, pageTypeId);
+	}
+
+	/* 
+	 * 查询附近的商品栏目
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo#findO2ONearColumn()
+	 */
+	@Override
+	public ResultVo findO2ONearColumn() {
+		return gjfEnterpriseColumnService.findO2ONearColumn();
+	}
+
+	/* 
+	 * 根据栏目标识获取栏目新闻信息
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo#findBaseInfoByKey(java.lang.String)
+	 */
+	@Override
+	public ResultVo findBaseInfoByKey(String key) {
+		return gjfEnterpriseColumnService.findBaseInfoByKey(key);
+	}
+
+	/**
+	 * app获取一级栏目
+	 */
+	@Override
+	public ResultVo findNearColumnInApp() {
+		
+		return gjfEnterpriseColumnService.findNearColumnInApp();
+	}
+
+}

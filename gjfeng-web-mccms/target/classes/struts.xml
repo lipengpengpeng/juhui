@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.codebehind.pathPrefix" value="/WEB-INF/jsp/" />
+	
+	<!-- 国际化 -->
+	<constant name="struts.custom.i18n.resources" value="cc.modules.resources.message" />
+
+	<!-- 大家不要在这里添加bean,而是自己多建立一个struts-*.xml文件,然后添加进来 -->
+
+	<include file="struts-ajax.xml"></include>
+	<include file="struts-ep-collection.xml"></include>
+	<include file="struts-ep-column.xml"></include>
+	<include file="struts-ep-data.xml"></include>
+	<include file="struts-ep-dynamic.xml"></include>
+	<include file="struts-ep-front.xml"></include>
+	<include file="struts-left-news.xml"></include>
+	<include file="struts-system.xml"></include>
+	<include file="struts-ep-subsystem.xml"></include>
+
+	<package name="default" extends="struts-default" namespace="/">
+
+		<interceptors>
+			<interceptor name="authority" class="cc.modules.security.AuthorityIntercept">
+			</interceptor>
+			
+			<interceptor-stack name="author">
+				<interceptor-ref name="authority"></interceptor-ref>
+				<interceptor-ref name="defaultStack"></interceptor-ref>
+			</interceptor-stack>
+		</interceptors>
+		
+		<default-interceptor-ref name="author"></default-interceptor-ref>
+		
+		<global-results>
+			<!-- 下面定义的结果对所有的Action都有效 -->
+			<result name="login">/WEB-INF/jsp/index.jsp</result>
+			<result name="exception">/WEB-INF/jsp/error.jsp</result>
+		</global-results>
+
+		<!-- 自定义错误拦截器开始 -->
+		<global-exception-mappings>
+			<exception-mapping result="exception"
+				exception="cc.modules.security.AuthorityIntercept">
+			</exception-mapping>
+		</global-exception-mappings>
+		<!-- 自定义错误拦截器结束 -->
+
+		<action name="defaultAction" class="defaultAction">
+			<result>/WEB-INF/jsp/default.jsp</result>
+		</action>
+		<action name="login_index">
+			<result>/WEB-INF/jsp/index.jsp</result>
+		</action>
+
+		<action name="*leftFrame">
+			<result>/WEB-INF/jsp/left/{1}/left.jsp</result>
+		</action>
+	</package>
+
+
+</struts>

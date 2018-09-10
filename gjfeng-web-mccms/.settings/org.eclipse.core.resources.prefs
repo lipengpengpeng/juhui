@@ -1,0 +1,11 @@
+eclipse.preferences.version=1
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/benefit_list_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/merchantUpgradeHistory_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/orderInfo_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/rechargeList_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/tradeLogList_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/treasureHistory_export.jsp=UTF-8
+encoding//WebRoot/WEB-INF/jsp/enterprise/subsystem/voucherHistory_export.jsp=UTF-8
+encoding//WebRoot/ueditor/jsp/controller.jsp=UTF-8
+encoding//src/main/java=utf8
+encoding//src/test/java=utf8

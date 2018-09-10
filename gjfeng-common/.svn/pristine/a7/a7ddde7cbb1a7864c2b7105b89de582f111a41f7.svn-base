@@ -1,0 +1,30 @@
+#MNS SETTING
+aliyun.mns.AccessKeyID=LTAIGdLNPoev2FzM
+aliyun.mns.AccessKeySecret=N4jVKjlhaRTLFq0hyzzY0X2YPYySOs
+aliyun.mns.Endpoint=https://1260077359325393.mns.cn-shenzhen.aliyuncs.com/
+aliyun.mns.smsTopic=sms.topic-cn-shenzhen
+aliyun.mns.signName=凤凰云商
+aliyun.mns.codeTemplate=SMS_22210206
+
+#队列
+aliyun.mns.queue.sms = queue-sms-success
+
+#凤凰云商短信模板
+#您的验证码是：${variable0}。请不要把验证码泄露给其他人。
+aliyun.mns.template.code=SMS_77705040
+
+#尊敬的${variable0}，您申请的${variable1}入驻申请，已经通过。
+aliyun.mns.template.aduitStatus=SMS_77820019
+
+#尊敬的${variable0}此短信，说明您的提现不成功！请核实银行信息！或致电客服${variable1}。敬请体谅
+aliyun.mns.template.drawCash.fail=SMS_77665024
+aliyun.mns.template.customer.service=400-9019-517
+
+#${variable0}您好，你的福利提取已经划账成功，${variable1}元将在24小时内到达您的指定账户
+aliyun.mns.template.drawCash.success=SMS_77805027
+
+#亲爱的${variable0}用户，您的实名制认证已经审核成功，如有疑问请联系工作人员！
+aliyun.mns.template.idCard.success=SMS_77675020
+
+#亲爱的${variable0}用户，您的实名制认证申请审核失败，请重新填写申请，如有疑问请联系工作人员！
+aliyun.mns.template.idCard.fail=SMS_77650022

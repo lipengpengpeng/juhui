@@ -1,0 +1,35 @@
+package cc.messcat.gjfeng.dao.system;
+
+import java.io.Serializable;
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
+import cc.messcat.gjfeng.dao.BaseHibernateDaoImpl;
+import cc.messcat.gjfeng.entity.GjfEnterpriseColumn;
+
+@Repository("gjfEnterpriseColumnDao")
+public class GjfEnterpriseColumnDaoImpl extends BaseHibernateDaoImpl<Serializable> implements GjfEnterpriseColumnDao {
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<GjfEnterpriseColumn> findIndexColumn(String goodsType, Long pageTypeId) {
+		String frontNum=goodsType.equals("0") ? "O2O_SHOP" : "ONLINE_SHOP";
+		String hql = "select c from GjfEnterpriseColumn c where c.state='1' and c.typeColumn.id=? and c.isValidInNav='1' and c.father in(";
+		hql += "select c1.id from GjfEnterpriseColumn c1 where c1.frontNum=?)";
+		return getCurrentSession().createQuery(hql).setParameter(0, pageTypeId).setParameter(1, frontNum).list();
+	}
+	
+	/**
+	 * 获取京东首页栏目
+	 * @return
+	 */
+	@Override
+	public List<GjfEnterpriseColumn> findJdIndexColumn(){
+		String frontNum="JDSHOP";
+		String hql = "select c from GjfEnterpriseColumn c where c.state='1' and c.typeColumn.id=? and c.isValidInNav='1' and c.father in(";
+		hql += "select c1.id from GjfEnterpriseColumn c1 where c1.frontNum=?)";
+		return getCurrentSession().createQuery(hql).setParameter(0, 5L).setParameter(1, frontNum).list();
+	}
+
+}

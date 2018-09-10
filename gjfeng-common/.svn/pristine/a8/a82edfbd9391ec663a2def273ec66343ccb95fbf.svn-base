@@ -1,0 +1,193 @@
+package cc.messcat.gjfeng.dubbo.core;
+
+import java.util.List;
+
+import cc.messcat.gjfeng.common.vo.app.OrderAddVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.entity.GjfOrderAddress;
+
+public interface GjfOrderInfoDubbo {
+	
+	/**
+	 * @描述 跳到到下单
+	 * @author Karhs
+	 * @date 2017年1月14日
+	 * @param orderAddVos
+	 * @return
+	 */
+	public ResultVo toAddOrder(List<OrderAddVo> orderAddVos);
+
+	/**
+	 * @描述 用户下单
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param account
+	 * @param orderAddVos
+	 * @param orderType			订单类型（0:O2O 1:商城）
+	 * @param onlinePayAmount	线上余额支付金额
+	 * @param couponsId 		优惠券id
+	 * @param orderAddressId	收货地址id
+	 * @return
+	 */
+	public ResultVo addOrder(String account,List<OrderAddVo> orderAddVos,String orderType,String payType,String remark,Long couponsId,Long orderAddressId);
+
+	/**
+	 * @描述 修改订单的状态
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param orderSn
+	 * @param orderStatus
+	 * @param token
+	 * @param client 0：后台  1：前端
+	 * @return1
+	 */
+	public ResultVo updateOrderStatus(String orderSn,String payOrderSn,String orderStatus,String account,String token,String client);
+	
+	/**
+	 * @描述 删除订单
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param orderSn
+	 * @param token
+	 * @return
+	 */
+	public ResultVo delOrder(String orderSn,String account, String token,int isNeedMember);
+	
+	/**
+	 * @描述 查询用户订单详情
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param orderSn
+	 * @param account
+	 * @return
+	 */
+	public ResultVo findOrderDetail(String orderSn,String account);
+	
+	/**
+	 * @描述 根据订单号和token查询订单
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param orderSn
+	 * @param token
+	 * @return
+	 */
+	public ResultVo findOrderBySn(String orderSn,String token);
+	
+	/**
+	 * @描述 根据账户和订单状态查询订单
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param account
+	 * @param status 为null时查询当个用户全部订单
+	 * @return
+	 */
+	public ResultVo findMyOrder(int pageNo,int pageSize,String account,String status);
+	
+	/**
+	 * @描述 分页查询用户订单
+	 * @author Karhs
+	 * @date 2017年1月5日
+	 * @param pageNo
+	 * @param pageSize
+	 * @param likeValue
+	 * @param orderStatus
+	 * @param payStatus
+	 * @param startDate
+	 * @param endDate
+	 * @return
+	 */
+	public ResultVo findAllOrder(int pageNo,int pageSize,String orderSn,String storeName,String goodsName,
+			String name,String nickName,String orderStatus,String payType,String orderType ,String startDate,String endDate,String ste);
+	
+	/**
+	 * 根据用户Id查询会员订单
+	 * @param pageNo
+	 * @param pageSize
+	 * @param memberId
+	 * @return
+	 */
+	public ResultVo findOrderByMemberId(int pageNo,int pageSize,Long memberId,String startTime,String endTime);
+	
+	/**
+	 * 添加发货信息
+	 * @param address
+	 * @return
+	 */
+	public ResultVo addOrderAddress(GjfOrderAddress address,Long orderId);
+	
+	/**
+	 * 后台获取订单详细信息
+	 * @param orderSn
+	 * @param token
+	 * @return
+	 */
+	public ResultVo findOrderDetailInBack(String orderSn,String token);
+	
+	/**
+	 * 获取发货信息
+	 * @param orderSn
+	 * @param token
+	 * @return
+	 */
+	public ResultVo findOrderAddressDetail(String orderSn, String token);
+
+	
+	
+	/**
+	 * 根据用户Id查找分销商品
+	 * @param pageNo
+	 * @param pageSize
+	 * @param id
+	 * @return
+	 */
+	public ResultVo findLowersOrderGoodsById(int pageNo, int pageSize,Long id);
+	
+	/**
+	 * 根据订单Id查找订单的商品
+	 * @return
+	 */
+	public ResultVo findOrderGoodsByOrderId(Long id);
+	
+	/**
+	 * 查询商家O2O订单
+	 * @return
+	 */
+	public ResultVo findOrderByCondition(int pageNo, int pageSize,Long id,String token,String startTime,String endTime);
+	
+	/**
+	 * 查询商家O2O订单:当前条件统计
+	 * @return
+	 */
+	public ResultVo findCountOrderByCondition(Long id,String token,String startTime,String endTime);
+	
+	/**
+	 * 订单列表支付修改支付金额
+	 * @param orederId
+	 * @param onlinePay
+	 * @param offlinePay
+	 * @return
+	 */
+	public ResultVo updateOrderPayMoney(String orderSn, Double onlinePay, Double offlinePay,String newOrdersn);
+	
+	/**
+	 * 添加o2o订单信息
+	 * @param account
+	 * @param payMoney
+	 * @param storeId
+	 * @param orderType
+	 * @param payType
+	 * @param remark
+	 * @param couponsId
+	 * @return
+	 */
+	public ResultVo addO2oOrderInfo(String account,Double payMoney,Long storeId,String orderType,String payType,String remark,Long couponsId);
+	
+    /**
+     * 获取o2o订单信息
+     * @param storeId
+     * @param beginTime
+     * @param endTime
+     * @return
+     */
+	public ResultVo findO2oOrderInfo(String status,Long storeId,String beginTime,String endTime,Integer pageNo,Integer pageSize);
+}

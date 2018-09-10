@@ -1,0 +1,347 @@
+package cc.messcat.gjfeng.dao.product;
+
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.Query;
+import org.hibernate.SQLQuery;
+import org.hibernate.Session;
+import org.hibernate.transform.Transformers;
+import org.hibernate.type.BigDecimalType;
+import org.hibernate.type.DoubleType;
+import org.hibernate.type.LongType;
+import org.hibernate.type.StringType;
+import org.springframework.stereotype.Repository;
+
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.ProductInfoVo;
+import cc.messcat.gjfeng.dao.BaseHibernateDaoImpl;
+
+@Repository("gjfProductInfoDao")
+public class GjfProductInfoDaoImpl extends BaseHibernateDaoImpl<Serializable> implements GjfProductInfoDao {
+
+	/*
+	 * 查询O2O商品的猜你喜欢
+	 * 
+	 * @see cc.messcat.gjfeng.dao.product.GjfProductInfoDao#findO2OIndexPro(int,
+	 * int)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<ProductInfoVo> findO2OIndexPro(int pageNo, int pageSize, Double longitude, Double latitude, Long cityId) {
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		StringBuffer sql = new StringBuffer();
+		parMap.put("latitude", latitude);
+		parMap.put("longitude", longitude);
+
+		sql.append(
+			"SELECT p.ID_ AS id,p.NAME_ AS name,p.KEYWORDS_ AS keywords,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.IMG_URL_ AS imgUrl,p.SCORE_ as score,s.STORE_NAME_ AS storeName,");
+		sql.append(
+			"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-s.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(s.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-s.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance");
+		sql.append(
+			" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ LEFT JOIN gjf_address_city c ON s.CITY_ID_=c.ID_ WHERE p.ADUIT_STATUS_='1' AND p.STATUS_='1' "
+			+ "AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='0'");
+		if (ObjValid.isValid(cityId)) {
+			parMap.put("cityId", cityId);
+			sql.append(" AND c.CITY_ID_=:cityId");
+		}
+		sql.append(" GROUP BY p.STORE_ID_ ORDER BY distance ASC,IS_RECOMMEND DESC");
+		return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+			.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+			.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+			.addScalar("imgUrl", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+			.addScalar("storeName", StringType.INSTANCE).addScalar("distance", DoubleType.INSTANCE)
+			.setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class)).setProperties(parMap)
+			.setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+	}
+
+	/*
+	 * 根据商品栏目查询商品信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dao.product.GjfProductInfoDao#findProByColumnId(java.
+	 * lang.Long, int, int)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<ProductInfoVo> findProByColumnId(Long columnId, int pageNo, int pageSize, String shopType, String orderType,
+		String likeValue, Double longitude, Double latitude, Long cityId) {
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		StringBuffer sql = new StringBuffer();
+		if (shopType.equals("1")) {
+			// o2o
+			parMap.put("latitude", latitude);
+			parMap.put("longitude", longitude);
+
+			sql.append(
+				"SELECT p.ID_ AS id,p.NAME_ AS name,p.KEYWORDS_ AS keywords,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.IMG_URL_ AS imgUrl,p.SCORE_ as score,s.STORE_NAME_ AS storeName,s.STORE_LOGO_URL_ as storeLogoUrl,");
+			sql.append(
+				"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-s.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(s.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-s.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance");
+			sql.append(
+				" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ LEFT JOIN gjf_address_city c ON s.CITY_ID_=c.ID_ WHERE p.ADUIT_STATUS_='1' AND p.STATUS_='1' "
+				+ "AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='0'");
+
+			if (ObjValid.isValid(columnId)) {
+				parMap.put("columnId", columnId);
+				sql.append(" AND pc.COLUMN_ID_=:columnId");
+			}
+
+			if (ObjValid.isValid(cityId)) {
+				parMap.put("cityId", cityId);
+				sql.append(" AND c.CITY_ID_=:cityId");
+			}
+			if (StringUtil.isNotBlank(likeValue)) {
+				parMap.put("likeValue", "%" + likeValue.replace("%", "\\%") + "%");
+				sql.append(
+					" AND (p.NAME_ LIKE :likeValue OR p.KEYWORDS_ LIKE :likeValue OR p.DESCRIPTION_ LIKE :likeValue OR s.STORE_NAME_ LIKE :likeValue)");
+			}
+
+			// 所有排序都要以距离为基础
+			if (StringUtil.isBlank(orderType) || orderType.equals("1")) {
+				// 距离近
+				sql.append(" ORDER BY distance ASC");
+			} else if (orderType.equals("2")) {
+				// 人气高
+				sql.append(" ORDER BY distance ASC,p.SALES_NUM_ DESC");
+			} else if (orderType.equals("3")) {
+				// 价格低
+				sql.append(" ORDER BY distance,p.PRICE_ ASC");
+			} else if (orderType.equals("4")) {
+				// 最新发布
+				sql.append(" ORDER BY distance ASC,p.ADD_TIME_ DESC");
+			} else {
+				sql.append(" ORDER BY distance ASC");
+			}
+			return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+				.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+				.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+				.addScalar("imgUrl", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+				.addScalar("storeName", StringType.INSTANCE).addScalar("distance", DoubleType.INSTANCE)
+				.setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class)).setProperties(parMap)
+				.setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		} else {
+			sql.append("SELECT p.ID_ AS id,p.NAME_ AS name,p.PRICE_ AS price,p.IMG_URL_ AS imgUrl");
+			sql.append(
+				" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ WHERE pc.COLUMN_ID_=:columnId AND p.ADUIT_STATUS_='1' AND p.STATUS_='1' AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='1'");
+
+			parMap.put("columnId", columnId);
+			if (StringUtil.isNotBlank(likeValue)) {
+				parMap.put("likeValue", "%" + likeValue.replace("%", "\\%") + "%");
+				sql.append(
+					" AND (p.NAME_ LIKE :likeValue OR p.KEYWORDS_ LIKE :likeValue OR p.DESCRIPTION_ LIKE :likeValue OR s.STORE_NAME_ LIKE :likeValue)");
+			}
+			sql.append(" ORDER BY p.SALES_NUM_ DESC");
+			return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+				.addScalar("name", StringType.INSTANCE).addScalar("price", BigDecimalType.INSTANCE)
+				.addScalar("imgUrl", StringType.INSTANCE).setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class))
+				.setProperties(parMap).setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		}
+	}
+
+	/*
+	 * 查询父类栏目下的所有商品
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dao.product.GjfProductInfoDao#findProByFatherColumnId(
+	 * java.lang.Long, int, int)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<ProductInfoVo> findProByFatherColumnId(Long columnId, int pageNo, int pageSize, String shopType, String orderType,
+		String likeValue, Double longitude, Double latitude, Long cityId) {
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		StringBuffer sql = new StringBuffer();
+		if (shopType.equals("1")) {
+			// o2o
+			parMap.put("latitude", latitude);
+			parMap.put("longitude", longitude);
+
+			sql.append(
+				"SELECT p.ID_ AS id,p.NAME_ AS name,p.KEYWORDS_ AS keywords,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.IMG_URL_ AS imgUrl,p.SCORE_ as score,s.STORE_NAME_ AS storeName,");
+			sql.append(
+				"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-s.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(s.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-s.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance");
+			sql.append(
+				" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_enterprise_column c ON pc.COLUMN_ID_ = c.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ LEFT JOIN gjf_address_city ci ON s.CITY_ID_=ci.ID_ "
+				+ "WHERE p.ADUIT_STATUS_='1' AND p.STATUS_='1' AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='0'");
+			if (ObjValid.isValid(columnId)) {
+				parMap.put("columnId", columnId);
+				sql.append(" AND c.FATHER_=:columnId");
+			}
+
+			if (ObjValid.isValid(cityId)) {
+				parMap.put("cityId", cityId);
+				sql.append(" AND ci.CITY_ID_=:cityId");
+			}
+			if (StringUtil.isNotBlank(likeValue)) {
+				parMap.put("likeValue", "%" + likeValue.replace("%", "\\%") + "%");
+				sql.append(
+					" AND (p.NAME_ LIKE :likeValue OR p.KEYWORDS_ LIKE :likeValue OR p.DESCRIPTION_ LIKE :likeValue OR s.STORE_NAME_ LIKE :likeValue)");
+			}
+
+			// 所有排序都要以距离为基础
+			if (StringUtil.isBlank(orderType) || orderType.equals("1")) {
+				// 距离近
+				sql.append(" ORDER BY distance ASC");
+			} else if (orderType.equals("2")) {
+				// 人气高
+				sql.append(" ORDER BY distance ASC,p.SALES_NUM_ DESC");
+			} else if (orderType.equals("3")) {
+				// 价格低
+				sql.append(" ORDER BY distance,p.PRICE_ ASC");
+			} else if (orderType.equals("4")) {
+				// 最新发布
+				sql.append(" ORDER BY distance ASC,p.ADD_TIME_ DESC");
+			} else {
+				sql.append(" ORDER BY distance ASC");
+			}
+			return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+				.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+				.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+				.addScalar("imgUrl", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+				.addScalar("storeName", StringType.INSTANCE).addScalar("distance", DoubleType.INSTANCE)
+				.setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class)).setProperties(parMap)
+				.setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		} else {
+			parMap.put("columnId", columnId);
+			sql.append("SELECT p.ID_ AS id,p.NAME_ AS name,p.PRICE_ AS price,p.IMG_URL_ AS imgUrl");
+			sql.append(
+				" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_enterprise_column c ON pc.COLUMN_ID_ = c.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ WHERE c.FATHER_=:columnId AND p.ADUIT_STATUS_='1' AND p.STATUS_='1' AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='1'");
+
+			if (StringUtil.isNotBlank(likeValue)) {
+				parMap.put("likeValue", "%" + likeValue.replace("%", "\\%") + "%");
+				sql.append(
+					" AND (p.NAME_ LIKE :likeValue OR p.KEYWORDS_ LIKE :likeValue OR p.DESCRIPTION_ LIKE :likeValue OR s.STORE_NAME_ LIKE :likeValue)");
+			}
+			sql.append(" ORDER BY p.SALES_NUM_ DESC");
+			return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+				.addScalar("name", StringType.INSTANCE).addScalar("price", BigDecimalType.INSTANCE)
+				.addScalar("imgUrl", StringType.INSTANCE).setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class))
+				.setProperties(parMap).setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		}
+	}
+
+	/*
+	 * 查询本店热销商品
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dao.product.GjfProductInfoDao#findHotProByStoreId(java.
+	 * lang.Long, int, int)
+	 */
+	@SuppressWarnings("unchecked")
+	public List<ProductInfoVo> findHotProByStoreId(Long goodsId, int pageNo, int pageSize) {
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		parMap.put("goodsId", goodsId);
+		StringBuffer sql = new StringBuffer();
+		sql.append(
+			"SELECT p.ID_ AS id,p.NAME_ AS name,p.KEYWORDS_ AS keywords,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.IMG_URL_ AS imgUrl,p.SCORE_ as score,s.STORE_NAME_ AS storeName ");
+		sql.append(
+			" FROM gjf_product_info p LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ WHERE p.ID_!=:goodsId AND p.STORE_ID_=(SELECT STORE_ID_ FROM gjf_product_info WHERE ID_=:goodsId) AND p.ADUIT_STATUS_='1' AND p.STATUS_='1' AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' ORDER BY p.SALES_NUM_ DESC");
+		return getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+			.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+			.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+			.addScalar("imgUrl", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+			.addScalar("storeName", StringType.INSTANCE).setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class))
+			.setProperties(parMap).setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+	}
+
+	/*
+	 * 查询o2o商品信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dao.product.GjfProductInfoDao#findO2OProductById(java.
+	 * lang.Long)
+	 */
+	@Override
+	public ProductInfoVo findO2OProductById(Long id, Double longitude, Double latitude) {
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		parMap.put("productId", id);
+		parMap.put("latitude", latitude);
+		parMap.put("longitude", longitude);
+		StringBuffer sql = new StringBuffer();
+		sql.append(
+			"SELECT p.ID_ AS id,p.NAME_ AS name,p.KEYWORDS_ AS keywords,p.NOTICE_ AS notice,p.INDATE_ AS indate,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.PARA1_ AS imgUrl1,p.SCORE_ as score,s.STORE_NAME_ AS storeName,s.ADDRESS_DETAIL_ AS storeAddress,s.SELLER_MOBILE_ AS storeMobile,s.ID_ AS storeId,");
+		sql.append(
+			"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-s.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(s.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-s.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance");
+		sql.append(
+			" FROM gjf_product_info p LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ WHERE p.ID_=:productId AND p.ADUIT_STATUS_='1' AND p.STATUS_='1' AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='0'");
+
+		return (ProductInfoVo) getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+			.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+			.addScalar("notice", StringType.INSTANCE).addScalar("indate", StringType.INSTANCE)
+			.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+			.addScalar("imgUrl1", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+			.addScalar("storeName", StringType.INSTANCE).addScalar("storeAddress", StringType.INSTANCE)
+			.addScalar("storeMobile", StringType.INSTANCE).addScalar("storeId", StringType.INSTANCE).addScalar("distance", DoubleType.INSTANCE)
+			.setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class)).setProperties(parMap).uniqueResult();
+	}
+
+	/*
+	 * 下架商品
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dao.product.GjfProductInfoDao#delProduct(java.lang.Long
+	 * [], java.lang.Long)
+	 */
+	@Override
+	public int delProduct(Long[] ids, Long storeId) {
+		String sql = "update gjf_product_info set STATUS_='0' where STORE_ID_=? and ID_ in(:ids)";
+		return getCurrentSession().createSQLQuery(sql).setParameter(0, storeId).setParameterList("ids", ids).executeUpdate();
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
+	public List findAllCartMember(Long memberId) {
+		List list=getCurrentSession().createSQLQuery("select * from gjf_cart_info as g where g.MEMBER_ID_=:membId order by g.ADD_TIME_ desc").setParameter("membId", memberId).list();
+		String[] param={"id","memberId","goodsId","goodsAttrStockId","goodsAttr","goodsNum","addTime"};
+		return BeanUtil.changeObjectArrayToMaps(list, param);
+	}
+
+	@Override
+	public List<ProductInfoVo> findHotProductsByStoreId(Long storeId, Map<String, Object> param) {
+		Integer pageNo = (Integer)param.get("pageNo");
+		Integer pageSize = (Integer)param.get("pageSize");
+		
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		parMap.put("storeId", storeId);
+		
+		StringBuffer sql = new StringBuffer();
+		sql.append(
+			"SELECT p.ID_ AS id,p.NAME_ AS NAME,p.KEYWORDS_ AS keywords,p.PRICE_ AS price,p.MARKET_PRICE_ AS marketPrice,p.IMG_URL_ AS imgUrl,p.SCORE_ AS score,s.STORE_NAME_ AS storeName ");
+		sql.append(
+			"FROM gjf_product_info p ");
+		sql.append("LEFT JOIN gjf_store_info s ON p.STORE_ID_ = s.ID_ ");
+		sql.append("WHERE s.ID_ = :storeId AND p.ADUIT_STATUS_ = '1' AND p.STATUS_ = '1' AND s.IS_DEL_ = '1' AND s.STORE_STATUS_ = '1' ORDER BY p.SALES_NUM_ DESC ");
+		
+		SQLQuery sqlQuery = getCurrentSession().createSQLQuery(sql.toString());
+		Query query = sqlQuery.addScalar("id", LongType.INSTANCE)
+				.addScalar("name", StringType.INSTANCE).addScalar("keywords", StringType.INSTANCE)
+				.addScalar("price", BigDecimalType.INSTANCE).addScalar("marketPrice", BigDecimalType.INSTANCE)
+				.addScalar("imgUrl", StringType.INSTANCE).addScalar("score", BigDecimalType.INSTANCE)
+				.addScalar("storeName", StringType.INSTANCE).setResultTransformer(Transformers.aliasToBean(ProductInfoVo.class))
+				.setProperties(parMap);
+		if(pageNo != null){
+			query.setFirstResult((pageNo - 1) * pageSize);
+		}
+		if(pageSize != null){
+			query.setMaxResults(pageSize).list();
+		}
+		return query.list();
+	}
+
+	@Override
+	public int deleteProductColumn(Long productId, Long columnId) {
+		String hql = "delete from GjfProductColumn where productId.id=? and columnId.id=?";
+		Session session = getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(hql);
+		query.setParameter(0, productId);
+		query.setParameter(1, columnId);
+		return query.executeUpdate();
+	}
+
+	
+	
+}

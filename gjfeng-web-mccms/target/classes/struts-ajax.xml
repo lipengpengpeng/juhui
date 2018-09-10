@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<package name="json" extends="json-default">
+
+
+		<action name="ajaxIndexAction" class="ajaxIndexAction">
+			<result name="success" type="json">
+			</result>
+		</action>
+		
+		<action name="searchRecordAction" class="alterUrlAction">
+			<result name="success" type="json" />
+		</action>
+		
+		<action name="ajaxMcProductInfoAction" class="cc.messcat.web.collection.McProductInfoAction">
+			<result name="success" type="json" >
+				<param name="root">deleteFlag</param>
+			</result>
+		</action>
+
+		<action name="ajax*Action" class="cc.messcat.web.subsystem.{1}Action">
+			<result type="json" >
+				<param name="includeProperties">resultVo.*,msg,code</param>
+			</result>
+		</action>
+		
+		<action name="ajaxTradeInfo" class="cc.messcat.web.subsystem.TradeInfoAction">
+			<result type="json" >
+				<param name="root">code</param>
+			</result>
+		</action>
+		
+	</package>
+</struts>

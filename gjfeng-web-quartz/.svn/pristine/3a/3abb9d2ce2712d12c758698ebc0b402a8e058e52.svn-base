@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true"
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:task="http://www.springframework.org/schema/task" 
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="  
+       http://www.springframework.org/schema/beans   
+       http://www.springframework.org/schema/beans/spring-beans-4.2.xsd    
+       http://www.springframework.org/schema/mvc   
+       http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd     
+       http://www.springframework.org/schema/context   
+       http://www.springframework.org/schema/context/spring-context-4.2.xsd
+       http://www.springframework.org/schema/task 
+       http://www.springframework.org/schema/task/spring-task-4.2.xsd">
+	
+	<bean id="myTask" class="cc.messcat.gjfeng.quartz.QuartzTask" /> 
+	<task:scheduled-tasks> 
+	    <!-- 定时凌晨12点统计会员和商家分红、代理分红 -->
+	    <task:scheduled ref="myTask" method="updateActBenefit" cron="0 0 0 * * ?" /> 
+	    <task:scheduled ref="myTask" method="updateAgentBenefit" cron="0 0 0 * * ?" /> 
+	     <!-- <task:scheduled ref="myTask" method="updateBenefit" cron="0 30 09 * * ?" /> -->
+	    
+	    <!-- 统计报表 -->
+	    <task:scheduled ref="myTask" method="updateSummaryReport" cron="0 0 02 * * ?" />
+	    <task:scheduled ref="myTask" method="updateBenefitReport" cron="0 10 02 * * ?" />
+	    <task:scheduled ref="myTask" method="updatePoolReport" cron="0 20 2 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWealOutputReport" cron="0 0 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWealPayoutReport" cron="0 10 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWithdrawReport" cron="0 20 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateSummaryAndPayoutReport" cron="0 0 12 * * ?" />
+	    
+	    <task:scheduled ref="myTask" method="updateMnsSmsStatus" cron="0 30 * * * ? " />
+	    
+	    
+	</task:scheduled-tasks>
+</beans>

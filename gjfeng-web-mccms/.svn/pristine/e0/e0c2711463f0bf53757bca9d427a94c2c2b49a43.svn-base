@@ -1,0 +1,175 @@
+﻿<%@ page contentType="text/html;charset=UTF-8"%>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>模板</title>
+		<%@ include file="/common/taglibs.jsp"%>
+		<%@ include file="/common/meta.jsp"%>
+		<%@ include file="/common/content.jsp"%>
+		<script type="text/javascript" src="${ctx}/js/My97DatePicker/WdatePicker.js"></script>
+		<style>
+			.headbg1 {
+				background: #c9e6f5;
+				font-weight: bold;
+				padding-left: 15px;
+			}
+			
+			.headbg1 td {
+				font-weight: bold;
+				text-align: center;
+			}
+		</style>
+		<script type="text/javascript">
+		function doYouWantToExport() {
+			var r = confirm('确定要导出所有记录吗?');
+			if(r) {
+				return true;
+			}
+			return false;
+		}
+		</script>
+	</head>
+	<body>
+		<div class="rhead">
+			<div class="rpos">
+				当前位置: 交易管理--提现列表
+			</div>
+			<div class="ropt"><a href="tradeInfoAction!findAllTrade.action?id=${id }&holder=${holder}&bankCard=${bankCard}&mobile=${mobile}&addTime=${addTime}&endTime=${endTime }&tradeStatus=${tradeStatus}&ste=1" onclick="return doYouWantToExport();">导出</a></div>
+		</div>
+		<div>
+			<table class="listTable3">
+				<tr id="nc" class="headbg" style="background-color: #1F6D9E;height: 50px;">
+		  	 	   <td colspan="4" style="cl;font-size: 18px">
+		  	 	   		<font color="#FFFFFF">当前条件统计</font>
+		 	  	   </td>
+			   </tr>
+		  		<tr id="nc" class="headbg" style="background-color: #1F6D9E;height: 50px;">
+		  	 	   <td colspan="2" style="cl;font-size: 18px">
+		  	 	   		<font color="#FFFFFF">申请金额：${object[0] }</font>
+		 	  	   </td>
+		 	  	     <td colspan="2" style="cl;font-size: 18px">
+		  	 	   		<font color="#FFFFFF">交易金额：${object[1] }</font>
+		 	  	   </td>
+			   </tr>
+			   <tr id="nc" class="headbg" style="background-color: #1F6D9E;height: 50px;">
+		  	 	   <td colspan="2" style="cl;font-size: 18px">
+		  	 	   		<font color="#FFFFFF">税收金额：${object[2] }</font>
+		 	  	   </td>
+		 	  	     <td colspan="2" style="cl;font-size: 18px">
+		  	 	   		<font color="#FFFFFF">责任险金额：${object[3] }</font>
+		 	  	   </td>
+			   </tr>
+			</table>
+		</div>
+	<form action="${ctx}/subsystem/tradeInfoAction!findAllTrade.action" method="get">
+		<table class="listTable2">
+			<tr>
+				<td>	&nbsp;&nbsp;&nbsp;
+						提现序号：<input type="text" placeholder="请输入序号" name="id" value="${id }"/>
+						&nbsp;&nbsp;&nbsp;持卡人户名：<input type="text" placeholder="请输入持卡人姓名" name="holder" value="${holder }"/> &nbsp;&nbsp;&nbsp;
+						银行账号：<input type="text" placeholder="请输入银行账号" name="bankCard" value="${bankCard }"/> &nbsp;&nbsp;&nbsp;
+					        会员号： <input type="text" placeholder="请输入会员号" name="mobile" value="${mobile }"/>&nbsp;&nbsp;&nbsp;<br/>
+					 	&nbsp;&nbsp;&nbsp;开始时间：<input type="text" placeholder="请输入时间" name="addTime" value="${addTime }"  onclick="WdatePicker()" style="width: 75px;"/>&nbsp;&nbsp;&nbsp;
+					 	-&nbsp;&nbsp;&nbsp;
+					 	结束时间：<input type="text" placeholder="请输入时间" name="endTime" value="${endTime }"  onclick="WdatePicker()" style="width: 75px;"/>&nbsp;&nbsp;&nbsp;
+					        交易状态：<select name="tradeStatus">
+					        <option value="" <c:if test="${empty tradeStatus}">selected="selected"</c:if>>全部</option>
+					        <option value="0" <c:if test="${tradeStatus eq '0'}">selected="selected"</c:if>>待审核</option>
+					        <option value="1" <c:if test="${tradeStatus eq '1'}">selected="selected"</c:if>>交易成功</option>
+					        <option value="2" <c:if test="${tradeStatus eq '2'}">selected="selected"</c:if>>交易失败</option>
+					     </select>&nbsp;&nbsp;&nbsp;
+					     <input type="submit" value="查询"/>
+				</td>
+			</tr>
+		</table>
+	</form>
+	
+		<table class="listTable3" onmouseover="changeto()" onmouseout="changeback()">
+			<tr id="nc" class="headbg">
+				<td>序号</td>
+				<td>提现序号</td>
+				<td>持卡人户名</td>
+				<td>申请金额</td>
+				<td>交易金额</td>
+				<td>税收</td>
+				<td>责任险</td>
+				<td>银行账号</td>	
+				<td>开户省份</td>
+				<td>开户城市</td>			
+				<td>收款方银行编号</td>
+				<td>开户行支行名称</td>
+				<td>对私</td>
+				<td>会员号</td>
+				<td>时间</td>
+				<td>最近交易时间</td>								
+				<td>交易状态</td>			
+				<td>操作</td>
+			</tr>
+                <c:forEach var="bean" items="${pager.resultList}"
+				varStatus="status">
+				<tr>
+					<td>${status.count}</td>
+					<td>${bean[0].id}</td>
+					<td>${bean[0].bankId.holder}</td>
+					<td>${bean[0].applyMoney}</td>
+					<td>${bean[0].tradeMoney}</td>
+					<td>${bean[0].taxMoney}</td>
+					<td>${bean[0].insuranceMoney}</td>
+					<td>${bean[0].bankId.bankCard}</td>
+					<td>${bean[0].bankId.bankProvinceId.province}</td>
+					<td>${bean[0].bankId.bankCityId.city}</td>	
+					<td>${bean[0].bankId.bankId.bankCode}</td>
+					<td>${bean[0].bankId.bankSub}</td>
+					<td>是</td>
+					<td>${bean[0].memberId.mobile}</td>
+					<td><fmt:formatDate value="${bean[0].addTime}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
+					<td><fmt:formatDate value="${bean[1]}" pattern="yyyy-MM-dd HH:mm:ss"/></td>							
+					<c:if test="${bean[0].tradeStatus==0}">
+					    <td>待审核</td>
+					</c:if>
+					<c:if test="${bean[0].tradeStatus==1}">
+					    <td>交易成功</td>
+					</c:if>
+					<c:if test="${bean[0].tradeStatus==2}">
+					    <td>交易失败</td>
+					</c:if>
+
+					 <td>
+						
+						<c:if test="${bean[0].tradeStatus eq '0'}">
+						    <a href="${ctx}/subsystem/tradeInfoAction!getWithdrawalDetail.action?id=${bean[0].id}&token=${bean[0].token}">审核</a>
+						</c:if>
+						<c:if test="${bean[0].tradeStatus eq '1' || bean[0].tradeStatus eq '2'}">
+						    <a href="">已审核</a>
+						</c:if>
+						&nbsp; &nbsp;
+			           <a href="${ctx}/subsystem/tradeInfoAction!findMemberTradeDetail.action?id=${bean[0].id}&token=${bean[0].token}">查看</a>
+					</td>
+				</tr>
+			  </c:forEach>
+			
+
+		</table>
+
+		<c:if test="${not empty pager.resultList}">
+			<s:form action="tradeInfoAction!findAllTrade.action"
+					namespace="/subsystem" method="post" name="form1" theme="simple" id="form1">
+					<input type="hidden" id="id" name="id" value="${id }"/>
+					<input type="hidden" id="holder" name="holder" value="${holder }"/>
+					<input type="hidden" id="bankCard" name="bankCard" value="${bankCard }"/>
+					 <input type="hidden" id="mobile" name="mobile" value="${mobile }"/>
+					<input type="hidden" id="addTime" name="addTime" value="${addTime }"  />
+					<input type="hidden" id="addTime" name="endTime" value="${endTime }"  />
+					<select name="tradeStatus" id="tradeStatus" style="display: none;">
+					        <option value="" <c:if test="${empty tradeStatus}">selected="selected"</c:if>>全部</option>
+					        <option value="0" <c:if test="${tradeStatus eq '0'}">selected="selected"</c:if>>待审核</option>
+					        <option value="1" <c:if test="${tradeStatus eq '1'}">selected="selected"</c:if>>交易成功</option>
+					        <option value="2" <c:if test="${tradeStatus eq '2'}">selected="selected"</c:if>>交易失败</option>
+					</select>
+				<!-- 分页 -->
+				<%@ include file="../../common/pager.jsp"%>
+			</s:form>
+		</c:if>
+	</body>
+</html>

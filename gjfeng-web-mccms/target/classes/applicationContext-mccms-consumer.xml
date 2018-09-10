@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+		xsi:schemaLocation="http://www.springframework.org/schema/beans
+	 http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+	 http://code.alibabatech.com/schema/dubbo 
+     http://code.alibabatech.com/schema/dubbo/dubbo.xsd"
+	default-lazy-init="true">
+	
+
+	<!-- 提供方应用信息，用于计算依赖关系 -->
+	 <dubbo:application name="${dubbo.application.web.mccms}" />
+	 
+	 <!-- 使用zookeeper注册中心暴露服务地址 -->
+	 <!-- 多注册中心配置，竖号分隔表示同时连接多个不同的注册中心，同一个注册中心的多个集群地址用逗号隔开 -->
+	 <dubbo:registry protocol="zookeeper" address="${zookeeper.address}" />
+	 
+	 <!-- core子系统 -->
+	 <dubbo:reference id="loginDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfLoginDubbo" check="false"/>
+	 <dubbo:reference id="indexDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo" check="false"/>
+	 <dubbo:reference id="addressDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfAddressDubbo" check="false"/>
+	 <dubbo:reference id="cartInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfCartInfoDubbo" check="false"/>
+	 <dubbo:reference id="storeInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo" check="false"/>
+	 <dubbo:reference id="memberInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo" check="false"/>
+	 <dubbo:reference id="productAttrDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductAttrDubbo" check="false"/>
+	 <dubbo:reference id="orderInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfOrderInfoDubbo" check="false"/>
+	 <dubbo:reference id="productInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductInfoDubbo" check="false"/>
+	 <dubbo:reference id="tradeDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfTradeDubbo" check="false"/>
+	 <dubbo:reference id="enterpriseColumnDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo" check="false"/>
+	 <dubbo:reference id="productAttrStockDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductAttrStockDubbo" check="false"/>
+	 <dubbo:reference id="prodcutCommetDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfProductCommentDubbo" check="false"/>
+	 <dubbo:reference id="countInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.CountInfoDubbo" check="false"/>
+	 <dubbo:reference id="appUpdateInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfAppUpdateInfoDubbo" check="false"/>
+	 <!-- benefit子系统 -->
+	 <dubbo:reference id="benefitInfoDubbo" interface="cc.messcat.gjfeng.dubbo.benefit.GjfBenefitInfoDubbo" check="false"/>
+	 
+	  <!-- sms子系统 -->
+	 <dubbo:reference id="smsDubbo" interface="cc.messcat.gjfeng.dubbo.sms.SmsDubbo" check="false"/>
+
+</beans>

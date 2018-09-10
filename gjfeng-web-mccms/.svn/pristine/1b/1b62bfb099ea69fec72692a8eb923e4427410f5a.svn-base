@@ -1,0 +1,301 @@
+﻿<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/common/taglibs.jsp"%>
+<%@ include file="/common/meta.jsp"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>凤凰云商O2O</title>
+		<script src="${ctx}/js/jquery.ui/ui/jquery.ui.all.js"
+			type="text/javascript"></script>
+		<script src="${ctx}/js/layout/jquery.layout.js" type="text/javascript"></script>
+		<script src="${ctx}/js/ddaccordion.js" type="text/javascript"></script>
+		<link href="${ctx}/js/jquery.ui/themes/default/ui.all.css"
+			rel="stylesheet" type="text/css" />
+		<link href="${ctx}/image/style_blue5/style.css" rel="stylesheet"
+			type="text/css" />
+		<script src="${ctx}/image/style_blue5/style.js" type="text/javascript"></script>
+		<script src="${ctx}/js/mainframe_nav.js" type="text/javascript"></script>
+
+<style>
+.arrowlistmenu .ul_li_image li{
+	background:url(${ctx}/image/style_blue5/menu_item_icon.gif) no-repeat;
+	padding-left:20px;
+}
+#top #icon img {
+    height: 55px !important;
+}
+</style>
+
+<script>
+	function linkTOlink(i){
+		switch(i){
+			case 1:
+				document.getElementById("leftFrame").src="${ctx}/baseleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/defaultAction.action";
+				break;
+				
+			case 3:
+				document.getElementById("leftFrame").src="${ctx}/columnleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/column/epColumnAction!query.action?father=0";
+				break;
+				
+			case 4:
+				document.getElementById("leftFrame").src="${ctx}/collectionleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/collection/epNewsAction!query.action?father=0";
+				break;
+			case 5:
+				document.getElementById("leftFrame").src="${ctx}/dynamicleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/dynamic/enterpriseLinksAction.action";
+				break;
+			case 7:
+				document.getElementById("leftFrame").src="${ctx}/dataleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/data/dataHandlerAction!showHistory.action";
+				break;
+			case 8:
+				document.getElementById("leftFrame").src="${ctx}/systemleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/usersAction.action";
+				break;
+			case 9:
+				document.getElementById("leftFrame").src="${ctx}/productleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/collection/mcProductInfoAction!query.action";
+				break;
+			case 10:
+				document.getElementById("leftFrame").src="${ctx}/memberleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/subsystem/memberInfoAction!findAllMember.action";
+				break;
+			case 12:
+				document.getElementById("leftFrame").src="${ctx}/baseinfoleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/baseinfo/carBrandAction!retrieveAllCarBrands.action";
+				break;
+			case 13:
+				document.getElementById("leftFrame").src="${ctx}/tradeleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/subsystem/orderInfoAction!findAllOrderInfo.action";
+				break;
+			case 14:
+				document.getElementById("leftFrame").src="${ctx}/configleftFrame.action";
+				/* document.getElementById("mainFrame").src="${ctx}/subsystem/benefitInfoAction.action"; */
+				document.getElementById("mainFrame").src="${ctx}/defaultAction.action"; 
+				break;
+			case 16:
+				document.getElementById("leftFrame").src="${ctx}/signleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/sign/fzSignInfoAction!retrieveAllFzSignInfos.action";
+				break;
+			case 17:
+				document.getElementById("leftFrame").src="${ctx}/countleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/subsystem/countInfoAction!countMemberInfoAmount.action?op=countMembers";
+				break;
+			case 20:
+				document.getElementById("leftFrame").src="${ctx}/storeJoininleftFrame.action";
+				document.getElementById("mainFrame").src="${ctx}/subsystem/storeInfoAction!retrieveStoreByPager.action";
+				break;
+			case 100://修改密码
+				document.getElementById("mainFrame").src="${ctx}/basic/updatePasswordAction.action";
+				break;
+		}
+		setCurrent(i);
+	}
+	$(document).ready(function(){
+	
+		var mainFrame = document.getElementById('mainFrame');
+		var leftFrame = document.getElementById('leftFrame');
+		
+		mainFrame.onload = mainFrame.onreadystatechange = function() {
+				var roleType = mainFrame.contentWindow.document.getElementById("loginForm");
+		     	if($(roleType).html()!=null){
+					location='${ctx}/j_spring_security_logout';
+				}
+		}
+		
+		leftFrame.onload = leftFrame.onreadystatechange = function() {
+				var roleType = leftFrame.contentWindow.document.getElementById("loginForm");
+		     	if($(roleType).html()!=null){
+					location='${ctx}/j_spring_security_logout';
+				}
+				var htmlTemp = leftFrame.contentWindow.document.getElementById("collumnHtml");
+				$(htmlTemp).attr("style","height:100%;");
+				var bodyTemp = leftFrame.contentWindow.document.getElementById("collumnBody");
+				$(bodyTemp).attr("style","position: relative; height: 100%; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; border-top-style: none; border-right-style: none; border-bottom-style: none; border-left-style: none; border-width: initial; border-color: initial;");
+		}
+		
+		showtime();
+	});
+	
+		function showtime()
+		{
+			var today=new Date(); 
+			var year=today.getFullYear();
+			var month=today.getMonth()+1;
+			var day=today.getDate();
+			var hours = today.getHours(); 
+			var minutes = today.getMinutes(); 
+			var seconds = today.getSeconds(); 
+			var timeValue= hours;//((hours >12) ? hours -12 :hours);
+			timeValue += ((minutes < 10) ? ":0" : ":") + minutes+""; 
+			//timeValue += (hours >= 12) ? "PM" : "AM"; 
+			timeValue+=((seconds < 10) ? ":0" : ":") + seconds+"";
+			var timetext=year+"-"+month+"-"+day+" "+timeValue
+			//document.write("<span onclick=\"document.getElementById('time').value='"+timetext+"'\">"+timetext+"</span>"); 
+			document.getElementById("liveclock").innerText = timetext; //div的html是now这个字符串 
+			setTimeout("showtime()",1000); //设置过1000毫秒就是1秒，调用showtime方法
+		}
+	
+		function setCurrent(i){
+			var count = 1;
+			$("#all_nav ul li").each(function(){
+				 $(this).removeClass("current");
+				 count++;
+			});
+			$("#"+i).addClass("current");
+		}
+		
+		function changeLocale(obj) {
+			var selected = $("#selectLocale").val();
+			if (selected != "") {
+				window.location.href="${ctx}/changeLocaleAction.action?parameter=" + selected;
+			}
+		}
+		
+</script>
+	</head>
+	<body>
+		<div id="top">
+			<div>
+				<div id="icon">
+					<%-- <img src="${ctx}/image/style_blue5/logo.png" /> --%>
+				</div>
+				<security:authorize ifAnyGranted="EP_CHANGELOCALE">
+				<div id="changeLocaleDiv">
+					<select id="selectLocale" onChange="changeLocale(this)">
+						<option value=""><!--语言--><s:text name="mainframe.change.locale" /></option>
+						<option value="zh"><!--中文--><s:text name="mainframe.change.locale.zh" /></option>
+						<%-- <option value="en"><!--英语--><s:text name="mainframe.change.locale.en" /></option> --%>
+					</select>
+				</div>
+				</security:authorize>
+				<div
+					onclick="linkTOlink(100);"
+					id="changePassword">
+					<!--修改密码--><s:text name="mainframe.change.password" />
+				</div>
+				<div onclick="location='${ctx}/j_spring_security_logout'" id="logout"><!--注销--><s:text name="mainframe.logout" /></div>
+				<div onclick="javascript:window.open('${webSite.domain}','_blank')" id="home">
+					<!--查看首页--><s:text name="mainframe.goto.index" />
+				</div>
+				<div id="layout-top-close"></div>
+			</div>
+			<div style="clear:both;"></div>
+			<div id="logout_all">
+				<div id="all_now">
+				     
+					<!--现在时间:--><s:text name="mainframe.live.clock" /><span id="liveclock"></span>
+				</div>
+				<div id="all_line"></div>
+				<div id="all_nav">
+				<ul>
+					<security:authorize ifAnyGranted="EP_BASE">
+						<li id="1" class="current"><a href="javascript:linkTOlink(1);">控制台</a></li>
+					</security:authorize>
+					<security:authorize ifAnyGranted="GJF_SETTING">
+						<li id="14"><a href="javascript:linkTOlink(14);">设置</a></li>
+					</security:authorize>
+					<security:authorize ifAnyGranted="EP_COLUMN">
+						<li id="3"><a href="javascript:linkTOlink(3);"><!--栏目配置--><s:text name="mainframe.column.config" /></a></li>
+					</security:authorize>
+					<security:authorize ifAnyGranted="EP_COLLECTION">
+						<li id="4"><a href="javascript:linkTOlink(4);"><!--内容管理--><s:text name="mainframe.content.management" /></a></li>
+					</security:authorize>
+					<security:authorize ifAnyGranted="GJF_PRODUCT">
+						<li id="9"><a href="javascript:linkTOlink(9);">商品管理</a></li>
+					</security:authorize>
+					
+					<security:authorize ifAnyGranted="EP_DYNAMIC">
+						<li id="5"><a href="javascript:linkTOlink(5);"><!--互动管理--><s:text name="mainframe.interactive.management" /></a></li>
+					</security:authorize>
+					<%--
+					<security:authorize ifAnyGranted="EP_DATA">
+						<li id="7"><a href="javascript:linkTOlink(7);"><!--系统数据--><s:text name="mainframe.system.data" /></a></li>
+					</security:authorize>
+					--%>
+					<security:authorize ifAnyGranted="EP_SYSTEM">
+						<li id="8"><a href="javascript:linkTOlink(8);"><!--系统配置--><s:text name="mainframe.system.config" /></a></li>
+					</security:authorize>
+					
+					<security:authorize ifAnyGranted="EP_MEMBER">
+						<li id="10"><a href="javascript:linkTOlink(10);">会员管理</a></li>
+					</security:authorize>
+					
+					<security:authorize ifAnyGranted="EP_BASEINFO">
+						<li id="12"><a href="javascript:linkTOlink(12);">基础信息</a></li>
+					</security:authorize>
+					
+					<security:authorize ifAnyGranted="GJF_STORE">
+						<li id="20"><a href="javascript:linkTOlink(20);">店铺管理</a></li>
+					</security:authorize>
+					
+					<security:authorize ifAnyGranted="GJF_TRADE">
+						<li id="13"><a href="javascript:linkTOlink(13);">交易管理</a></li>
+					</security:authorize>
+					<!-- 
+					<li id="14"><a href="javascript:void(0);">会员设置</a></li>
+					<li id="15"><a href="javascript:void(0);">系统总控</a></li>
+					 -->
+					<security:authorize ifAnyGranted="GJF_COUNT">
+						<li id = "17"><a href="javascript:linkTOlink(17);">统计</a></li>
+					</security:authorize>
+				</ul>
+				</div>
+			</div>
+		</div>
+		<div id="menu">
+			<div class="menu-title">
+				<!--你好,--><s:text name="mainframe.say.hello" /><font color="red">${currentUserName}</font>
+			</div>
+
+			<div class="line ui-layout-toggler"></div>
+
+			<div id="layout-menu-close" style="text-align: center;"></div>
+			
+						<!-- 内容管理系统
+						<div class="arrowlistmenu"> -->
+				<iframe width="100%" height="100%" frameborder="0" style="overflow:scroll;background:#f4f7fb; min-height:675px;"
+					id="leftFrame" name="leftFrame" src="${ctx}/baseleftFrame.action"></iframe>
+					<!---->
+					<!--</div>-->
+		</div>
+
+		<div id="content">
+			<div id="container">
+				<div id="layout-footer-open"></div>
+				<div id="layout-top-open"></div>
+				<div id="layout-menu-open"></div>
+
+				<div id="welcome">
+					<iframe width="100%" height="100%" frameborder="0" id="mainFrame" name="mainFrame" scrolling="yes"
+						allowtransparency="true" src="${ctx}/defaultAction.action"></iframe>
+				</div>
+			</div>
+			
+			<div class="ui-layout-south"></div>
+			
+		</div>
+
+		<div id="footer">
+		
+			<div id="layout-footer-close"></div>
+			
+			<div id="copyright">
+				${webSite.names} 
+			</div>
+		</div>
+		<div id ="mess" style="display:none;margin:0px; padding: 0px; border-width: 0px; border-style: initial; border-color: initial; background-image: none; position: absolute; z-index: 11000; top: 0px; left: 0px; background-color: black; opacity: 0.8; width: 1365px; height: 642px; ">
+			<center>
+				<div style="width:400px;margin-left:100px;color:white;background-color: grey;text-align:right;margin-top:200px;margin-left:100px;">
+					<input type="button" value='<s:text name="mainframe.close" />' onclick="javascript:$('#mess').hide();"/>
+				</div>
+				<div id="messageContext" style="padding:10px 0 20px 0;width:400px;height:auto;margin-left:100px;color:white;background-color: grey;text-align:left;">
+				</div>
+			</center>
+		</div>
+		
+		</body>
+</html>

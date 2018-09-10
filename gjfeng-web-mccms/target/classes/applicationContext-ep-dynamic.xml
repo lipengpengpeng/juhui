@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jee="http://www.springframework.org/schema/jee" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-2.5.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
+	default-lazy-init="true">
+	
+	<!-- dao配置 -->
+     <bean id="epLinksDao" class="cc.messcat.dao.dynamic.EpLinksDaoImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+     </bean>
+     <bean id="epAdDao" class="cc.messcat.dao.dynamic.EpAdDaoImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+     </bean>    
+
+    <bean id="epLinksManagerDao" class="cc.messcat.service.dynamic.EpLinksManagerDaoImpl">
+        <property name="epLinksDao" ref="epLinksDao"></property>
+    </bean>
+    <bean id="epAdManagerDao" class="cc.messcat.service.dynamic.EpAdManagerDaoImpl">
+        <property name="epAdDao" ref="epAdDao"></property>
+        <property name="usersDao" ref="usersDao"></property>
+    </bean>
+    
+    <!-- action配置 -->
+    <bean id="enterpriseLinksAction" class="cc.messcat.web.dynamic.EpLinksAction" scope="prototype">
+         <property name="epLinksManagerDao" ref="epLinksManagerDao"></property>
+    </bean>
+    
+    <bean id="enterpriseAdAction" class="cc.messcat.web.dynamic.EpAdAction" scope="prototype">
+         <property name="epAdManagerDao" ref="epAdManagerDao"></property>
+    </bean>
+
+</beans>

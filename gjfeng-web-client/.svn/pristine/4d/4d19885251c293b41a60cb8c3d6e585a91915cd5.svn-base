@@ -1,0 +1,461 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-o2o-top.jsp" %>
+<body>
+	<div class="container">
+		<div class="wallet-top wallet-branch">
+			<div class="wallet-branch-1">
+				<div class="w-branch-tab">
+					<a href="javascript:void(0);" id="wallet-tab-1" class="wb-link wb-tab-active" type="0">个人福利</a>
+					<a href="javascript:void(0);" id="wallet-tab-2" class="wb-link" type="1">商户福利</a>
+				</div>
+			</div>
+			<div class="wallet-tab-box" id="wallet-1-1">
+				<div class="wallet-branch-2 clearfix">
+					<!-- <div class="w2-left left">
+						<p class="w2-text">单个权益即时福利</p>
+						<div class="w2-num" id="memNum"></div>
+					</div>
+					<div class="w2-right left">
+						<p class="w2-text">待派发福利总数</p>
+						<div class="w2-money" id="memNum1"></div>
+					</div> -->
+					<div class="today-wallet-title w2-text">
+						今日福利
+					</div>
+					<div class="today-wallet-text w2-money" id="memNum">
+						+0
+					</div>
+				</div>
+				<!-- <div class="wallet-branch-3">
+					<div class="wb-3">即时福利，满2元发放。</div>
+				</div> -->
+			</div>
+			<div class="wallet-tab-box hidden" id="wallet-2-1">
+				<div class="wallet-branch-2 clearfix">
+					<!-- <div class="w2-left left">
+						<p class="w2-text">单个权益即时福利</p>
+						<div class="w2-num" id="storeNum"></div>
+					</div>
+					<div class="w2-right left">
+						<p class="w2-text">待派发福利总数</p>
+						<div class="w2-money" id="storeNum1"></div>
+					</div> -->
+					<div class="today-wallet-title w2-text">
+						今日福利
+					</div>
+					<div class="today-wallet-text w2-money" id="storeNum">
+						+0
+					</div>
+				</div>
+				<!-- <div class="wallet-branch-3">
+					<div class="wb-3">即时福利，满2元发放。</div>
+				</div> -->
+			</div>
+		</div>
+		<div class="wallet-tab-box" id="wallet-1-2">
+			<div class="wallet-m-top clearfix">
+				<div class="wm-t-1 left">
+				    <a href="${ctx}/wx/trade/getParticipate?type=0">
+						<p class="wm-text">可参与福利权益</p>
+					    <div class="wm-money" id="memNum2">0</div>
+					</a>
+					
+				</div>
+				<div class="wm-t-2 left">
+					<p class="wm-text">责任消费</p>
+					<div class="wm-money" id="memNum3">${resultVo.result.insuranceMoney}</div>
+				</div>
+				<div class="wm-t-3 left">
+					<p class="wm-text">还可获得福利</p>
+					<div class="wm-money" id="memNum4">0</div>
+				</div>
+			</div>
+			
+			
+			
+			<div class="wallet-middle clearfix">
+				<div class="wm-item left" >
+				    <a href="${ctx}/wx/trade/getSalesWelfare">
+					    <p class="wm-text">销售福利</p>
+					    <div class="wm-money" id="memNum5">0</div>
+					</a>
+					
+				</div>
+				<div class="wm-item left">
+				    <a href="${ctx}/wx/trade/getInterests?type=0">
+					    <p class="wm-text">累计消费</p>
+					   <div class="wm-money" id="memNum6">0</div>
+					</a>
+					
+				</div>
+				<div class="wm-item left">
+					<p class="wm-text">余额账户</p>
+					<div class="wm-money" id="memNum7">0</div>
+				</div>
+			</div>
+			
+			<%-- <div class="wallet-middle clearfix">
+				<div class="wm-item left">
+					<p class="wm-text">福利账户余额</p>
+					<div class="wm-money" >${resultVo.result.dividendsRewardMoney}</div>
+				</div>
+				<div class="wm-item left">				   
+					<p class="wm-text">销售福利余额</p>
+					<div class="wm-money" >${resultVo.result.recomRewardMoney}</div>				  
+				</div>
+				<div class="wm-item left">
+					<p class="wm-text">代理奖励余额</p>
+					<div class="wm-money" >${resultVo.result.indiRewardMoney}</div>
+				</div>
+			</div> --%>
+			<div class="wallet-middle clearfix">
+				<div class="wm-item left">
+					<p class="wm-text">储备池</p>
+					<div class="wm-money" >${resultVo.result.dedecutDiviNum}</div>
+				</div>
+				<div class="wm-item left">				   
+					<p class="wm-text">已领回</p>
+					<div class="wm-money" >${resultVo.result.diviTotalMoney*100}%</div>
+					<p class="wm-text"></p>
+					<div class="wm-money" ></div>						  
+				</div>
+				<div class="wm-item left">
+					<p class="wm-text">线上消费笔数</p>
+					<div class="wm-money" >${resultVo.result.orCount}</div>
+					
+				</div>
+				<div class="wm-item left">
+					
+					<p class="wm-text">线下消费笔数</p>
+					<div class="wm-money" >${resultVo.result.beCount}</div>
+				</div>
+			</div>
+		</div>
+		<div class="wallet-tab-box hidden" id="wallet-2-2">
+			<div class="wallet-m-top clearfix">
+				<div class="wm-t-1 wm-t2-1 left">
+				  <a href="${ctx}/wx/trade/getParticipate?type=1">
+					<p class="wm-text">商户福利权益</p>
+					<div class="wm-money" id="storeNum2">0</div>
+				  </a>
+				</div>
+				<div class="wm-t-2 wm-t2-2 left">
+					<p class="wm-text">已领取</p>
+					<div class="wm-money" id="storeNum3">0</div>
+				</div>
+			</div>
+			
+			
+														
+			<div class="wallet-middle clearfix">
+				<div class="wm-item left">
+					<p class="wm-text">总销售额</p>
+					<div class="wm-money" id="storeNum4">0</div>
+				</div>
+				<div class="wm-item left">
+				   <a href="${ctx}/wx/trade/getInterests?type=1">
+					<p class="wm-text">累计贡献</p>
+					<div class="wm-money" id="storeNum5">0</div>
+				   </a>
+				</div>
+				<div class="wm-item left">
+					<p class="wm-text">还可获得福利</p>
+					<div class="wm-money" id="storeNum6">0</div>
+				</div>
+			</div>
+			
+			<div class="wallet-middle clearfix">
+				<div class="wm-item left">
+					<p class="wm-text">储备池</p>
+					<div class="wm-money" id="storeNum4">${resultVo.result.storeDedecut}</div>
+				</div>
+				
+			</div>
+			
+			<%-- <div class="wallet-middle clearfix">
+				<div class="wm-item left">
+					<p class="wm-text">福利账户余额</p>
+					<div class="wm-money" >${resultVo.result.dividendsRewardMoney}</div>
+				</div>
+				<div class="wm-item left">				   
+					<p class="wm-text">销售福利余额</p>
+					<div class="wm-money" >${resultVo.result.recomRewardMoney}</div>				  
+				</div>
+				 <div class="wm-item left">
+					<p class="wm-text">代理奖励余额</p>
+					<div class="wm-money" >${resultVo.result.indiRewardMoney}</div>
+				</div> 
+			</div> --%>
+		</div>
+		
+		<%-- <div class="withdraw-tip" style="font-size: 1.4rem;padding: 8px 1rem">
+                *转移说明：可转余额金额 ￥${resultVo.result.dividendsRewardMoney+resultVo.result.recomRewardMoney+resultVo.result.indiRewardMoney}（转余额扣除10%税费）。                
+         </div>
+		<div class="btn-box" >
+              <button type="submit" class="btn" style="width: 98%;margin: -7%;" id="transfer">一键转余额</button>
+         </div> --%>
+		
+		<div class="wallet-menu clearfix">
+		    <a href="${ctx}/wx/trade/toFhTreasurePage" class="wmenu-item left">
+				<div class="wmenu-img" style="line-height: 2;">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_withdraw.png">
+				</div>
+				<div class="wmenu-text">凤凰宝</div>
+			</a>
+			<!--  <a href="${ctx}/wx/trade/toDrawCash" class="wmenu-item left">
+				<div class="wmenu-img" style="line-height: 2;">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_withdraw.png">
+				</div>
+				<div class="wmenu-text">提取福利</div>
+			</a>-->
+			<a href="${ctx}/wx/trade/toDrawHistory?pageNo=1&pageSize=10&reqType=0" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_history.png">
+				</div>
+				<div class="wmenu-text">提取历史</div>
+			</a>
+			<a href="${ctx}/wx/trade/myBanks?type=0" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_card.png">
+				</div>
+				<div class="wmenu-text">银行卡</div>
+			</a>
+			<!-- <a href="${ctx}/wx/trade/transferPage" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet-power.png">
+				</div>
+				<div class="wmenu-text">积分转移</div>
+			</a> 
+			<a href="${ctx}/wx/trade/mergePage" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet-power.png">
+				</div>
+				<div class="wmenu-text">合并用户信息</div>
+			</a> --> 
+			<c:if test="${sessionScope.gjfMemberInfo.type eq '1'}">
+			<a href="${ctx}/wx/trade/toBenefit" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_redbag.png">
+				</div>
+				<div class="wmenu-text">销售录入</div>
+			</a>
+			</c:if>
+			<a href="${ctx}/wx/trade/diviHis" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_profit.png">
+				</div>
+				<div class="wmenu-text">福利记录</div>
+			</a>
+			<a href="${ctx}/wx/trade/getInterests?type=0" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_cum.png">
+				</div>
+				<div class="wmenu-text">消费记录</div>
+			</a>
+			<c:if test="${sessionScope.gjfMemberInfo.isReadName eq '0'}">
+			<a href="${ctx}/wx/member/toRealName" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_ID.png">
+				</div>
+				<div class="wmenu-text">实名认证</div>
+			</a>
+			</c:if>
+			<a href="${ctx}/wx/rule/consumption" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_expense.png">
+				</div>
+				<div class="wmenu-text">消费规则</div>
+			</a>
+			<c:if test="${sessionScope.gjfMemberInfo.type eq '1'}">
+			<a href="${ctx}/wx/member/shouXin" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/wallet_coin.png">
+				</div>
+				<div class="wmenu-text">授信额度</div>
+			</a>
+			<a href="${ctx}/wx/rule/download" class="wmenu-item left">
+				<div class="wmenu-img">
+					<img src="${ctx}/common/image/wx/o2o-shop/download-icon.png">
+				</div>
+				<div class="wmenu-text">协议下载</div>
+			</a>
+			</c:if>
+		</div>
+		<!-- <div class="wallet-tip">
+			<div class="wtip-center">根据相关规定，请先实名认证后提现！</div>
+		</div> -->
+	</div>
+	
+<div class="bg-cover hidden"></div>
+<div class="popup-box hidden">
+    <div class="popup-title">您还未入驻凤凰云商O2O</div>
+    <div class="popup-cont clearfix">
+        <div class="popup-item left" data-value="1">
+            <div class="popup-img">
+                <i class="into-sprite icon-enterprise"></i>
+            </div>
+            <div class="popup-text">企业入驻</div>
+        </div>
+        <div class="popup-item left" data-value="2">
+            <div class="popup-img">
+                <i class="into-sprite icon-individual"></i>
+            </div>
+            <div class="popup-text">个体入驻</div>
+        </div>
+    </div>
+    <div class="popup-btn">
+        <a href="#" class="popup-btn-link">确认</a>
+    </div>
+    <i class="main-sprite icon-close abs-icon" id="close-popup"></i>
+</div>
+	<script type="text/javascript">
+		document.title = "我的钱包";
+	    var memberType="${resultVo.result.memberType}";
+		$(function(){
+			$(".wb-link").on("click",function(){
+				var num = this.id.split("-")[2];
+				$(this).addClass('wb-tab-active').siblings().removeClass('wb-tab-active');
+				$(".wallet-tab-box").removeClass("hidden").addClass("hidden");
+				$("#wallet-"+num+"-1,#wallet-"+num+"-2").removeClass('hidden');
+				
+				var type=$(this).attr("type");
+				if(type==1 && memberType==0){
+					$(".bg-cover").removeClass("hidden");
+		            $(".popup-box").removeClass("hidden");
+				}
+				getMemCountInfo(type)
+			})
+		})
+		
+		
+		getMemCountInfo(0)
+		function getMemCountInfo(type){
+			$.ajax({
+				url:"${ctx}/wx/member/countMemberInfo",
+				method:"GET",
+				data:{
+					type:type
+				},
+				success:function(data){
+					if(type==0){
+						$("#memNum").html("+"+data.result.benefitYesterdayMoney);
+						//$("#memNum1").html(data.result.distributingTotal);
+						$("#memNum2").html(data.result.canParticipate);
+						//$("#memNum3").html(data.result.canMoney+"%");
+						$("#memNum4").html(data.result.consumptionMoney);
+						$("#memNum5").html(data.result.dividendsTotalMoney);
+						$("#memNum6").html(data.result.cumulativeMoney);
+						$("#memNum7").html(data.result.balanceMoney);
+					}else{
+						$("#storeNum").html("+"+data.result.benefitYesterdayMoney);
+						//$("#storeNum1").html(data.result.distributingTotal);
+						$("#storeNum2").html(data.result.canParticipate);
+						$("#storeNum3").html(data.result.canMoney+"%");
+						$("#storeNum4").html(data.result.saleTotalMoney);
+						$("#storeNum5").html(data.result.cumulativeMoney);
+						$("#storeNum6").html(data.result.consumptionMoney);						
+					}
+
+				}
+			})
+		}
+		
+		$(".popup-item").on("touchend",function(){
+            $(this).addClass("into-sprite-active").siblings().removeClass("into-sprite-active");
+        });
+		
+		 $(".popup-btn-link").on("touchend",function(e){
+	            e.stopPropagation();
+	            e.preventDefault();
+	            var num = $(".into-sprite-active").attr("data-value");
+	            if(num == "1"){//企业入驻
+	                window.location.href = "${ctx}/wx/store/toAdd/1";
+	            }else if(num == "2"){//个体入驻
+	                window.location.href = "${ctx}/wx/store/toAdd/0";
+	            }
+	        })
+	        
+	     $("#close-popup").on("click",function(e){
+            e.stopPropagation();
+            $(".bg-cover").addClass("hidden");
+            $(".popup-box").addClass("hidden");
+            $(".popup-item").removeClass("into-sprite-active");
+           /*  $("#wallet-tab-1").addClass('wb-tab-active').siblings().removeClass('wb-tab-active'); */
+            location.replace(location)      
+        })
+        
+        
+        //商家让利用户确认信息
+        var isConfirm="${resultVo.result.isConfirm}";
+        if(isConfirm=="0"){
+        	$.ajax({
+        		url:"${ctx}/wx/trade/findBenefitByTime",
+        		method:"GET",
+        		success:function(data){
+        			if(data.result!=null&&data.result.confirmStatus=="0"&&data.result.benefitMoney>=5000){
+        				layer.open({
+        	                content: "尊敬的凤凰云商会员：感谢您对凤凰云商的支持，请您确认您此次在凤凰云商联盟商家消费的真实性，尊重并执行凤凰云商的消费“分红”规则，即按照平台每天营业额的一定比例，根据消费会员与商家的消费贡献值加权平均计算分配，用赠送的方式回馈给您，计算多少赠送多少，如对上述内容确认接受，请按“确认”键，系统自动将您此次消费所获得的“消费福利”转入您的福利账号！再次感谢您的支持！  声明：凤凰云商是“消费分红”平台，不是消费全返平台",     	                       
+        	                btn: ['确认', '取消'],
+        	                yes: function(index){//点击去认证页面，index为该特定层的索引
+        	                	$.ajax({
+        	                		url:"${ctx}/wx/trade/updateBenefitConfirmStatus",
+        	                		method:"get",
+        	                		data:{
+        	                			tradeNo:data.result.tradeNo,
+        	                		},
+        	                	  success:function(data){   	                		
+        	                		if(data.code="200"){
+        	                			 layer.close(index);
+        	                		}else{
+        	                			layer.open({
+        	                                content:"确认失败",
+        	                                btn:'我知道了'
+        	                            })
+        	                		}  
+        	                	  }
+        	                	})
+        	                },
+        	                no:function(index){
+        	                    layer.close(index);
+        	                    window.location.href="${ctx}/wx/member/my"
+        	                }
+        	            });	
+        			}
+        		}
+        	})
+        }
+        
+        
+        $("#transfer").click(function(){
+        	layer.open({
+                content: "是否确认转移",     	                       
+                btn: ['确认', '取消'],
+                yes: function(index){//点击去认证页面，index为该特定层的索引
+                	$.ajax({
+                		url:"${ctx}/wx/trade/transferDividendsMoney",
+                		method:"POST",              		
+                	  success:function(data){ 
+                	
+                		if(data.code==200){ 
+                			 layer.close(index);
+                			 location.replace(location)
+                		}else{
+                			layer.open({
+                                content:data.msg,
+                                btn:'我知道了'
+                            })
+                		}  
+                	  }
+                	})
+                },
+                no:function(index){
+                    layer.close(index);
+                }
+            });	
+        })
+    	
+ 
+		
+	</script>
+</body>
+</html>

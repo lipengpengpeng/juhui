@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.codebehind.pathPrefix" value="/WEB-INF/jsp/" />
+	
+	<package name="stnet" extends="struts-default" namespace="/">
+		<interceptors>
+			<interceptor name="authority" class="cc.modules.security.AuthorityIntercept">
+			</interceptor>
+			
+			<interceptor-stack name="author">
+				<interceptor-ref name="authority"></interceptor-ref>
+				<interceptor-ref name="defaultStack"></interceptor-ref>
+			</interceptor-stack>
+		</interceptors>
+		
+		<default-interceptor-ref name="author"></default-interceptor-ref>
+		
+		
+		<global-results>
+			<!-- 下面定义的结果对所有的Action都有效 -->
+			<result name="login">/WEB-INF/jsp/index.jsp</result>
+			<result name="exception">
+				/WEB-INF/jsp/error.jsp
+			</result>
+		</global-results>
+		
+		
+		<action name="usersAction" class="usersAction">
+			<result name="input">/WEB-INF/jsp/enterprise/system/users.jsp</result>
+		    <result>/WEB-INF/jsp/enterprise/system/users.jsp</result>
+		    <result name="view">/WEB-INF/jsp/enterprise/system/users_view.jsp</result>
+		    <result name="edit">/WEB-INF/jsp/enterprise/system/users_edit.jsp</result>
+		    <result name="do_success" type="redirect">usersAction.action</result>
+		    <result name="add_page">/WEB-INF/jsp/enterprise/system/users_new.jsp</result>
+		    <result name="view_info">/WEB-INF/jsp/enterprise/system/usersInfo_view.jsp </result>
+		    <result name="edit_info">/WEB-INF/jsp/enterprise/system/usersInfo_edit.jsp </result>
+		    
+		    <!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+            <interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update,updateInfo</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+		    
+		</action>
+		
+		<action name="rolesAction" class="rolesAction">
+		    <result>/WEB-INF/jsp/enterprise/system/role.jsp</result>
+		    <result name="view">/WEB-INF/jsp/enterprise/system/role_view.jsp</result>
+		    <result name="edit">/WEB-INF/jsp/enterprise/system/role_edit.jsp</result>
+		    <result name="update" type="redirect">rolesAction.action</result>
+		    <result name="add_page">/WEB-INF/jsp/enterprise/system/role_new.jsp</result>
+		    <result name="add" type="redirect">rolesAction.action</result>
+		    <result name="delete" type="redirect">rolesAction.action</result>
+		    
+		    <!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+		    
+		</action>
+		
+		<action name="authoritiesAction" class="authoritiesAction">
+		    <result>/WEB-INF/jsp/enterprise/system/authorities.jsp</result>
+		    <result name="view">/WEB-INF/jsp/enterprise/system/authorities_view.jsp</result>
+		    <result name="edit">/WEB-INF/jsp/enterprise/system/authorities_edit.jsp</result>
+		    <result name="update" type="redirect">authoritiesAction.action</result>
+		    <result name="add_page">/WEB-INF/jsp/enterprise/system/authorities_new.jsp</result>
+		    <result name="add" type="redirect">authoritiesAction.action</result>
+		    <result name="delete" type="redirect">authoritiesAction.action</result>
+		    <result name="tree">/WEB-INF/jsp/common/generate_tree.jsp</result>
+		    
+		    <!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+		    
+		</action>
+		
+		<action name="pageTypeAction" class="pageTypeAction">
+			<result>/WEB-INF/jsp/enterprise/system/pageType.jsp</result>
+			<result name="viewPage">/WEB-INF/jsp/enterprise/system/pageType_view.jsp</result>
+			<result name="editPage">/WEB-INF/jsp/enterprise/system/pageType_edit.jsp</result>
+			<result name="newPage">/WEB-INF/jsp/enterprise/system/pageType_new.jsp</result>
+			
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+			
+		</action>	
+		
+		<action name="alterUrlAction" class="alterUrlAction">
+		    <result>/WEB-INF/jsp/enterprise/system/alterUrl.jsp</result>
+		</action>
+		
+		<action name="webSiteAction" class="webSiteAction">
+		    <result>/WEB-INF/jsp/enterprise/system/webSite.jsp</result>
+		    <result name="input">/WEB-INF/jsp/enterprise/system/webSite.jsp</result>
+		    <result name="do_success" type="redirect">webSiteAction!updateExecute.action</result>
+		</action>
+		
+		<action name="standbyAction" class="standbyAction">
+			<result>/WEB-INF/jsp/enterprise/system/standby.jsp</result>
+			<result name="editStandby">/WEB-INF/jsp/enterprise/system/standby_edit.jsp</result>
+		</action>
+		
+		<action name="mcParameterAction" class="mcParameterAction">
+			<result>/WEB-INF/jsp/enterprise/system/mcParameter.jsp</result>
+			<result name="edit">/WEB-INF/jsp/enterprise/system/mcParameter_edit.jsp</result>
+			<result name="input">/WEB-INF/jsp/enterprise/system/mcParameter.jsp</result>
+		</action>
+		
+		<action name="updatePasswordAction" class="updatePasswordAction">
+			<result name="success">/WEB-INF/jsp/enterprise/system/editpassword.jsp</result>
+			<result name="reset_view">/WEB-INF/jsp/enterprise/system/resetpassword.jsp</result>
+			<result name="do_success" type="redirect">updatePasswordAction.action</result>
+			<result name="user_list" type="redirect">/ep_system/usersAction.action</result>
+			<result name="faiure">/WEB-INF/jsp/enterprise/system/editpassword.jsp</result>
+			<result name="view_info" type="redirect">usersAction!viewInfo.action</result>
+		</action>
+		
+		<action name="changeLocaleAction" class="cc.messcat.web.system.ChangeLocaleAction">
+			<result name="success">/WEB-INF/jsp/mainframe.jsp</result>
+		</action>
+	</package>
+	
+</struts>

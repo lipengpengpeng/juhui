@@ -1,0 +1,404 @@
+package cc.messcat.dao.collection;
+
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.Criteria;
+import org.hibernate.HibernateException;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+
+import cc.messcat.bases.BaseDaoImpl;
+import cc.messcat.entity.GjfProductInfo;
+import cc.messcat.entity.McProductInfo;
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.modules.util.CollectionUtil;
+
+public class McProductInfoDaoImpl extends BaseDaoImpl implements McProductInfoDao {
+
+	public void save(McProductInfo mcProductInfo) {
+		getHibernateTemplate().save(mcProductInfo);
+	}
+
+	public void update(McProductInfo mcProductInfo, Boolean flag) {
+		getHibernateTemplate().update(mcProductInfo);
+	}
+
+	public void delete(McProductInfo mcProductInfo) {
+		getHibernateTemplate().delete(mcProductInfo);
+	}
+
+	public void delete(Long id) {
+		getHibernateTemplate().delete(this.get(id));
+	}
+
+	@SuppressWarnings("unchecked")
+	public McProductInfo get(Long id) {
+		String hql = "from McProductInfo where id=?";
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(hql);
+		query.setParameter(0, id);
+		query.setMaxResults(1);
+		List list = query.list();
+		if (CollectionUtil.isListNotEmpty(list))
+			return (McProductInfo) list.get(0);
+		return null;
+	}
+	
+	@Override
+	public GjfProductInfo getProduct(Long id) {
+		String hql = "from GjfProductInfo where id=?";
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(hql);
+		query.setParameter(0, id);
+		query.setMaxResults(1);
+		List list = query.list();
+		if (CollectionUtil.isListNotEmpty(list))
+			return (GjfProductInfo) list.get(0);
+		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List findAll() {
+		return getHibernateTemplate().find("from McProductInfo");
+	}
+
+	@SuppressWarnings("unchecked")
+	public Pager getPager(int pageSize, int pageNo) {
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Criteria criteria = session.createCriteria(McProductInfo.class);
+		int rowCount = ((Integer) criteria.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		criteria.setProjection(null);
+		int startIndex = pageSize * (pageNo - 1);
+		criteria.setFirstResult(startIndex);
+		criteria.setMaxResults(pageSize);
+		List result = criteria.list();
+		return new Pager(pageSize, pageNo, rowCount, result);
+	}
+   
+
+	/**
+	 * 查询没有关联服务车型的所有产品信息
+	 * 
+	 * @param pageSize
+	 * @param pageNo
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public Pager getPagerNoRelate(int pageSize, int pageNo) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer(
+				" from McProductInfo pro where 1=1 and pro.id not in (select product.product.id from ServiceProduct product where 1=1)");
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+			pager = new Pager(pageSize, pageNo, query.list().size(), new ArrayList());
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	@SuppressWarnings("rawtypes")
+	public List findMcProductInfoByWhere(String where) {
+		List ecList = getHibernateTemplate()
+			.find((new StringBuffer("from McProductInfo ")).append(where).append(" and storeId.storeStatus = '1' and storeId.isDel = '1' order by addTime desc ").toString());
+		return ecList;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List retrieveAllDateClass() {
+		List ecList = getHibernateTemplate()
+			.find("select new McProductInfo(addtime) from McProductInfo WHERE is_new = 1 GROUP BY ADDTIME");
+		return ecList;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List retrieveAllProductByNewsAndDateClass(String date) {
+		List ecList = getHibernateTemplate().find("from McProductInfo WHERE is_new = 1 and ADDTIME = ?", date);
+		return ecList;
+	}
+
+	/**
+	 * 相关联
+	 */
+	public Pager retrieveMcProductInfosPagerRelate(int pageSize, int pageNo, Long serviceCarId) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer(" from ServiceProduct pro where 1=1 and pro.serviceCar.id=" + serviceCarId);
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+			pager = new Pager(pageSize, pageNo, query.list().size(), null);
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	/**
+	 * 无关联的
+	 */
+	public Pager retrieveMcProductInfosPagerNoRelate(int pageSize, int pageNo, Long serviceCarId) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer(
+				" from McProductInfo pro where 1=1 and pro.id not in (select product.product.id from ServiceProduct product where 1=1 and product.serviceCar.id="
+					+ serviceCarId + ")");
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+
+			pager = new Pager(pageSize, pageNo, query.list().size(), null);
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	/**
+	 * 根据产品名称模糊查询与服务车型无关的相关产品
+	 * 
+	 * @param pageSize2
+	 * @param pageNo2
+	 * @param serviceCarId
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public Pager retrieveMcProductInfosPagerNoRelateWithProName(int pageSize, int pageNo, Long serviceCarId, String productName) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer(
+				" from McProductInfo pro where 1=1 and pro.id not in (select product.product.id from ServiceProduct product where 1=1 and product.serviceCar.id=?)  and pro.title like '%?%'");
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+			pager = new Pager(pageSize, pageNo, query.list().size(), null);
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			query.setParameter(0, serviceCarId);
+			query.setParameter(1, productName);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public List<McProductInfo> findProductByMember(Long memberId, String status) {
+		if (memberId == null || status == null) {
+			return null;
+		}
+		StringBuilder sql = new StringBuilder("from McProductInfo where 1 = 1 and memberId = ");
+		sql.append(memberId);
+		sql.append(" and status = ");
+		sql.append(status);
+		sql.append(" order by updatetime desc");
+		return (List<McProductInfo>) getHibernateTemplate().find(sql.toString());
+	}
+
+	/**
+	 * 商品查询
+	 */
+	public Pager findProduct4PageByMember(Map<String, Object> paramMap) {
+
+		if (paramMap.get("memberId") == null) {
+			return null;
+		}
+		String memberId = paramMap.get("memberId").toString();
+		int pageSize = Integer.parseInt(paramMap.get("pageSize").toString());
+		int pageNo = Integer.parseInt(paramMap.get("pageNo").toString());
+
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Criteria criteria = session.createCriteria(McProductInfo.class);
+		criteria.add(Restrictions.eq("memberId", Long.parseLong(memberId)));
+		Object obj = paramMap.get("type");
+		if (obj != null && !"".equals(obj))// 查询的类型
+		{
+			String type = obj.toString();
+			if ("lock_up".equals(type))// 查询 违规的商品
+			{
+				criteria.add(Restrictions.eq("status", "10"));// '商品状态
+																// 0下架，1正常，10违规（禁售）',
+			} else if ("wait_verify".equals(type))// 查询 等待审核的商品
+			{
+				criteria.add(Restrictions.ne("status", "10"));
+				if (paramMap.get("verify") != null) {
+					criteria.add(Restrictions.eq("goodsVerify", Integer.parseInt(paramMap.get("verify").toString())));// '商品审核
+																														// 1通过，0未通过，10审核中'
+				} else {
+					criteria.add(Restrictions.ne("goodsVerify", 1));// '商品审核
+																	// 1通过，0未通过，10审核中'
+				}
+			}
+		} else { // 仓库中的商品
+			if ("0".equals(paramMap.get("status")) && Integer.parseInt(paramMap.get("goodsVerify").toString()) == 1)// 仓库中的商品
+			{
+				criteria.add(Restrictions.eq("status", "0"));// '商品状态
+																// 0下架，1正常，10违规（禁售）',
+			} // 出售中的商品
+			else if ("1".equals(paramMap.get("status")) && Integer.parseInt(paramMap.get("goodsVerify").toString()) == 1)// 出售中商品
+																															// 1正常(上架)，商品审核
+																															// 1通过
+			{
+				criteria.add(Restrictions.eq("status", "1"));// '商品状态
+																// 0下架，1正常，10违规（禁售）',
+			}
+			criteria.add(Restrictions.eq("goodsVerify", 1));// '商品审核
+															// 1通过，0未通过，10审核中'
+		}
+
+		Object search_type = paramMap.get("search_type");
+		Object keyword = paramMap.get("keyword");
+		if (search_type != null && keyword != null) {
+			String str = search_type.toString();
+			String keywordStr = keyword.toString();
+			if ("0".equals(str))// 商品名称
+			{
+				criteria.add(Restrictions.like("title", "%" + keywordStr + "%"));
+			} else if ("1".equals(str))// 商家货号
+			{
+				criteria.add(Restrictions.like("gSerial", "%" + keywordStr + "%"));
+			} else if ("2".equals(str))// 平台货号
+			{
+
+			}
+		}
+		criteria.addOrder(Order.desc("updatetime"));
+		int rowCount = ((Integer) criteria.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		criteria.setProjection(null);
+		criteria.setResultTransformer(Criteria.ROOT_ENTITY);
+		int startIndex = pageSize * (pageNo - 1);
+		criteria.setFirstResult(startIndex);
+		criteria.setMaxResults(pageSize);
+		List result = criteria.list();
+
+		return new Pager(pageSize, pageNo, rowCount, result);
+	}
+
+	@Override
+	public Pager findMcProductByStoreId(Map paramMap) {
+		int pageSize = Integer.parseInt(paramMap.get("pageSize").toString());
+		int pageNo = Integer.parseInt(paramMap.get("pageNo").toString());
+
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Criteria criteria = session.createCriteria(McProductInfo.class);
+		criteria.addOrder(Order.desc("updatetime"));
+		int rowCount = ((Integer) criteria.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		criteria.setProjection(null);
+		criteria.setResultTransformer(Criteria.ROOT_ENTITY);
+		int startIndex = pageSize * (pageNo - 1);
+		criteria.setFirstResult(startIndex);
+		criteria.setMaxResults(pageSize);
+		List result = criteria.list();
+
+		return new Pager(pageSize, pageNo, rowCount, result);
+	}
+
+	// 根据商品名称查商品
+	@SuppressWarnings("unchecked")
+	@Override
+	public McProductInfo findMcProductByTitle(String title) {
+		List mcProductInfos = getHibernateTemplate().find("from McProductInfo WHERE  1 = 1 and title = ?", title);
+		if (mcProductInfos.size() > 0) {
+			return (McProductInfo) mcProductInfos.get(0);
+		}
+		return null;
+	}
+
+	/**
+	 * 根据店铺id查询热销、新、收藏产品
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<McProductInfo> findMcProductInfosByCondition(Map<String, Object> paramMap) {
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Criteria criteria = session.createCriteria(McProductInfo.class);
+		criteria.add(Restrictions.eq("storeId", Long.parseLong(paramMap.get("storeId").toString())));
+		if (paramMap.get("isNew") != null && !"".equals(paramMap.get("isNew"))) {
+			criteria.add(Restrictions.eq("isNew", Integer.parseInt(paramMap.get("isNew").toString())));
+		}
+		if (paramMap.get("isSale") != null && !"".equals(paramMap.get("isSale"))) {
+			criteria.add(Restrictions.eq("isSale", Integer.parseInt(paramMap.get("isSale").toString())));
+		}
+		if (paramMap.get("isHot") != null && !"".equals(paramMap.get("isHot"))) {
+			criteria.add(Restrictions.eq("isHot", Integer.parseInt(paramMap.get("isHot").toString())));
+		}
+		if (paramMap.get("isQbuy") != null && !"".equals(paramMap.get("isQbuy"))) {
+			criteria.add(Restrictions.eq("isQbuy", Integer.parseInt(paramMap.get("isQbuy").toString())));
+		}
+		criteria.addOrder(Order.desc("updatetime"));
+		return criteria.list();
+	}
+
+	public McProductInfo findMcProductByStoreIdAndSerial(Long storeId, String serial) {
+		String hql = "from McProductInfo where goodsVerify=1 and storeId=? and gSerial=?";
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(hql);
+		query.setParameter(0, storeId);
+		query.setParameter(1, serial);
+		return (McProductInfo) query.uniqueResult();
+	}
+
+	/**
+	 * 统计商品数量
+	 */
+	@Override
+	public Integer countTotalProduct() {
+		String sql="select count(*) from gjf_product_info where ADUIT_STATUS_='1' and STATUS_='1'";	
+		BigInteger result=(BigInteger) this.getHibernateTemplate().getSessionFactory().getCurrentSession().createSQLQuery(sql).uniqueResult();
+		return result.intValue() ;
+	}
+
+	/**
+	 * 根据条件查询商品
+	 */
+	@Override
+	public Pager findProductByCondition(Integer pageNo, Integer pageSize, String codition) {
+		 StringBuffer str=(new StringBuffer("from GjfProductInfo")).append(codition).append(" and storeId.storeStatus = '1' and storeId.isDel = '1' order by addTime desc ");
+		 List list=this.getHibernateTemplate().getSessionFactory().getCurrentSession().createQuery(str.toString()).setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		 StringBuffer str1=(new StringBuffer("select count(*) from McProductInfo ")).append(codition).append(" and storeId.storeStatus = '1' and storeId.isDel = '1' ");
+		 Long count=(Long) getHibernateTemplate().getSessionFactory().getCurrentSession().createQuery(str1.toString()).uniqueResult();
+		return new Pager(pageSize, pageNo,count.intValue(), list);
+
+	}
+	 /**
+     * 根据库存数量倒序查出所有商品
+     * @param pageSize
+     * @param pageNo
+     * @return
+     */
+	@Override
+	public Pager getProNum(Integer pageSize, Integer pageNo) {
+		Pager pager = null;
+		try {
+			String hql = "from McProductInfo Order by repertory desc";
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(hql);
+			pager = new Pager(pageSize,pageNo,query.list().size(),new ArrayList());
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	
+
+}

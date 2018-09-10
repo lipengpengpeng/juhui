@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+    <class name="cc.messcat.entity.EnterpriseNews" table="gjf_enterprise_news">
+        <id name="id" type="java.lang.Long">
+            <column name="ID_" />
+            <generator class="identity" />
+        </id>
+        <many-to-one name="enterpriseColumn" class="cc.messcat.entity.EnterpriseColumn" fetch="select" lazy="false">
+            <column name="ENTERPRISE_COLUMN_" />
+        </many-to-one>
+        <property name="title" type="java.lang.String">
+            <column name="TITLE_" length="200" />
+        </property>
+        <property name="priKey" type="java.lang.String">
+            <column name="PRI_KEY_" length="500" />
+        </property>
+        <property name="shortMeta" type="java.lang.String">
+            <column name="SHORT_META_" length="500" />
+        </property>
+        <property name="autor" type="java.lang.String">
+            <column name="AUTOR_" length="20" />
+        </property>
+        <property name="source" type="java.lang.String">
+            <column name="SOURCE_" length="50" />
+        </property>
+        <property name="contents" type="java.lang.String">
+            <column name="CONTENTS_" />
+        </property>
+        <property name="contents1" type="java.lang.String">
+            <column name="CONTENTS1_" length="65535" />
+        </property>
+        <property name="contents2" type="java.lang.String">
+            <column name="CONTENTS2_" length="65535" />
+        </property>
+        <property name="contents3" type="java.lang.String">
+            <column name="CONTENTS3_" length="65535" />
+        </property>
+        <property name="contents4" type="java.lang.String">
+            <column name="CONTENTS4_" length="65535" />
+        </property>
+        <property name="contents5" type="java.lang.String">
+            <column name="CONTENTS5_" length="65535" />
+        </property>
+        <property name="contents6" type="java.lang.String">
+            <column name="CONTENTS6_" length="65535" />
+        </property>
+        <property name="contents7" type="java.lang.String">
+            <column name="CONTENTS7_" length="65535" />
+        </property>
+        <property name="contents8" type="java.lang.String">
+            <column name="CONTENTS8_" length="65535" />
+        </property>
+        <property name="contents9" type="java.lang.String">
+            <column name="CONTENTS9_" length="65535" />
+        </property>
+        <property name="clickTimes" type="java.lang.Long">
+            <column name="CLICK_TIMES_" />
+        </property>
+        <property name="initTime" type="java.util.Date">
+            <column name="INIT_TIME_" length="19" />
+        </property>
+        <property name="endTime" type="java.util.Date">
+            <column name="END_TIME_" length="19" />
+        </property>
+        <property name="editTime" type="java.util.Date">
+            <column name="EDIT_TIME_" length="19" />
+        </property>
+        <many-to-one name="users" class="cc.messcat.entity.Users" fetch="select" lazy="false">
+            <column name="USERS_" />
+        </many-to-one>
+        <property name="isTop" type="java.lang.String">
+            <column name="IS_TOP_" length="1" />
+        </property>
+        <property name="isCommend" type="java.lang.String">
+            <column name="IS_COMMEND_" length="1" />
+        </property>
+        <property name="isPrimPhoto" type="java.lang.String">
+            <column name="IS_PRIM_PHOTO_" length="1" />
+        </property>
+        <property name="isIndexPhoto" type="java.lang.String">
+            <column name="IS_INDEX_PHOTO_" length="1" />
+        </property>
+        <property name="isOnlyContent" type="java.lang.Long">
+            <column name="IS_ONLY_CONTENT_" />
+        </property>
+        <property name="otherUrl" type="java.lang.String">
+            <column name="OTHER_URL_" length="100" />
+        </property>
+        <property name="BOrS" type="java.lang.String">
+            <column name="B_OR_S_" length="1" />
+        </property>
+        <property name="photo" type="java.lang.String">
+            <column name="PHOTO_" length="50" />
+        </property>
+        <property name="state" type="java.lang.String">
+            <column name="STATE_" length="1" />
+        </property>
+        <property name="htmlName" type="java.lang.String">
+            <column name="HTML_NAME_" length="200" />
+        </property>
+        <property name="isShowedOnIndex" type="java.lang.String">
+            <column name="IS_SHOWED_ON_INDEX_" length="1" />
+        </property>
+        <property name="fileInfo" type="java.lang.String">
+            <column name="FILE_INFO_">
+                <comment>上传文件名称</comment>
+            </column>
+        </property>
+        <property name="fileSize" type="java.lang.Long">
+            <column name="FILE_SIZE_">
+                <comment>上传文件大小</comment>
+            </column>
+        </property>
+    </class>
+</hibernate-mapping>

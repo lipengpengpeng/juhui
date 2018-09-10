@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true"
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:task="http://www.springframework.org/schema/task" 
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="  
+       http://www.springframework.org/schema/beans   
+       http://www.springframework.org/schema/beans/spring-beans-4.2.xsd    
+       http://www.springframework.org/schema/mvc   
+       http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd     
+       http://www.springframework.org/schema/context   
+       http://www.springframework.org/schema/context/spring-context-4.2.xsd
+       http://www.springframework.org/schema/task 
+       http://www.springframework.org/schema/task/spring-task-4.2.xsd">
+	
+	<bean id="myTask" class="cc.messcat.gjfeng.quartz.QuartzTask" /> 
+	<task:scheduled-tasks> 
+	    <!-- 定时凌晨12点统计会员和商家分红、代理分红 -->
+	    <task:scheduled ref="myTask" method="updateActBenefit" cron="0 01 0 * * ?" /> 
+	    <task:scheduled ref="myTask" method="updateAgentBenefit" cron="0 01 0 * * ?" /> 
+	     <!-- <task:scheduled ref="myTask" method="updateBenefit" cron="0 30 09 * * ?" /> -->
+	    
+	    <!-- 统计报表 -->
+	    <task:scheduled ref="myTask" method="updateSummaryReport" cron="0 0 02 * * ?" />
+	    <task:scheduled ref="myTask" method="updateBenefitReport" cron="0 10 02 * * ?" />
+	    <task:scheduled ref="myTask" method="updatePoolReport" cron="0 20 2 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWealOutputReport" cron="0 0 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWealPayoutReport" cron="0 10 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateWithdrawReport" cron="0 20 04 * * ?" />
+	    <task:scheduled ref="myTask" method="updateSummaryAndPayoutReport" cron="0 0 12 * * ?" />
+	    
+	    <task:scheduled ref="myTask" method="addTotalReport" cron="0 0 05 * * ?" />
+	    
+	    <task:scheduled ref="myTask" method="updateMnsSmsStatus" cron="0 30 * * * ? " />
+	    
+	     <!-- <task:scheduled ref="myTask" method="updateMemberDedcteDivi" cron="0 30 03 * * ? " />
+	    
+	     <task:scheduled ref="myTask" method="updateMemberIsDiviStatus" cron="0 45 23 * * ? " /> 
+	   
+	     <task:scheduled ref="myTask" method="updateOrderBenefit" cron="0 30 05 * * ? " />-->
+	    
+	     <!-- 定时发分红-->
+         <!--<task:scheduled ref="myTask" method="updateMemberIsActivity" cron="0 20 1 1 * ?" />
+         
+         <task:scheduled ref="myTask" method="updateActivityMemberDivi" cron="0 15 0 * * ?" /> 
+         
+         <task:scheduled ref="myTask" method="updateNoActivityMemberDivi" cron="0 55 0 * * ?" /> 
+         
+         <task:scheduled ref="myTask" method="updateActivityMerchantDivi" cron="0 10 01 * * ?" /> 
+         
+         <task:scheduled ref="myTask" method="updateNoActivityMerchantDivi" cron="0 50 01 * * ?" /> -->
+ 
+	</task:scheduled-tasks>
+</beans>

@@ -1,0 +1,239 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.codebehind.pathPrefix" value="/WEB-INF/jsp/" />
+	
+	<package name="ep_subsystem" extends="struts-default" namespace="/subsystem">
+		
+		<interceptors>
+			<interceptor name="authority" class="cc.modules.security.AuthorityIntercept">
+			</interceptor>
+			
+			<interceptor-stack name="author">
+				<interceptor-ref name="authority"></interceptor-ref>
+				<interceptor-ref name="defaultStack"></interceptor-ref>
+			</interceptor-stack>
+		</interceptors>
+		
+		<default-interceptor-ref name="author"></default-interceptor-ref>
+		
+		<global-results>
+			<result name="login">/WEB-INF/jsp/index.jsp</result>
+		</global-results>
+		
+		<action name="productAttrAction" class="cc.messcat.web.subsystem.ProductAttrAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfProductInfo.jsp</result>
+			<result name="viewPage">/WEB-INF/jsp/enterprise/subsystem/gjfProductInfo_view.jsp</result>
+			<result name="editPage">/WEB-INF/jsp/enterprise/subsystem/gjfProductInfo_edit.jsp</result>
+			<result name="newPage">/WEB-INF/jsp/enterprise/subsystem/gjfProductInfo_new.jsp</result>
+			<result name="edit_success" type="redirect">gjfProductInfoAction!retrieveAllGjfProductInfos.action</result>
+			<result name="ProductAttrList">/WEB-INF/jsp/enterprise/subsystem/gjfProductAttr.jsp</result>
+			
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>	
+		</action>
+		
+		
+		
+		<action name="memberInfoAction" class="cc.messcat.web.subsystem.MemberInfoAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfMemberInfo.jsp</result>
+			<result name="views">/WEB-INF/jsp/enterprise/subsystem/gjfMemberInfo_view.jsp</result>
+			<result name="goEditPage">/WEB-INF/jsp/enterprise/subsystem/gjfMemberInfo_edit.jsp</result>
+			<result name="edit_memberInfo" type="redirect">memberInfoAction!findAllMember.action</result>
+			<result name="delete_member" type="redirect">memberInfoAction!findAllMember.action</result>
+			<result name="goAuditPage">/WEB-INF/jsp/enterprise/subsystem/gjfMemberInfo_adiutview.jsp</result>	
+			<result name="auditState" type="redirect">memberInfoAction!findAllMember.action</result>	
+			<result name="lower_member_list">/WEB-INF/jsp/enterprise/subsystem/lower_member_list.jsp</result>	
+			<result name="sellersList">/WEB-INF/jsp/enterprise/subsystem/sellerMember.jsp</result>
+			<result name="settlement">/WEB-INF/jsp/enterprise/subsystem/financialSettlement.jsp</result>
+			<result name="lowersProducts">/WEB-INF/jsp/enterprise/subsystem/lowersProducts.jsp</result>
+			<result name="agent_list">/WEB-INF/jsp/enterprise/subsystem/agentList.jsp</result>
+			<result name="toBeAgent">/WEB-INF/jsp/enterprise/subsystem/toBeAgent.jsp</result>
+			<result name="bcBeAgent" type="redirect">memberInfoAction!findAllMember.action</result>
+			<result name="toUpdateAgent">/WEB-INF/jsp/enterprise/subsystem/toUpdateAgent.jsp</result>
+			<result name="moneyHistory">/WEB-INF/jsp/enterprise/subsystem/moneyHistory.jsp</result>
+			<result name="Divi_Money_History">/WEB-INF/jsp/enterprise/subsystem/diviMoneyHistory.jsp</result>
+			<result name="Divi_Num_History">/WEB-INF/jsp/enterprise/subsystem/diviNumHistory.jsp</result>
+			<result name="StoreConsumHistory">/WEB-INF/jsp/enterprise/subsystem/StoreConsumHistory.jsp</result>
+			<result name="O2OConsumHistory">/WEB-INF/jsp/enterprise/subsystem/O2OConsumHistory.jsp</result>
+			<result name="findSetBaseInfo">/WEB-INF/jsp/enterprise/subsystem/gjfSetBaseInfo.jsp</result>
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+			
+		</action>
+		<action name="orderInfoAction" class="cc.messcat.web.subsystem.OrderInfoAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods.jsp</result>
+			<result name="goAddAddress">/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods_address.jsp</result>
+			<result name="goAddAddressProvince">/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods_address_province.jsp</result>
+			<result name="goAddAddressCity">/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods_address_city.jsp</result>
+			<result name="goAddAddressArea">/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods_address_area.jsp</result>
+			<result name="new_orderAddrees" type="redirect">orderInfoAction!findAllOrderInfo.action</result>
+			<result name="views">/WEB-INF/jsp/enterprise/subsystem/gjfOrderGoods_view.jsp</result>	
+			<result name="export">/WEB-INF/jsp/enterprise/subsystem/orderInfo_export.jsp</result>			
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+			
+		</action>
+		
+		<action name="storeInfoAction" class="cc.messcat.web.subsystem.StoreInfoAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfStoreInfo.jsp</result>
+			<result name="views">/WEB-INF/jsp/enterprise/subsystem/gjfStore_view.jsp</result>
+			<result name="delete_store" type="redirect">storeInfoAction!retrieveStoreByPager.action</result>
+			<result name="goEditPage">/WEB-INF/jsp/enterprise/subsystem/gjfStoreInfo_edit.jsp</result>
+			<result name="goStatusPage">/WEB-INF/jsp/enterprise/subsystem/gjfStore_view_audit.jsp</result>
+			<result name="edit_success" type="redirect">storeInfoAction!retrieveStoreByPager.action</result>
+			<result name="recharge_list">/WEB-INF/jsp/enterprise/subsystem/rechargeList.jsp</result>
+			<result name="agentStores">/WEB-INF/jsp/enterprise/subsystem/agentStores.jsp</result>
+			<result name="storeBenefit_Agent">/WEB-INF/jsp/enterprise/subsystem/agentStoresBenefit.jsp</result>
+			<result name="store_diviNum_list">/WEB-INF/jsp/enterprise/count/storeDiviNumList.jsp</result>
+			<result name="rechargeList_export">/WEB-INF/jsp/enterprise/subsystem/rechargeList_export.jsp</result>
+            <!--  <result name="provice"></result> -->
+									
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+		</action>	
+		
+		<action name="tradeInfoAction" class="cc.messcat.web.subsystem.TradeInfoAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfTradeInfo.jsp</result>
+			<result name="view_detail">/WEB-INF/jsp/enterprise/subsystem/gjfTrade_view_audit.jsp</result>
+			<result name="edit_withdrawalState" type="redirect">tradeInfoAction!findAllTrade.action</result>
+            <!--  <result name="provice"></result> -->
+			<result name="Divi">/WEB-INF/jsp/enterprise/subsystem/gjfMemberTradeDivis.jsp</result>
+			<result name="DiviHistory">/WEB-INF/jsp/enterprise/subsystem/gjfMemberDiviHistorys.jsp</result>
+			<result name="benefit">/WEB-INF/jsp/enterprise/subsystem/gjfMemberTradeBenefit.jsp</result>
+			<result name="trade_export">/WEB-INF/jsp/enterprise/subsystem/tradeInfos_export.jsp</result>
+			<result name="benefit_list">/WEB-INF/jsp/enterprise/subsystem/benefit_List.jsp</result>	
+			<result name="trade_benefit_export">/WEB-INF/jsp/enterprise/subsystem/benefit_list_export.jsp</result>
+			<result name="trade_log_export">/WEB-INF/jsp/enterprise/subsystem/tradeLogList_export.jsp</result>
+			<result name="trade_log_list">/WEB-INF/jsp/enterprise/subsystem/tradeLogList.jsp</result>
+			<result name="withdrawal_detail">/WEB-INF/jsp/enterprise/subsystem/gjfTrade_view.jsp</result>
+			<result name="benefit_view">/WEB-INF/jsp/enterprise/subsystem/gjfMemberTradeBenefit_view.jsp</result>
+			<result name="all_Trade_History">/WEB-INF/jsp/enterprise/count/allTradeDiviHistory.jsp</result>
+			<result name="all_weixin_info">/WEB-INF/jsp/enterprise/subsystem/gjfWeixin.jsp</result>
+			<result name="newPage">/WEB-INF/jsp/enterprise/subsystem/gjfWeixin_new.jsp</result>
+			<result name="new_weixin_info" type="redirect">tradeInfoAction!findAllWeiXinInfo.action</result>
+			<result name="views_weixinInfo" >/WEB-INF/jsp/enterprise/subsystem/gjfWeixin_edit.jsp</result>
+            <result name="update_weixinInfo" type="redirect">tradeInfoAction!findAllWeiXinInfo.action</result>
+            <result name="all_setDiv">/WEB-INF/jsp/enterprise/subsystem/gjfSetDividends.jsp</result>
+            <result name="goNewPage">/WEB-INF/jsp/enterprise/subsystem/gjfSetDividens_new.jsp</result>
+            <result name="goEditPage">/WEB-INF/jsp/enterprise/subsystem/gjfSetDividens_edit.jsp</result>
+            <result name="goPaidPayPage">/WEB-INF/jsp/enterprise/subsystem/gjfRecharge.jsp</result>
+            <result name="goNewPaidRecodePage">/WEB-INF/jsp/enterprise/subsystem/gjfRecharge_new.jsp</result>
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+			
+		</action>											
+		
+		<action name="benefitInfoAction" class="cc.messcat.web.subsystem.BenefitInfoAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfBenefitInfo.jsp</result>
+			<result name="divi_amount_setting">/WEB-INF/jsp/enterprise/subsystem/dividendAmountSetting.jsp</result>
+			<result name="testControl">/WEB-INF/jsp/enterprise/subsystem/testControl.jsp</result>
+			<result name="benefit_day">/WEB-INF/jsp/enterprise/subsystem/benefit_day.jsp</result>
+		</action>	
+		
+		<!-- 商品属性 -->
+		<action name="productAttrAction" class="cc.messcat.web.subsystem.ProductAttrAction">
+			<result name="ProductAttrList">/WEB-INF/jsp/enterprise/subsystem/gjfProductAttr.jsp</result>
+			<result name="ProductAttr_new">/WEB-INF/jsp/enterprise/subsystem/gjfProductAttr_new.jsp</result>			
+		</action>
+		
+		<!-- 属性类型 -->
+		<action name="attrTypeAction" class="cc.messcat.web.subsystem.AttrTypeAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfAttrType.jsp</result>
+			<result name="newPage">/WEB-INF/jsp/enterprise/subsystem/gjfAttrType_new.jsp</result>
+			<result name="editPage">/WEB-INF/jsp/enterprise/subsystem/gjfAttrType_edit.jsp</result>
+		</action>
+		
+		<!-- 属性值 -->
+		<action name="attrValueAction" class="cc.messcat.web.subsystem.AttrValueAction">
+			<result>/WEB-INF/jsp/enterprise/subsystem/gjfAttrValue.jsp</result>
+			<result name="newPage">/WEB-INF/jsp/enterprise/subsystem/gjfAttrValue_new.jsp</result>
+			<result name="editPage">/WEB-INF/jsp/enterprise/subsystem/gjfAttrValue_edit.jsp</result>
+		</action>	
+		
+		<action name="productAttrStockAction" class="cc.messcat.web.subsystem.ProductAttrStockAction">
+			<result name="list">/WEB-INF/jsp/enterprise/subsystem/gjfProductAttrStock.jsp</result>			
+		</action>
+		
+		<!-- 统计 -->
+		<action name="countInfoAction" class="cc.messcat.web.subsystem.CountInfoAction">
+			<result name="toCountMember">/WEB-INF/jsp/enterprise/count/countMemberAmount.jsp</result>
+			<result name="toMembersConsume">/WEB-INF/jsp/enterprise/count/countMembersConsume.jsp</result>
+			<result name="toMembersLowLevelConsume">/WEB-INF/jsp/enterprise/count/countMembersLowLevelConsume.jsp</result>
+			<result name="toMemberLowLevelConsume">/WEB-INF/jsp/enterprise/count/memberLowLevelConsume.jsp</result>
+			<result name="toSellersBenefit">/WEB-INF/jsp/enterprise/count/countSellersBenefit.jsp</result>
+			<result name="toMemberConsumeRecord">/WEB-INF/jsp/enterprise/count/memberConsumeRecord.jsp</result>
+			<result name="toSellerBenefitDetail">/WEB-INF/jsp/enterprise/count/sellerBenefitDetail.jsp</result>
+			<result name="toRegionPerformamce">/WEB-INF/jsp/enterprise/count/countRegionalPerformance.jsp</result>
+			<result name="benefitPool">/WEB-INF/jsp/enterprise/count/benefitPool.jsp</result>
+			<result name="divi_manage">/WEB-INF/jsp/enterprise/count/divi_manage.jsp</result>
+			<result name="message_history">/WEB-INF/jsp/enterprise/count/message_history.jsp</result>
+			<result name="summary_report">/WEB-INF/jsp/enterprise/count/summaryReport.jsp</result>
+			<result name="benefit_report">/WEB-INF/jsp/enterprise/count/benefitReport.jsp</result>
+			<result name="wealOutput_report">/WEB-INF/jsp/enterprise/count/wealOutputReport.jsp</result>
+			<result name="wealPayout_report">/WEB-INF/jsp/enterprise/count/wealPayoutReport.jsp</result>
+			<result name="withdraw_report">/WEB-INF/jsp/enterprise/count/withdrawReport.jsp</result>
+			<result name="toCreditLineRecharge">/WEB-INF/jsp/enterprise/count/creditLineRecharge.jsp</result>
+			<result name="toStoreCreditLine">/WEB-INF/jsp/enterprise/count/storeCreditLine.jsp</result>
+			<result name="errorMsg_list">/WEB-INF/jsp/enterprise/count/errorInfo.jsp</result>
+			<result name="store_orders">/WEB-INF/jsp/enterprise/count/storeOrders.jsp</result>
+			<result name="benefitDayTrend">/WEB-INF/jsp/enterprise/count/benefitDayTrend.jsp</result>
+			<result name="AllShouXin">/WEB-INF/jsp/enterprise/count/allShouXin.jsp</result>
+			<result name="todayO2OOrders">/WEB-INF/jsp/enterprise/count/todayO2OOrders.jsp</result>
+			<result name="balance_list">/WEB-INF/jsp/enterprise/count/balanceList.jsp</result>
+			<result name="withdrawAmount_list">/WEB-INF/jsp/enterprise/count/withdrawAmountList.jsp</result>
+			<result name="diviNum_list">/WEB-INF/jsp/enterprise/count/diviNumList.jsp</result>
+			<result name="poolIncome">/WEB-INF/jsp/enterprise/count/poolIncome.jsp</result>
+			<result name="poolOut">/WEB-INF/jsp/enterprise/count/poolExpend.jsp</result>
+			<result name="poolDetail">/WEB-INF/jsp/enterprise/count/poolDetail.jsp</result>
+			<result name="summaryReport_export">/WEB-INF/jsp/enterprise/count/summaryReport_export.jsp</result>
+			<result name="benefitReport_export">/WEB-INF/jsp/enterprise/count/benefitReport_export.jsp</result>
+			<result name="wealOutPutReport_export">/WEB-INF/jsp/enterprise/count/wealOutPutReport_export.jsp</result>
+			<result name="walPayOutReport_export">/WEB-INF/jsp/enterprise/count/wealPayOutReport_export.jsp</result>
+			<result name="withdrawReport_export">/WEB-INF/jsp/enterprise/count/withdrawReport_export.jsp</result>
+			<result name="trade_divi_agent">/WEB-INF/jsp/enterprise/count/tradeDiviAgent.jsp</result>
+			<result name="count_total">/WEB-INF/jsp/enterprise/count/countTotalData.jsp</result>
+		</action>
+		
+		<action name="addressInfoAction" class="cc.messcat.web.subsystem.AddressInfoAction">
+			
+		</action>
+		
+	</package>	
+</struts>

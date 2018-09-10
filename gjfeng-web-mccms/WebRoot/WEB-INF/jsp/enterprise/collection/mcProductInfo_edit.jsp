@@ -1,0 +1,718 @@
+<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/common/taglibs.jsp"%>
+<%@ include file="/common/meta.jsp"%>
+<%@ include file="/common/content.jsp"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>MCCMS</title>
+		<script src="${ctx}/js/live-preview.js" type="text/javascript"></script>
+		<script src="${ctx}/js/jquery-form.js" type="text/javascript"></script>
+		<script src="${ctx}/js/json2.js" type="text/javascript"></script>
+		
+		<!-- 编辑器源码文件 开始 -->
+		<script type="text/javascript" src="${ctx}/ueditor/ueditor.config.js"></script>
+		<script type="text/javascript" src="${ctx}/ueditor/ueditor.all.js"></script>
+		<script type="text/javascript" charset="utf-8"
+			src="${ctx}/ueditor/lang/zh-cn/zh-cn.js"></script>
+		<!-- 编辑器源码文件 结束 -->
+		<style>
+			.bg-fixed-cover{width: 100%;height: 100%;position: fixed;left: 0;top: 0;z-index: 10000;background-color:rgba(0,0,0,0.4);}
+			.cover-content{position: relative;top:50%;left: 50%;width: 60px;height: 60px;margin-left: -30px;margin-top: -30px;background-color: rgba(0,0,0,.5);border-radius: 10px;}
+			.cover-cont-img{width: 60%;height: 60%;padding:20%;}
+		</style>
+		
+		<script type="text/javascript">
+		 $(document).ready(function(){
+			$("#mcProductInfoForm").validate({
+					rules: {
+						"gjfProductInfo.name" : {
+							required : true,
+							maxlength: 200
+						},
+						"gjfProductInfo.serialNum" : {
+							required : true,
+							maxlength: 50
+						},
+						"gjfProductInfo.keywords" : {
+							maxlength: 200
+						},
+						"gjfProductInfo.description" : {
+							maxlength: 250
+						},
+						"gjfProductInfo.notice" : {
+							maxlength: 500
+						},
+						"gjfProductInfo.remark" : {
+							maxlength: 300
+						},
+						"gjfProductInfo.remarkInfo" : {
+							maxlength: 200
+						},
+						/* "gjfProductInfo.repertory" : {
+							required : true,
+							digits : true,
+							min : 0,
+							max : 999999999
+						}, */
+						"gjfProductInfo.postage":{
+							required : true,
+							number : true,
+							min : 0,
+							max : 999999999,
+						},						
+						"gjfProductInfo.price": {
+							required : true,
+							number : true,
+							min : 0,
+							max : 999999999,
+						},
+						"gjfProductInfo.marketPrice": {
+							required : true,
+							number : true,
+							min : 0,
+							max : 999999999
+						},
+						"gjfProductInfo.gcostPrice": {
+							required : true,
+							number : true,
+							min : 0,
+							max : 999999999
+						},
+						"gjfProductInfo.content": {
+		        			maxlength:20000
+						}
+					},
+					messages:{
+						"gjfProductInfo.name" : {
+							required : "请输入",
+							maxlength: "最大长度不超过200"
+						},
+						"gjfProductInfo.serialNum" : {
+							required : "请输入",
+							maxlength: "最大长度不超过50"
+						},
+						"gjfProductInfo.keywords" : {
+							maxlength: "最大长度不超过200"
+						},
+						"gjfProductInfo.description" : {
+							maxlength: "最大长度不超过250"
+						},
+						"gjfProductInfo.notice" : {
+							maxlength: "最大长度不超过500"
+						},
+						"gjfProductInfo.remark" : {
+							maxlength: "最大长度不超过300"
+						},
+						"gjfProductInfo.remarkInfo" : {
+							maxlength: "最大长度不超过200"
+						},
+						/* "gjfProductInfo.repertory" : {
+							required : "请输入",
+							digits : "请输入整数",
+							min : "最小为0",
+							max : "最大为999999999"
+						}, */
+						
+						"gjfProductInfo.postage":{
+							required : "请输入",
+							number : "只能输入数字",
+							min : "最小为0",
+							max : "最大为999999999"
+						},
+						"gjfProductInfo.price": {
+							required : "请输入",
+							number : "只能输入数字",
+							min : "最小为0",
+							max : "最大为999999999"
+						},
+						"gjfProductInfo.marketPrice": {
+							required : "请输入",
+							number : "只能输入数字",
+							min : "最小为0",
+							max : "最大为999999999"
+						},
+						"gjfProductInfo.gcostPrice": {
+							required : "请输入",
+							number : "只能输入数字",
+							min : "最小为0",
+							max : "最大为999999999"
+						},
+						"gjfProductInfo.content": {
+		        			maxlength:"最长输入字符不超过20000"
+						}
+					},
+					success: function(label) {
+						label.html("&nbsp;").addClass("checked");
+			        },
+			        submitHandler:function(form){
+					     $('#mcProductInfoForm').ajaxSubmit({
+				        	 beforeSend: function () {
+				        		 $("#sub").attr("disabled", true);
+				        		 $(".bg-fixed-cover").show();
+			        		 },
+				       		 success:function(data){
+				       			$(".bg-fixed-cover").hide();
+				       			$("#sub").attr("disabled", false);
+				       			var obj = JSON.parse(data); 
+			        			if(obj.code == '200'){
+			        				alert(obj.msg);
+			                     	window.location.href="mcProductInfoAction!query.action";
+			        			}else{
+			        				alert(obj.msg);
+			        			}
+				             },
+				             error : function(){
+				            	 $(".bg-fixed-cover").hide();
+				            	 $("#sub").attr("disabled", false);
+				               	 alert("修改出错!");
+				             }
+						 }); 
+					  return false;
+			       }
+			});
+		});	 
+</script>
+		
+		
+<script>
+	
+	//删除图片
+	function delImage(parent) {
+		var a = $(".hiddenFieldQiuchang").length;
+		if(a<=1){
+			 var file = document.getElementById("productImage");
+			 // for IE, Opera, Safari, Chrome
+	         if (file.outerHTML){
+	             file.outerHTML = file.outerHTML;
+	         } else { // FF(包括3.5)
+	             file.value = "";
+	         }
+			return false;
+		}else{
+			parent.remove();
+			
+		}
+	} 
+	//ajax异步删除图片
+	function delImageAjax(parent,image,obj) {
+		var name = obj.getAttribute('name');
+		var id = $("#proId").val();
+		if (image != null && image.trim() != '') {
+			if(confirm('删除之后将无法返回,您真的要删除吗?')) {
+					$.ajax({ //异步删除
+			      		url:'${ctx}/ajaxMcProductInfoAction!delectFile.htm', 
+			      		type:'post', 
+			      		dataType: 'text',
+			      		data:{
+			      			"delectFileName":image.trim(),
+			      			"productId" : id,
+			      			"name" : name
+			     			},
+					    success: function(data) {//删除结果
+			      			if (data != null && data == 'true') {
+				      			var a = $(".hiddenFieldQiuchang").length;
+				      			addImage(parent,name);
+				      			parent.remove();
+				      			window.alert('删除成功');
+				      		}else{
+				      			window.alert('删除失败');
+				      		}
+					    },
+					    error: function(XMLHttpRequest, textStatus, errorThrown) {
+					       openwaring("网络出现异常");
+					    }
+					});
+				}
+		}
+	}
+
+	var imageCount = 0;
+	//添加图片
+	function addImage(parent,name) {
+		imageCount++;
+		var str = '	<tr class="hiddenFieldQiuchang">' +
+						'<td class="pn-flabel" width="100px">商品展示图</td>'+
+						'<td>'+ 
+							'<div id="divPreview'+name+'">'+
+								'<img id="'+name+'" name="gjfProductInfo.'+name+'" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />'+
+							'</div>'+
+							'<input type="file" id="'+name+'" name="'+name+'" onchange="PreviewImage(this,"'+name+'","divPreview'+name+'")" size="30"/>'+
+						'</td>'+
+					'</tr>';
+						
+		parent.after(str);
+	}
+</script>
+<style>
+	.notview{
+		display:none;
+	}
+</style>
+	</head>
+	<body>
+		<div class="rhead">
+			<div class="rpos">当前位置: 产品库 - 
+			<!-- 编辑产品信息 --><s:text name="enterprise.collection.current.location.editproduct" /></div>
+			<div class="ropt"><input type="button" value='<s:text name="common.word.return.back" />' onclick="history.back();"/></div>
+		</div>
+
+		<form action="mcProductInfoAction!editMcProductInfo.action" method="post" id="mcProductInfoForm" name="mcProductInfoForm" enctype="multipart/form-data">
+			<input type="hidden" id="proId" name="id" value="${productInfo.id}" />		
+			<table  align="center" class="listTable3">
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i><s:text name="enterprise.collection.product.name" /></td>
+					<td><input type="text" name="gjfProductInfo.name" value="${productInfo.name}" size="100" class="{required:true,maxlength:50,required:true,minlength:3}"/></td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i>商品货号</td>
+					<td>
+						<input type="text" name="gjfProductInfo.serialNum" size="100" class="{required:true,maxlength:50}" value="${productInfo.serialNum }"/>
+					</td>
+				</tr>
+				<tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_KEYWORD"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 关键字 --><s:text name="enterprise.collection.keyword" /></td>
+					<td>
+						<textarea id="keywords" rows="10" cols="77" name="gjfProductInfo.keywords">${productInfo.keywords}</textarea>
+					</td>
+				</tr>
+				<tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_INTRO"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 简短描述 --><s:text name="enterprise.collection.short.description" /></td>
+					<td>
+						<textarea id="description" rows="10" cols="77" name="gjfProductInfo.description">${productInfo.description}</textarea>
+					</td>
+				</tr>
+				<tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_INTRO"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 购买须知 --><s:text name="购买须知" /></td>
+					<td>
+						<textarea id="notice" rows="10" cols="77" name="gjfProductInfo.notice">${productInfo.notice }</textarea>
+					</td>
+				</tr>
+				<tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_INTRO"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 备注 --><s:text name="备注" /></td>
+					<td>
+						<textarea id="remarkInfo" rows="10" cols="77" name="gjfProductInfo.remarkInfo">${productInfo.remarkInfo }</textarea>
+					</td>
+				</tr>
+				<%-- <tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_INTRO"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 商品备注 --><s:text name="商品备注" /></td>
+					<td>
+						<textarea id="remark" rows="10" cols="77" name="gjfProductInfo.remark">${productInfo.remark }</textarea>
+					</td>
+				</tr> --%>
+				<tr>
+					<td class="pn-flabel" width="100px">商品缩略图</td>
+					<td>			
+						<div id="divPreview0">
+			          		<img id="imgUrl" name="gjfProductInfo.imgUrl" width="96" border="0" 
+			          		src="<c:choose>
+										<c:when test="${empty productInfo.imgUrl}">
+												${ctx}/upload/NoExpertPhoto.JPG
+										</c:when>
+										<c:otherwise>
+											${productInfo.imgUrl}
+										</c:otherwise>
+									</c:choose>
+									" />
+			          	</div>
+						<input type="file" id="upload" name="upload" onchange="PreviewImage(this,'imgUrl','divPreview0')" size="30"/>
+						<font color="#FF0000">所有图片仅支持jpg,jpeg,png,gif格式</font>
+					</td>
+				</tr>
+				<c:if test="${empty productInfo.para1 || productInfo.para1==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								
+								<div id="divPreview1">
+					          		<img id="para1" name="gjfProductInfo.para1" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />
+					          	</div>
+								<input type="file" id="para11" name="para11" onchange="PreviewImage(this,'para1','divPreview1')" size="30" />
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${!empty productInfo.para1 || !productInfo.para1==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<a href="${gjfProductInfo.para1}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para11')">
+									<img id="para1" name="gjfProductInfo.para1" border="0"
+										width="96" src="${productInfo.para1}" />
+								</a>
+								<br />
+								<input type="hidden" id="para11" name="para11"/>
+								<input type="button" name="para11" value="删除" onclick="delImageAjax($(this).parent().parent(),'${productInfo.para1}',this)" />
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${empty productInfo.para2 || productInfo.para2==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+							
+								<div id="divPreview2">
+					          		<img id="para2" name="gjfProductInfo.para2" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />
+					          	</div>
+								<input type="file" id="para12" name="para12" onchange="PreviewImage(this,'para2','divPreview2')" size="30" />
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${!empty productInfo.para2 || !productInfo.para2==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<a href="${productInfo.para2}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para12')">
+									<img id="para2" name="gjfProductInfo.para2" border="0"
+										width="96"
+										src="${productInfo.para2}" />
+								</a>
+								<br />
+								<input type="hidden" id="para12" name="para12"/>
+								<input type="button" name="para12" value="删除" onclick="delImageAjax($(this).parent().parent(),'${productInfo.para2}',this)" />
+						</td>
+					</tr>
+				</c:if>
+				
+				<c:if test="${empty productInfo.para3 || productInfo.para3==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+							
+								<div id="divPreview3">
+					          		<img id="para3" name="gjfProductInfo.para3" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />
+					          	</div>
+								<input type="file" id="para13" name="para13" onchange="PreviewImage(this,'para3','divPreview3')" size="30"/>
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${!empty productInfo.para3 || !productInfo.para3==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<a href="${productInfo.para3}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para13')">
+									<img id="para3" name="gjfProductInfo.para3" border="0"
+										width="96" src="${productInfo.para3}" />
+								</a>
+								<br />
+								<input type="hidden" id="para13" name="para13"/>
+								<input type="button" name="para13" value="删除" onclick="delImageAjax($(this).parent().parent(),'${productInfo.para3}',this)" />
+						</td>
+					</tr>
+				</c:if>
+				
+				
+				<c:if test="${empty productInfo.para4 || productInfo.para4==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								
+								<div id="divPreview4">
+					          		<img id="para4" name="gjfProductInfo.para4" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />
+					          	</div>
+								<input type="file" id="para14" name="para14" onchange="PreviewImage(this,'para4','divPreview4')" size="30"/>
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${!empty productInfo.para4 || !productInfo.para4==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<a href="${productInfo.para4}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para14')">
+									<img id="para4" name="gjfProductInfo.para4" border="0"
+										width="96" src="${productInfo.para4}" />
+								</a>
+								<br />
+								<input type="hidden" id="para14" name="para14"/>
+								<input type="button" name="para14" value="删除" onclick="delImageAjax($(this).parent().parent(),'${productInfo.para4}',this)" />
+						</td>
+					</tr>
+				</c:if>
+				
+				
+				<c:if test="${empty productInfo.para5 || productInfo.para5==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<%-- <a href="${gjfProductInfo.para5}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para15')">
+									<img id="para5" name="gjfProductInfo.para5" border="0"
+										width="96" src="${ctx}/upload/NoExpertPhoto.JPG" />
+								</a>
+								<br /> --%>
+								<div id="divPreview5">
+					          		<img id="para5" name="gjfProductInfo.para5" width="96" border="0" src="${ctx}/upload/NoExpertPhoto.JPG" />
+					          	</div>
+								<input type="file" id="para15" name="para15" onchange="PreviewImage(this,'para5','divPreview5')" size="30"/>
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${!empty productInfo.para5 || !productInfo.para5==''}">
+					<tr class="hiddenFieldQiuchang">
+						<td class="pn-flabel" width="100px">商品展示图</td>
+							<td>
+								<a href="${productInfo.para5}"
+									target="_blank" name="imgchange" id="imgchange"
+									class="screenshot" rel="doSelectPhotoChanged('para15')">
+									<img id="para5" name="gjfProductInfo.para5" border="0"
+										width="96" src="${productInfo.para5}" />
+								</a>
+								<br />
+								<input type="hidden" id="para15" name="para15"/>
+								<input type="button" name="para15" value="删除" onclick="delImageAjax($(this).parent().parent(),'${productInfo.para5}',this)" />
+						</td>
+					</tr>
+				</c:if>
+				<%-- <tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i><s:text name="产品库存" /></td>
+					<td>
+						<input id="description" name="gjfProductInfo.repertory" value="${gjfProductInfo.repertory}" class="{number:true,min:0,max:99999999}" />
+					</td>
+				</tr> --%>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i>零售价</td>
+					<td>
+						<input type="text" name="gjfProductInfo.price" class="{required:true,maxlength:10}" value="${productInfo.price }"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i>市场价</td>
+					<td>
+						<input type="text" name="gjfProductInfo.marketPrice" class="{required:true,maxlength:10}" value="${productInfo.marketPrice }"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">成本价</td>
+					<td>
+						<input type="text" name="gjfProductInfo.gcostPrice" class="{required:true,maxlength:10}" value="${productInfo.gcostPrice }"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">标准版金额</td>
+					<td>
+						<input type="text" name="gjfProductInfo.standardPrice" class="{required:true,maxlength:10}" value="${productInfo.standardPrice }"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">尊享版金额</td>
+					<td>
+						<input type="text" name="gjfProductInfo.honourPrice" class="{required:true,maxlength:10}" value="${productInfo.honourPrice }"/>
+					</td>
+				</tr> 
+				<tr>
+					<td class="pn-flabel" width="100px">积分商品需要金额</td>
+					<td>
+						<input type="text" name="gjfProductInfo.pointNicePrice" class="{required:true,maxlength:10}" value="${productInfo.pointNicePrice}"/>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> * </i>邮费</td>
+					<td>
+						<input type="text" name="gjfProductInfo.postage" class="{required:true,maxlength:10}" value="${productInfo.postage}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>积分兑换次数</td>
+					<td>
+						<input type="text" name="gjfProductInfo.pointNum" class="{required:true,maxlength:10}" value="${productInfo.pointNum}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>商品限购数量</td>
+					<td>
+						<input type="text" name="gjfProductInfo.purchasNum" class="{required:true,maxlength:10}" value="${productInfo.purchasNum}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>商品库存数量</td>
+					<td>
+						<input type="text" name="gjfProductInfo.repertory" class="{required:true,maxlength:10}" value="${productInfo.repertory}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>商品参与让利金额</td>
+					<td>
+						<input type="text" name="gjfProductInfo.benerfitMoney" class="{required:true,maxlength:10}" value="${productInfo.benerfitMoney}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>采购倍数</td>
+					<td>
+						<input type="text" name="gjfProductInfo.multipleNumber" class="{required:true,maxlength:10}" value="${productInfo.multipleNumber}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>直推奖励金额</td>
+					<td>
+						<input type="text" name="gjfProductInfo.derectMemberVor" class="{required:true,maxlength:10}" value="${productInfo.derectMemberVor}"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px"><i style="color:red"> </i>第二级推荐人奖励 </td>
+					<td>
+						<input type="text" name="gjfProductInfo.firstDerectMemberVor" class="{required:true,maxlength:10}" value="${productInfo.firstDerectMemberVor}"/>
+					</td>
+				</tr>
+				
+				<tr>
+					<td class="pn-flabel" width="100px">销量</td>
+					<td>
+						<input type="text" name="gjfProductInfo.salesNum" class="{required:true,maxlength:10}" value="${productInfo.salesNum }"/>
+					</td>
+				</tr>
+				
+				<tr class="notview"<security:authorize ifAnyGranted="COLLECTION_PRODUCT_SPECIAL"> style="display:table-row;"</security:authorize>>
+					<td class="pn-flabel" width="100px"><!-- 特殊设置--><s:text name="enterprise.collection.special.setting" /></td>
+					<td>
+						<div class="notview" style="float:left;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISNEW">display:block;</security:authorize>">
+							<!-- 是否为最新产品：--><s:text name="enterprise.collection.is.new.product" />
+							<select id="isNew" name="gjfProductInfo.isNew" class="{required:true}">
+								<option value="1"><!-- 是 --><s:text name="common.word.yes" />	</option>
+								<option value="0" <c:if test="${productInfo.isNew == 0}">selected="selected"</c:if>><!-- 否 --><s:text name="common.word.no" /></option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							<!-- 是否为促销产品：--><s:text name="enterprise.collection.is.sale.product" />
+							<select id="isSale" name="gjfProductInfo.isSale" class="{required:true}">
+								<option value="1"><!-- 是 --><s:text name="common.word.yes" />	</option>
+								<option value="0" <c:if test="${productInfo.isSale == 0}">selected="selected"</c:if>><!-- 否 --><s:text name="common.word.no" /></option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							<!-- 是否为热卖产品：--><s:text name="enterprise.collection.is.hot.product" />
+							<select id="isHot" name="gjfProductInfo.isHot" class="{required:true}">
+								<option value="1"><!-- 是 --><s:text name="common.word.yes" />	</option>
+								<option value="0" <c:if test="${productInfo.isHot == 0}">selected="selected"</c:if>><!-- 否 --><s:text name="common.word.no" /></option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							<!-- 是否为抢购产品：--><s:text name="enterprise.collection.is.qbuy.product" />
+							<select id="isQbuy" name="gjfProductInfo.isQbuy" class="{required:true}">
+								<option value="1"><!-- 是 --><s:text name="common.word.yes" />	</option>
+								<option value="0" <c:if test="${productInfo.isQbuy == 0}">selected="selected"</c:if>><!-- 否 --><s:text name="common.word.no" /></option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							<!-- 是否为推荐产品：--><s:text name="enterprise.collection.is.recommend.product" />
+							<select id="isRecommend" name="gjfProductInfo.isRecommend" class="{required:true}">
+								<option value="1"><!-- 是 --><s:text name="common.word.yes" />	</option>
+								<option value="0" <c:if test="${productInfo.isRecommend == 0}">selected="selected"</c:if>><!-- 否 --><s:text name="common.word.no" /></option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							是否能使用代领消费金额:
+							<select id="isCanUserCou" name="gjfProductInfo.isCanUserCou" class="{required:true}">
+							
+							   <option value="1" <c:if test="${productInfo.isCanUserCou eq '1'}">selected="selected"</c:if>>积分商品</option>	
+								<option value="2" <c:if test="${productInfo.isCanUserCou eq '2'}">selected="selected"</c:if>>责任消费</option>	
+							    <option value="0" <c:if test="${productInfo.isCanUserCou eq '0'}">selected="selected"</c:if>>平台</option>
+							    <option value="3" <c:if test="${productInfo.isCanUserCou eq '3'}">selected="selected"</c:if>>代金券</option>
+							</select>
+						</div>
+						
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							是否采购:
+							<select id="isWholesale" name="gjfProductInfo.isWholesale" class="{required:true}">
+							
+							   <option value="1" <c:if test="${productInfo.isWholesale eq '1'}">selected="selected"</c:if>>是</option>	
+								
+							    <option value="0" <c:if test="${productInfo.isWholesale eq '0'}">selected="selected"</c:if>>否</option>
+							</select>
+						</div>
+						<div class="notview" style="float:left;margin-left:10px;<security:authorize ifAnyGranted="COLLECTION_PRODUCT_ISSALE">display:block;</security:authorize>">
+							是否为升级vip产品:
+							<select id="isUpgradePro" name="gjfProductInfo.isUpgradePro" class="{required:true}">
+							
+							   <option value="1" <c:if test="${productInfo.isUpgradePro eq '1'}">selected="selected"</c:if>>是</option>	
+								
+							    <option value="0" <c:if test="${productInfo.isUpgradePro eq '0'}">selected="selected"</c:if>>否</option>
+							</select>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">详细描述</td>
+					<td>
+						<%-- <FCK:editor instanceName="gjfProductInfo.content" width="870px" height="400px">
+							<jsp:attribute name="value">
+								${productInfo.content}
+					    	</jsp:attribute>
+						</FCK:editor> --%>
+						<div id="divdata" style="display: none;">
+							  	${productInfo.content }
+						</div>
+						<div style="width: 870px;">
+							 <textarea id="content" name="gjfProductInfo.content" rows="10" cols="80" ></textarea>
+							 <script type="text/javascript">
+							 
+									 var text = $("#divdata").html();
+									/*  console.log(text); */
+									 //UE.getEditor('content').setContent(text);
+									 /* var ue = UE.getEditor('content').setContent(text);  */
+									   UE.getEditor('content').ready(function() {//编辑器初始化完成再赋值  
+										   UE.getEditor('content').setContent(text); 
+									 });   
+							</script>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">当前栏目</td>
+					<td>
+						${productInfo.columnId.names}
+					</td>
+				</tr>
+			<table class="listTable3">
+						<tr class="headbg">
+							<td class="pn-flabel">&nbsp;&nbsp;</td>
+							<td class="pn-flabel">&nbsp;&nbsp;</td>
+							<td class="pn-flabel">价格</td>
+							<td class="pn-flabel">标准版金额</td>
+							<td class="pn-flabel">尊享版金额</td>
+							<td class="pn-flabel">库存</td>
+						</tr>
+					<c:forEach items="${arrts }" var="bean" varStatus="status">
+						<tr>
+								<input type="hidden" name="arrts[${status.index}].proStockId" id="proStockId" value="${bean.proStockId }"/>
+								<c:forEach items="${bean.value }" var="value">
+									<td class="pn-flabel">${value }</td>
+								</c:forEach>
+								<td class="pn-flabel" width="40px">
+									<input type="text" name="arrts[${status.index}].price" id="price" value="${bean.price }" class="{required:true,number:true,min:0}"/>	
+								</td>
+								<td class="pn-flabel" width="40px">
+									<input type="text" name="arrts[${status.index}].standardPrice" id="standardPrice" value="${bean.standardPrice }" class="{required:true,number:true,maxlength:10}"/>
+								</td>
+								<td class="pn-flabel" width="40px">
+									<input type="text" name="arrts[${status.index}].honourPrice" id="honourPrice" value="${bean.honourPrice }" class="{required:true,number:true,maxlength:10}"/>
+								</td>  
+								<td class="pn-flabel" width="40px">
+									<input type="text" name="arrts[${status.index}].repertory" id="repertory" value="${bean.repertory }" class="{required:true,digits:true,maxlength:10}"/>
+								</td>
+						</tr>
+					</c:forEach>
+			</table>
+				
+				<tr>
+					<td colspan="2" style="text-align:center;height:34px;">
+						<input style="height:34px;" type="submit" id="sub" value='<s:text name="common.word.submit" />' />
+					</td>
+				</tr>
+		 	</table>
+		</form>
+		<div class="bg-fixed-cover" style="display:none">
+				<div class="cover-content">
+					<img src="${ctx}/image/load.gif" class="cover-cont-img" name="load">
+				</div>
+			</div>
+	</body>
+</html>

@@ -1,0 +1,26 @@
+# upload settings
+upload.file.maxUploadSize=2097152
+
+#用户头像上传路径
+upload.member.head.path=/upload/member/head-portrait
+
+#用户实名制身份证上传路径
+upload.member.idcard.path=/upload/member/id-card
+
+#用户二维码
+upload.member.code.path=/upload/member/qr-code
+
+#评论图片上传路径
+upload.assessment.path=/upload/assessment
+
+#商品图片上传路径
+upload.product.path=/upload/product
+
+#店铺首页展示banner图上传路径
+upload.store.banner.path=/upload/store/banner
+
+#店铺营业执照上传路径
+upload.store.electronic.path=/upload/store/electronic
+
+
+

@@ -1,0 +1,113 @@
+package cc.messcat.gjfeng.upload;
+
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+
+import javax.imageio.ImageIO;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.codec.binary.Base64;
+import org.springframework.web.multipart.MultipartFile;
+
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.FileHandler;
+
+public class UploadFileUtil {
+
+	/**
+	 * @描述 图片上传
+	 * @author Karhs
+	 * @date 2017年1月11日
+	 * @param file
+	 * @param request
+	 * @return
+	 */
+	@SuppressWarnings("static-access")
+	public static String upload(MultipartFile file, HttpServletRequest request,String uploadPath) {  
+        String path = request.getSession().getServletContext().getRealPath(uploadPath);  
+        String fileName = file.getOriginalFilename();  
+        String suffix = fileName.substring(fileName.lastIndexOf(".") + 1);
+		String newFileName = (new StringBuffer(String.valueOf((new DateHelper()).getRandomNum()))).append(".").append(suffix)
+			.toString();
+        File targetFile = new File(path, newFileName);  
+        if(!targetFile.exists()){  
+            targetFile.mkdirs();  
+        }  
+        //保存  
+        try {  
+            file.transferTo(targetFile);  
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        }  
+        return newFileName; 
+	}
+	
+	@SuppressWarnings("static-access")
+	public static String uploadBase63(String fileName,String fileContent, HttpServletRequest request,String uploadPath) {  
+		String newFileName=FileHandler.createFileNameByTimeRole(fileName);
+		String path = request.getSession().getServletContext().getRealPath(uploadPath);  
+		System.out.println("路径"+path);
+		byte[] b = Base64.decodeBase64(fileContent);
+		for (int i = 0; i < b.length; ++i) {
+			if (b[i] < 0) {// 调整异常数据
+				b[i] += 256;
+			}
+		}
+		String targetFile=path+"\\"+newFileName;
+		System.out.println("文件"+path);
+		try {
+			OutputStream out = new FileOutputStream(targetFile);
+			out.write(b);
+			out.flush();
+			out.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+			
+		return newFileName;
+	}
+	
+	
+	
+	/**
+	* 压缩图片 文件名为原图名_sub
+	* 
+	* @param fileName
+	* @return
+	* @throws IOException
+	*/
+	@SuppressWarnings("static-access")
+	public static String createThumbPic(MultipartFile file, HttpServletRequest request,String uploadPath) throws IOException {
+		String path = request.getSession().getServletContext().getRealPath(uploadPath);  
+        String fileName = file.getOriginalFilename();  
+        String suffix = fileName.substring(fileName.lastIndexOf(".") + 1);
+		String newFileName = (new StringBuffer(String.valueOf((new DateHelper()).getRandomNum()))).append(".").append(suffix)
+			.toString();
+        File targetFile = new File(path, newFileName);  
+        
+		String newPath = path+"\\"+file.getName().replace(".", "_sub.");
+		String newSubFileName = file.getName();
+		java.io.File fo = new java.io.File(newPath); // 将要转换出的小图文件
+		int nw = 100;
+		AffineTransform transform = new AffineTransform();
+		BufferedImage buffer = ImageIO.read(targetFile); // 读取图片
+		int width = buffer.getWidth();
+		int height = buffer.getHeight();
+		int nh = (nw * height) / width;
+		double sx = (double) nw / width;
+		double sy = (double) nh / height;
+		transform.setToScale(sx, sy);
+		AffineTransformOp ato = new AffineTransformOp(transform, null);
+		BufferedImage bid = new BufferedImage(nw, nh, BufferedImage.TYPE_3BYTE_BGR);
+		ato.filter(buffer, bid);
+		String type = newSubFileName.substring(newSubFileName.indexOf('.') + 1, newSubFileName.length());
+		ImageIO.write(bid, type, fo);
+		return fo.getName();
+	}
+}

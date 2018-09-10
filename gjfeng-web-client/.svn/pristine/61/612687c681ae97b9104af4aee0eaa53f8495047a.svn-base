@@ -1,0 +1,108 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-o2o-top.jsp" %>
+<body>
+	<div class="container">
+		<c:if test="${not empty resultVo.result.resultList }">
+		<div class="cash-item">
+			<!-- <div class="cash-month">2017年 2月份</div> -->
+			<ul class="cash-list">
+			     <c:forEach items="${resultVo.result.resultList}" var="list">
+			       <li class="cash-li clearfix">
+					 <div class="cash-box left">
+						<div class="cash-time"><fmt:formatDate value="${list.addTime}" pattern="yyyy-MM-dd"/></div>
+						<div class="cash-time"><fmt:formatDate value="${list.addTime}" pattern="HH:mm"/></div>
+					  </div>
+					  <div class="cash-box left">
+					     <c:if test="${list.tradeType==0}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">储值</i>
+					     </c:if>
+					     <c:if test="${list.tradeType==1}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">用户转账</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==2}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">让利支付</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==3}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">余额转入</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==4}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">用户提现</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==5}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">商城支付</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==6}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">提现退回</i>
+					     </c:if>
+					      <c:if test="${list.tradeType==7}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">赠送代金券</i>
+					     </c:if>
+					       <c:if test="${list.tradeType==8}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">充值商家联盟</i>
+					     </c:if>
+					     <c:if test="${list.tradeType==9}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">赠送商家联盟</i>
+					     </c:if>
+					     <c:if test="${list.tradeType==10}">
+					        <i class="fuli-icon" style="background:none;background-size: cover;width: 5.5rem;margin: 1.5rem 2.5rem;">奖励转入</i>
+					     </c:if>
+						
+					  </div>
+					  <c:if test="${list.tradeType==0||list.tradeType==3||list.tradeType==6||list.tradeType==10}">
+					    <div class="cash-box left">
+						  <div class="cash-text shouxin-text" style="line-height: 4.5rem;">+${list.memberTreasureTradeMoney}</div>
+					    </div>
+					  </c:if>
+					  <c:if test="${list.tradeType==2||list.tradeType==4||list.tradeType==5||list.tradeType==7||list.tradeType==8||list.tradeType==9}">
+					    <div class="cash-box left">
+						  <div class="cash-text" style="line-height: 4.5rem;">-${list.memberTreasureTradeMoney}</div>
+						 
+					     </div>					    
+					  </c:if>
+					  <c:if test="${list.tradeType==1&&sessionScope.gjfMemberInfo.mobile==list.transferMemberMobile}">
+					    <div class="cash-box left">
+						  <div class="cash-text" style="line-height: 4.5rem;">+${list.memberTreasureTradeMoney}</div>
+						 
+					     </div>					    
+					  </c:if>
+					  <c:if test="${list.tradeType==1&&sessionScope.gjfMemberInfo.mobile!=list.transferMemberMobile}">
+					    <div class="cash-box left">
+						  <div class="cash-text" style="line-height: 4.5rem;">-${list.memberTreasureTradeMoney}</div>
+						 
+					     </div>					    
+					  </c:if>
+					  <div class="bonus-state right">
+						<span class="bonusState-stand">
+						    
+						    <c:if test="${list.tradeType==4}">
+						       <c:if test="${list.tradeStatus eq '0'}">待审核</c:if>
+						       <c:if test="${list.tradeStatus eq '1'}">交易成功</c:if>
+						       <c:if test="${list.tradeStatus eq '2'}">交易失败</c:if>
+						    </c:if>
+						    
+						     <c:if test="${list.tradeType!=4}">
+						      <c:if test="${list.tradeStatus eq '1'}">交易成功</c:if>
+							<c:if test="${list.tradeStatus eq '0'}">交易失败</c:if>
+							<c:if test="${list.tradeStatus eq '2'}">交易失败</c:if>
+						    </c:if>
+							
+							
+						</span>
+					  </div>
+				   </li>
+			     </c:forEach>
+			</ul>
+		</div>
+		</c:if>	
+		<c:if test="${empty resultVo.result.resultList}">
+			<div class="data-state-box">
+		        <img src="${imagePath}/wx/o2o-shop/data-null.png" class="data-state-img">
+		        <p class="data-state-text">没有数据</p>
+		    </div>
+		</c:if>
+	</div>
+</body>
+<script>
+document.title = "记录列表";
+</script>
+</html>

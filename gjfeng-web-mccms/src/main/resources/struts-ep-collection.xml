@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.codebehind.pathPrefix" value="/WEB-INF/jsp/" />
+	
+	<package name="ep_collection" extends="struts-default" namespace="/collection">
+		
+		<interceptors>
+			<interceptor name="authority" class="cc.modules.security.AuthorityIntercept">
+			</interceptor>
+			
+			<interceptor-stack name="author">
+				<interceptor-ref name="authority"></interceptor-ref>
+				<interceptor-ref name="defaultStack"></interceptor-ref>
+			</interceptor-stack>
+		</interceptors>
+		
+		<default-interceptor-ref name="author"></default-interceptor-ref>
+		
+		<global-results>
+			<result name="login">/WEB-INF/jsp/index.jsp</result>
+		</global-results>
+		
+		<action name="epNewsAction" class="epNewsAction">
+			<result name="input">/WEB-INF/jsp/enterprise/collection/epNews.jsp</result>
+			<result name="do_failure">/WEB-INF/jsp/enterprise/collection/epNews.jsp</result>
+			<result name="do_success" type="redirect">epNewsAction.action</result>
+			<result name="add_page">/WEB-INF/jsp/enterprise/collection/epNews_new.jsp</result>
+			<result name="edit">/WEB-INF/jsp/enterprise/collection/epNews_edit.jsp</result>
+			<result>/WEB-INF/jsp/enterprise/collection/epNews.jsp</result>
+			<result name="view">/WEB-INF/jsp/enterprise/collection/epNews_view.jsp</result>
+			<result name="audit">/WEB-INF/jsp/enterprise/collection/epNews_view_audit.jsp</result>
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+            
+		</action>
+		
+		<action name="mcProductInfoAction" class="mcProductInfoAction">
+			<result>/WEB-INF/jsp/enterprise/collection/mcProductInfo.jsp</result>
+			<result name="view">/WEB-INF/jsp/enterprise/collection/mcProductInfo_view.jsp</result>
+			<result name="edit">/WEB-INF/jsp/enterprise/collection/mcProductInfo_edit.jsp</result>
+			<result name="new">/WEB-INF/jsp/enterprise/collection/mcProductInfo_new.jsp</result>
+			<result name="num">/WEB-INF/jsp/enterprise/collection/mcProductInfo_num.jsp</result>
+			<result name="input">/WEB-INF/jsp/enterprise/collection/mcProductInfo.jsp</result>
+			<result name="ajaxFinAttr">/WEB-INF/jsp/enterprise/collection/ajax-find-attr.jsp</result>
+			<result name="productComment_list">/WEB-INF/jsp/enterprise/collection/productComment.jsp</result>
+			<result name="productComment_view">/WEB-INF/jsp/enterprise/collection/productComment_view.jsp</result>
+		</action>
+		
+		
+		<action name="productColumnAction" class="productColumnAction">
+			<result name="column_productinfo">/WEB-INF/jsp/enterprise/collection/columnProductInfo.jsp</result>
+			
+			<!-- 防止重复提交 -->
+            <result name="invalid.token">/WEB-INF/jsp/error_double_click.jsp</result>
+           	<interceptor-ref name="author"></interceptor-ref>
+          	<interceptor-ref name="token">
+            	<!-- includeMethods表示包含指定的方法， 即对标记为includeMethods的方法进行拦截 -->
+                <param name="includeMethods">add,update</param>
+            	<!-- 定义被排除的方法名， 也就是你action中不被这个拦截器拦截的方法名 -->
+               	<param name="excludeMethods"></param>
+            </interceptor-ref>
+		</action>
+	</package>
+</struts>

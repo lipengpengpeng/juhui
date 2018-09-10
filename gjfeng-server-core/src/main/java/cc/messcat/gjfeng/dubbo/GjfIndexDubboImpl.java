@@ -1,0 +1,126 @@
+package cc.messcat.gjfeng.dubbo;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.service.member.GjfSearchHistoryService;
+import cc.messcat.gjfeng.service.product.GjfProductInfoService;
+import cc.messcat.gjfeng.service.system.GjfEnterpriseAdService;
+import cc.messcat.gjfeng.service.system.GjfEnterpriseColumnService;
+
+@Component("gjfIndexDubbo")
+public class GjfIndexDubboImpl implements GjfIndexDubbo {
+
+	@Autowired
+	@Qualifier("gjfProductInfoService")
+	private GjfProductInfoService gjfProductInfoService;
+	
+	@Autowired
+	@Qualifier("gjfSearchHistoryService")
+	private GjfSearchHistoryService gjfSearchHistoryService;
+	
+	@Autowired
+	@Qualifier("gjfEnterpriseAdService")
+	private GjfEnterpriseAdService gjfEnterpriseAdService;
+	
+	@Autowired
+	@Qualifier("gjfEnterpriseColumnService")
+	private GjfEnterpriseColumnService gjfEnterpriseColumnService;
+
+	/*
+	 * 查询O2O商城首页的轮播图和商品栏目类型
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findO2OIndexColumn()
+	 */
+	@Override
+	public ResultVo findO2OIndexColumn() {
+		return gjfProductInfoService.findO2OIndexColumn();
+	}
+
+	/* 
+	 * 查询O2商品的猜你喜欢
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findO2OIndexPro(int, int, java.lang.Long, java.lang.Long, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findO2OIndexPro(int pageNo, int pageSize, Double longitude, Double latitude, Long cityId) {
+		return gjfProductInfoService.findO2OIndexPro(pageNo, pageSize, longitude, latitude, cityId);
+	}
+
+	/* 
+	 * 查询O2O商城的栏目下的商品列表
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findO2OSubClassPro(int, int, java.lang.Long, java.lang.String, java.lang.String, java.lang.String, java.lang.Long, java.lang.Long, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findO2OSubClassPro(int pageNo, int pageSize, Long columnId, String columnType, String orderType,
+		String likeValue, Double longitude, Double latitude, Long cityId) {
+		return gjfProductInfoService.findO2OSubClassPro(pageNo, pageSize, columnId, columnType, orderType, likeValue, longitude, latitude, cityId);
+	}
+
+	/*
+	 * 查询网上商城首页栏目
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findShopIndexCloumn()
+	 */
+	@Override
+	public ResultVo findShopIndexCloumn() {
+		return gjfProductInfoService.findShopIndexCloumn();
+	}
+
+	/*
+	 * 查询网上商城首页推荐等商品
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findShopIndexPro()
+	 */
+	@Override
+	public ResultVo findShopIndexPro() {
+		return gjfProductInfoService.findShopIndexPro();
+	}
+
+	/* 
+	 * 添加搜索历史
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#addSearchHistory(cc.messcat.gjfeng.entity.GjfMemberInfo, java.lang.String)
+	 */
+	@Override
+	public ResultVo addSearchHistory(GjfMemberInfo gjfMemberInfo, String keyWord) {
+		return gjfSearchHistoryService.addSearchHistory(gjfMemberInfo, keyWord);
+	}
+
+	/* 
+	 * 查询搜索历史
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findSearchHistory(java.lang.Long)
+	 */
+	@Override
+	public ResultVo findSearchHistory(Long memberId) {
+		return gjfSearchHistoryService.findSearchHistory(memberId);
+	}
+
+	/* 
+	 * 查询首页广告
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo#findAd(java.lang.String)
+	 */
+	@Override
+	public ResultVo findAd(String adKey) {
+		return gjfEnterpriseAdService.findAd(adKey);
+	}
+
+	@Override
+	public ResultVo findO2OIndexColumnInApp() {
+		
+		return gjfProductInfoService.findO2OIndexColumnInApp();
+	}
+
+	/**
+	 * 供应链获取首页栏目和栏目下的子栏目
+	 * @return
+	 */
+	@Override
+	public ResultVo findSupplyChainPoIndexColumn() {
+	
+		return gjfEnterpriseColumnService.findSupplyChainPoIndexColumn();
+	}
+
+}

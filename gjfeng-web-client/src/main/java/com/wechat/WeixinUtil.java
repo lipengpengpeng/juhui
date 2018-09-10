@@ -1,0 +1,194 @@
+package com.wechat;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.UUID;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import com.wechat.popular.api.PayMchAPI;
+import com.wechat.popular.bean.paymch.Unifiedorder;
+import com.wechat.popular.bean.paymch.UnifiedorderResult;
+import com.wechat.popular.support.TicketManager;
+import com.wechat.popular.util.JsUtil;
+import com.wechat.popular.util.MapUtil;
+import com.wechat.popular.util.PayUtil;
+import com.wechat.popular.util.SignatureUtil;
+
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.config.WaixiConfig;
+import net.sf.json.JSONArray;
+import com.wechat.popular.bean.pay.PayJsRequest;
+
+public class WeixinUtil {
+	
+	/**
+	 * @描述 获取分享的configJson
+	 * @author Karhs
+	 * @date 2016年8月22日
+	 * @param request
+	 * @param url
+	 * @return
+	 * @throws Exception
+	 */
+	public static String getWechatShareUrl(HttpServletRequest request,String url) throws Exception {
+		TicketManager.init(WaixiConfig.GJFENG_APP_ID());
+		String jsapi_ticket=TicketManager.getTicket(WaixiConfig.GJFENG_APP_ID());
+		if (StringUtil.isBlank(url)) {
+			String basePath = request.getScheme()+"://"+request.getServerName();
+			String requestURI = request.getRequestURI();  
+			String queryString = request.getQueryString();
+			url = basePath + requestURI;  
+			if (ObjValid.isValid(queryString)) {
+				url += "?"+queryString;
+			}
+		}
+		return JsUtil.generateConfigJson(jsapi_ticket, false, WaixiConfig.GJFENG_APP_ID(), url, "getLocation","onMenuShareTimeline","onMenuShareAppMessage");
+		
+	}
+
+	/**
+	 * @描述 js微信支付接口需要的json串
+	 * @author Karhs
+	 * @date 2016年8月22日
+	 * @param request
+	 * @param out_trade_no
+	 * @param body
+	 * @param tradeType
+	 * @param total_fee
+	 * @param notifyUrl
+	 * @return
+	 */
+	public static PayJsRequest unifiedorderResult(HttpServletRequest request, String out_trade_no, String body,String tradeType, String total_fee,String notifyUrl,String openId){
+		HttpSession session = request.getSession();
+		
+		Unifiedorder unifiedorder = new Unifiedorder();
+		
+		unifiedorder.setAppid(CommonProperties.GJFENG_APP_ID);
+    	unifiedorder.setMch_id(CommonProperties.GJFENG_PARTNER);
+		//unifiedorder.setAppid("wx5c4fa4fa0fb974fe");
+    	//unifiedorder.setMch_id("1480642422");
+    	unifiedorder.setNonce_str(UUID.randomUUID().toString().replace("-", ""));
+    	
+    	unifiedorder.setBody(body);
+    	if (ObjValid.isValid(out_trade_no)) {
+    		unifiedorder.setOut_trade_no(out_trade_no);
+		}else {
+			unifiedorder.setOut_trade_no(UUID.randomUUID().toString().replace("-", ""));
+		}
+    	
+    	float sessionmoney = Float.parseFloat(total_fee)*100;
+    	unifiedorder.setTotal_fee(String.format("%.0f", sessionmoney));
+    	unifiedorder.setSpbill_create_ip(request.getRemoteHost());
+    	unifiedorder.setNotify_url(notifyUrl);
+    	unifiedorder.setTrade_type(tradeType);
+    	if("JSAPI".equals(tradeType)){      
+        	//String openid = (String) session.getAttribute("openid");
+        	unifiedorder.setOpenid(openId);
+        	//unifiedorder.setSpbill_create_ip("127.0.0.1");
+        	unifiedorder.setSpbill_create_ip(request.getRemoteHost());
+        }
+        if("APP".equals(tradeType)){
+        	//app微信支付不用填写openId
+//        	unifiedorder.setOpenid(member.getOpenIdApp());
+        	
+        }
+        if("NATIVE".equals(tradeType)){
+        	//不用填openid
+        	//如果是"NATIVE"类型（必填，此id为二维码中包含的商品ID，商户自行定义。）
+        	unifiedorder.setProduct_id(out_trade_no);
+        	unifiedorder.setSpbill_create_ip(request.getRemoteHost());
+        	//unifiedorder.setSpbill_create_ip("127.0.0.1");
+        }
+    	
+    	Map<String, String> mapS = MapUtil.objectToMap(unifiedorder,"sign");
+    	String sign = SignatureUtil.generateSign(mapS, CommonProperties.GJFENG_PARTNER_KEY);
+    	//String sign = SignatureUtil.generateSign(mapS, "e4c81ec3c2f25a8fb57e4b88c1a8d4db");
+    	unifiedorder.setSign(sign);
+    	
+    	UnifiedorderResult unifiedorderResult = PayMchAPI.payUnifiedorder(unifiedorder);
+    	System.out.println(unifiedorderResult.getReturn_msg()+"**"+unifiedorderResult.getReturn_code());
+    	if("NATIVE".equals(tradeType)){
+    		PayJsRequest jsonString=new PayJsRequest();
+    		jsonString.setNonceStr(unifiedorderResult.getCode_url().toString());
+    		return jsonString;
+    	}
+    	//网页端调起支付API
+    	PayJsRequest jsonString = PayUtil.generateMchPayJsRequestJson(unifiedorderResult.getPrepay_id(), CommonProperties.GJFENG_APP_ID, CommonProperties.GJFENG_PARTNER_KEY);
+    	//PayJsRequest jsonString = PayUtil.generateMchPayJsRequestJson(unifiedorderResult.getPrepay_id(), "wx5c4fa4fa0fb974fe", "e4c81ec3c2f25a8fb57e4b88c1a8d4db");   	
+    	
+		return jsonString;
+	}
+	
+	
+	/**
+	 * 微信app
+	 * @param request
+	 * @param out_trade_no
+	 * @param body
+	 * @param total_fee
+	 * @return
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes", "unused" })
+	public static Map unifiedorderResultInApp(HttpServletRequest request, String out_trade_no, String body, String total_fee,String notify_url) {
+
+		HttpSession session = request.getSession();
+
+		Unifiedorder unifiedorder = new Unifiedorder();
+
+		unifiedorder.setAppid(CommonProperties.GJFENG_APP_ID);
+		unifiedorder.setMch_id(CommonProperties.GJFENG_PARTNER);
+		unifiedorder.setNonce_str(UUID.randomUUID().toString().replace("-", ""));
+
+		unifiedorder.setBody(body);
+		if (ObjValid.isValid(out_trade_no)) {
+			unifiedorder.setOut_trade_no(out_trade_no);
+		} else {
+			unifiedorder.setOut_trade_no(UUID.randomUUID().toString().replace("-", ""));
+		}
+
+		float sessionmoney = Float.parseFloat(total_fee) * 100;
+		unifiedorder.setTotal_fee(String.format("%.0f", sessionmoney));
+
+		unifiedorder.setSpbill_create_ip("127.0.0.1");
+
+		unifiedorder.setNotify_url(notify_url);
+		unifiedorder.setTrade_type("APP");
+		
+		Map<String, String> mapS = MapUtil.objectToMap(unifiedorder, "sign");
+		String sign = SignatureUtil.generateSign(mapS, CommonProperties.GJFENG_PARTNER_KEY);
+		unifiedorder.setSign(sign);
+
+		List<Unifiedorder> list = new ArrayList<Unifiedorder>();
+		list.add(unifiedorder);
+		JSONArray jsonArray = JSONArray.fromObject(list);
+
+		UnifiedorderResult unifiedorderResult = PayMchAPI.payUnifiedorder(unifiedorder);
+
+		String timeStamp = String.valueOf(System.currentTimeMillis() / 1000);
+		timeStamp = timeStamp.substring(0, 10);
+		// 二次签名
+		Map map = new HashMap<String, String>();
+		map.put("appid", CommonProperties.GJFENG_APP_ID);
+		map.put("noncestr", UUID.randomUUID().toString().replace("-", ""));
+		map.put("package", "Sign=WXPay");
+		map.put("prepayid", unifiedorderResult.getPrepay_id());
+		map.put("timestamp", timeStamp);
+		map.put("partnerid", CommonProperties.GJFENG_PARTNER);		
+		String sign0 = SignatureUtil.generateSign(map, CommonProperties.GJFENG_PARTNER_KEY);
+		map.put("paySign", sign0);
+		map.put("out_trade_no", out_trade_no);
+		map.put("payMoney", total_fee);
+
+		return map;
+
+	}
+			
+}

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jee="http://www.springframework.org/schema/jee" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-2.5.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-2.5.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
+	default-lazy-init="true">
+
+	<!-- dao配置 -->
+	<bean id="usersDao" class="cc.messcat.dao.system.UsersDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+    <bean id="rolesDao" class="cc.messcat.dao.system.RolesDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="usersRolesDao" class="cc.messcat.dao.system.UsersRolesDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="rolesAuthoritiesDao" class="cc.messcat.dao.system.RolesAuthoritiesDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="authoritiesDao" class="cc.messcat.dao.system.AuthoritiesDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="webSiteDao" class="cc.messcat.dao.system.WebSiteDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="standbyDao" class="cc.messcat.dao.system.StandbyDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+	<bean id="mcParameterDao" class="cc.messcat.dao.system.McParameterDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"></property>
+	</bean>
+	<bean id="pageTypeDao" class="cc.messcat.dao.system.PageTypeDaoImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+    </bean>
+	<bean id="alterUrlDao" class="cc.messcat.dao.system.AlterUrlDaoImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+    </bean>
+    <bean id="epColumnDao" class="cc.messcat.dao.column.EpColumnDaoImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+    </bean>
+
+ 	<!-- mgr配置 -->
+    <bean id="usersManagerDao" class="cc.messcat.service.system.UsersManagerDaoImpl">
+    	<property name="usersDao" ref="usersDao"></property>
+    	<property name="rolesDao" ref="rolesDao"></property>
+    	<property name="usersRolesDao" ref="usersRolesDao"></property>
+    	<property name="rolesAuthoritiesDao" ref="rolesAuthoritiesDao"></property>
+    	<property name="authoritiesDao" ref="authoritiesDao"></property>
+    </bean>
+    <bean id="rolesManagerDao" class="cc.messcat.service.system.RolesManagerDaoImpl">
+    	<property name="rolesDao" ref="rolesDao"></property>
+    	<property name="rolesAuthoritiesDao" ref="rolesAuthoritiesDao"></property>
+    	<property name="authoritiesDao" ref="authoritiesDao"></property>
+    </bean>
+    <bean id="usersRolesManagerDao" class="cc.messcat.service.system.UsersRolesManagerDaoImpl">
+    	<property name="usersRolesDao" ref="usersRolesDao"></property>
+    </bean>
+    <bean id="authoritiesManagerDao" class="cc.messcat.service.system.AuthoritiesManagerDaoImpl">
+    	<property name="authoritiesDao" ref="authoritiesDao"></property>
+    	<property name="rolesAuthoritiesDao" ref="rolesAuthoritiesDao"></property>
+    </bean>
+    <bean id="rolesAuthoritiesManagerDao" class="cc.messcat.service.system.RolesAuthoritiesManagerDaoImpl">
+    	<property name="rolesAuthoritiesDao" ref="rolesAuthoritiesDao"></property>
+    	<property name="authoritiesDao" ref="authoritiesDao"></property>
+    </bean>
+    <bean id="pageTypeManagerDao" class="cc.messcat.service.system.PageTypeManagerDaoImpl">
+        <property name="pageTypeDao" ref="pageTypeDao"></property>
+        <property name="epColumnDao" ref="epColumnDao"></property>
+    </bean>
+    <bean id="alterUrlManagerDao" class="cc.messcat.service.system.AlterUrlManagerDaoImpl">
+    	<property name="alterUrlDao" ref="alterUrlDao"></property>
+    </bean>
+    <bean id="webSiteManagerDao" class="cc.messcat.service.system.WebSiteManagerDaoImpl">
+    	<property name="webSiteDao" ref="webSiteDao"></property>
+    	<property name="webSkinDao" ref="webSkinDao"></property>
+    </bean>
+    <bean id="standbyManagerDao" class="cc.messcat.service.system.StandbyManagerDaoImpl">
+		<property name="standbyDao" ref="standbyDao"/>
+	</bean>
+	<bean id="mcParameterManagerDao"
+		class="cc.messcat.service.system.McParameterManagerDaoImpl">
+		<property name="mcParameterDao" ref="mcParameterDao"></property>
+	</bean>
+  
+    <!-- action配置 -->
+    <bean id="loginAction" class="cc.messcat.web.system.LoginAction" scope="prototype">
+		<property name="usersManagerDao" ref="usersManagerDao"></property>
+    	<property name="webSiteManagerDao" ref="webSiteManagerDao"></property>
+    	<property name="smsDubbo" ref="smsDubbo"></property>
+    	
+    </bean>
+    
+    <bean id="usersAction" class="cc.messcat.web.system.UsersAction" scope="prototype">
+        <property name="usersManagerDao" ref="usersManagerDao"></property>
+        <property name="rolesManagerDao" ref="rolesManagerDao"></property>
+        <property name="usersRolesManagerDao" ref="usersRolesManagerDao"></property>
+    </bean>
+    
+    <bean id="rolesAction" class="cc.messcat.web.system.RolesAction" scope="prototype">
+        <property name="rolesManagerDao" ref="rolesManagerDao"></property>
+   		<property name="authoritiesManagerDao" ref="authoritiesManagerDao"></property>
+   		<property name="rolesAuthoritiesManagerDao" ref="rolesAuthoritiesManagerDao"></property>
+    </bean>
+    
+    <bean id="authoritiesAction" class="cc.messcat.web.system.AuthoritiesAction" scope="prototype">
+        <property name="authoritiesManagerDao" ref="authoritiesManagerDao"></property>
+    </bean>
+    
+    
+    <bean id="updatePasswordAction" class="cc.messcat.web.system.UpdatePasswordAction" scope="prototype">
+    	<property name="usersManagerDao" ref="usersManagerDao"></property>
+    </bean>
+    
+    <bean id="webSiteAction" class="cc.messcat.web.system.WebSiteAction" scope="prototype">
+    	<property name="webSiteManagerDao" ref="webSiteManagerDao"></property>
+    	<property name="webSkinManagerDao" ref="webSkinManagerDao"></property>
+    </bean>
+    
+    <bean id="standbyAction" class="cc.messcat.web.system.StandbyAction" scope="prototype">
+		<property name="standbyManagerDao" ref="standbyManagerDao"></property>
+    </bean>	
+    
+    <bean id="mcParameterAction" class="cc.messcat.web.system.McParameterAction"
+		scope="prototype">
+		<property name="mcParameterManagerDao" ref="mcParameterManagerDao"></property>
+	</bean>
+    
+    <bean id="userDetailsService" class="cc.modules.security.UserDetailServiceImpl">
+    	<property name="usersManagerDao" ref="usersManagerDao" />
+    </bean>
+    
+    <bean id="pageTypeAction" class="cc.messcat.web.system.PageTypeAction" scope="prototype">
+         <property name="pageTypeManagerDao" ref="pageTypeManagerDao"></property>
+    </bean>
+    
+    <bean id="alterUrlAction" class="cc.messcat.web.system.AlterUrlAction" scope="prototype">
+    	<property name="alterUrlManagerDao" ref="alterUrlManagerDao"></property>
+    </bean>
+    
+    <bean id="defaultAction" class="cc.messcat.web.DefaultAction" scope="prototype">
+    	<property name="usersManagerDao" ref="usersManagerDao"></property>
+    	<property name="mcProductInfoManagerDao" ref="mcProductInfoManagerDao"></property>
+    	<property name="countInfoDubbo" ref="countInfoDubbo"></property>
+    	<property name="storeInfoDubbo" ref="storeInfoDubbo"></property>
+    </bean>
+    
+    <bean id="collectionleftFrame" class="cc.messcat.web.left.CollectionAction" scope="prototype">
+    	<property name="webSiteManagerDao" ref="webSiteManagerDao"></property>
+    	<property name="epColumnManagerDao" ref="epColumnManagerDao"></property>
+    </bean>
+    
+    <bean id="columnleftFrame" class="cc.messcat.web.left.ColumnAction" scope="prototype">
+    	<property name="webSiteManagerDao" ref="webSiteManagerDao"></property>
+    	<property name="epColumnManagerDao" ref="epColumnManagerDao"></property>
+    </bean>
+    
+</beans>

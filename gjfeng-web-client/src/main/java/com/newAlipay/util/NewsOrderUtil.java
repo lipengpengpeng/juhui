@@ -1,0 +1,105 @@
+package com.newAlipay.util;
+
+import com.alipay.api.AlipayApiException;
+import com.alipay.api.AlipayClient;
+import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.domain.AlipayTradeAppPayModel;
+import com.alipay.api.domain.AlipayTradePagePayModel;
+import com.alipay.api.request.AlipayTradeAppPayRequest;
+import com.alipay.api.request.AlipayTradePagePayRequest;
+import com.alipay.api.response.AlipayTradeAppPayResponse;
+import com.alipay.api.response.AlipayTradePagePayResponse;
+
+public class NewsOrderUtil {
+
+	// 天天易购
+	//private static String APP_ID="2018032202424514";
+	//private static String APP_PRIVATE_KEY="MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCaVGO3/bUk/b+L76w1CHwEtrXvQVD2Cf90q6FfCRM0sLEjsYuf1n8x2sqlZ3M0LpNtbXJDJ/tuKkoKpGm9r9SuVFPtwdxRlZvSYdaukfaPfTDBJxPSDUPG1nDB6ZDzdKaJiSDC8hwIghZLgKWSJonP/Yaukk3Nx0HS9UmdjwWeNDiUeVf1uD/xvjr56pU6iRi/1Q2RfKZ0tEGZP6TN0zCkRr26mGiDQVT3D8cBE/p/ST4if7wagvba5q1jUSo8xgUh8UM9kVTaTpdoYgA9da6B9XSh2jGBJuMOi87By3acAlzjM0HLRU1tumy3R/0z2hkmVs+glpexqnbNPv1NQKInAgMBAAECggEAW+7peDEqN17xO+sKKo1jU2uD9YJzOB28j0OuXW6Kgli/LQQWqKCeJJSxItb9SZh1Ojp4Voj6viVy9eP7GYQkrbSOSpOxKuh0al7eBB/vQIrTADzHEdnVBh24DcuVDXHvwv5tBbQz/t1/anq4JtfOQJhGIrgEoRCRpZl4wOLx9cs3OJT9RPJ803TOQpQX8aX9qAHTYSNBhZ65b6aIysJXTmZLpa/4/Cz/A6DRviYoRdv7Vp3FH9PC4oW8dnDgiMwv1jGfE95lztfkKKvJVa7TriK2ESdRpSeBhNDx9WsufsZk4GOky2k0k5xMLpUPLqUzNofAAFCvusrk61WMJhxgAQKBgQDhbCSYLbtp2PnE3oYy3N1fRp4cIwcSGD7ybWLXTdHL6ZvMIks/zE/mFu7jg5cJ6W1uVoSrnm4cO9n9G8IXaq49SVgk9ELVBEsec7Q/aYh6nZjhgo6SFzIgichgoA/dX4gNLjJcqJPOfosCaRZ0oyQam6818moy9PQjmCifRi4ORwKBgQCvQ4eYlOTnQ6sPWATx2yqTMQjPNXH+sJnTsYc9Oq/A8n/3ZEpwm9XEK3XxIuRYy4x8XrOJySNQnOUJRmwXDxJfir1HzELKPbAK/3xS3TX0VOWR8VvDARU9nJBKavv+GiM0l/2A8etpIdraSVvvXFP9GcvBE5/ocF38Zjms9FddIQKBgQDRrQRw5IDhmKfindUXtGbY+1eP9mjaROEwH90DRWgykq2O+AskYYekDorP5xNzbcOTETjAZVIoQuelzc8AdwNxECrD3MvZVfAFeDwdi60d2D9e61BvxNGkgGR4tAltsTFciS7hDxDEzuHAMT1o6mJnuY4E0OJFWaFJBnwqgl3OewKBgCjVXfExt4ceH+uqQTSsMGYsxXWpaQ7CzIQi13RviOU2WpQj/Kfx1sMmsQrmazc47VlIoyHWB/FPLJmVm7dfnpM9+s2QjHscFjjpv2h6+4gag4YWKp/rT6yUHpYICP/xzQQC6WAyfPt4lMnIz6+b3kGY0f0A+n+oNm2Iz6U5JGWhAoGAHdoqP6rggRVYkCbJqWw1w0EXZKF6xhrv8l4NiZZq7OouUPsD6JgFaZzzTDWQVlCkdAKSlSqLlFRCm/50JW/mQbgFupKSSkpYc4w14wBe1cTByKRtP8I0EpYHb/BGEBttZAuV3+UaDKnQTrJ3Ntb4QG1VPeg4myJSCoQgownoE1M=";
+	//private static String ALIPAY_PUBLIC_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmlRjt/21JP2/i++sNQh8BLa170FQ9gn/dKuhXwkTNLCxI7GLn9Z/MdrKpWdzNC6TbW1yQyf7bipKCqRpva/UrlRT7cHcUZWb0mHWrpH2j30wwScT0g1DxtZwwemQ83SmiYkgwvIcCIIWS4ClkiaJz/2GrpJNzcdB0vVJnY8FnjQ4lHlX9bg/8b46+eqVOokYv9UNkXymdLRBmT+kzdMwpEa9uphog0FU9w/HARP6f0k+In+8GoL22uatY1EqPMYFIfFDPZFU2k6XaGIAPXWugfV0odoxgSbjDovOwct2nAJc4zNBy0VNbbpst0f9M9oZJlbPoJaXsap2zT79TUCiJwIDAQAB";
+
+	// 凤凰
+	private static String APP_ID = "2017072407874744";
+	private static String APP_PRIVATE_KEY = "MIIEpAIBAAKCAQEAtagb6S3YyZfq65OkUWQTJpHCRq4pH41Mxiwqq+dsv9gy5f4JlcrFgN6JK3GhWM+fPX3kU+oZCIxhcG7AeIXzemNSWnopADj4DRKm2oKrR5xLJneKDJQsBqB43qQL8Un1RY2yh7lfUwIbCr23G2FwZ5jiOSWU8l319HJohQ5FKmYap7P5Bi2YT0htKNPcTBr13OLXr4FElB+vK5XdBzZnrYwAg5RThf4si/1XadSF1qhtEbztJzIM/hac+KaxiSVnd5qLXW2IOILg/juekMTV/f06EXM35PjC57C7QdVYRlGIJ01EKDa+xXA82ZLyNjDZJ7ifaViXU7vTeni3Lo4+mwIDAQABAoIBAFtzW0HDm+y5N0ILnOCAsgdrv9NXYEqLFwh5Oa47HotiKxWQE4E+iLl8zq95UBHmzDLnyufX5WxhR7iTeP/z54RIti/oafW7uFzUc/1zZQjzDP47ldsJSTS42sCy83QwmHLAiA097FhcqgJ5SdJV9oGg/NpqKhbt6KF8a1P4wCc8T3ztzY0GvMWUZUkVkySJ+p0wbSmYkf7rGkWZsUwT0EkHDW10iH4x5evsAldn9V51+RQ71Au/eGcnPhSJ62FF46AoSbxGg4PdNNhCyRd3gHxldqMkhTtZh+VgERyoyjLpW5P0uYP3R5TccOrHCDbmuMSzCUnfH+9f8UeIwQKrHXkCgYEA77NeplAl8S7/SK9TNJfb/RgDGsjVgB4JMoeUeGWVRg70lAT5EWmIt9gq74Arj4Xl4vEeYIWDTk6We8JyhcoMulYISxrmyOeMr78nJaWoeu8f7KBkp5Y+AHCn4lq5II5Wk7RsXJ8ZJ4yCw/v3TUywsvNHolN2YHBAp15bJhH2bB8CgYEAwgJUI9THByDlu30WoZ62lDdKiHjJdRaiFOD+QlhbtO33OS/H5b9cUqYKxFBnwWL13NTT9i79UkLX1pHZFAhlSqiTHPVzuymCGeUxN69GWVYYMdpXLenyZC7zoTmHiVsTJu+BOsVr/k9v3By20SnZKmQ9W912kID0m1ei37GdngUCgYEAvxxn7noghjdOWolO8bPSNeybLRPLBabs9liay5NSfNUXs5xzaKqX0tyK/wFVucysCVDtQ0+v7RNDb9EMthbuJvLJEfiU4MGcrdLeR2nY9osJDQSku+lR7c/kStjCmW5jIMjNTNuclqe06sVN21e12jeVeZrJ2wIkyky0p5nSu0kCgYA+YSFMpA2abSlwrzenn7B015JPbwbXbv+OVwlpq59Q/XKQIJzVckHtERZFKNUziO4kownEDjfFS1i61QpHNqva5XjnxsP/WclLKjY5AVJNRzFgViPRz3bwX2hWXnkF4RK3YirbCr8+dawxycm+VwZMaw6PixWkQNJlYDguVJ2pQQKBgQDlPNGIEEOJ/tYjsSdZnNwn+YDRWtB2/SRT6SEjFc94CmU5oHg9u1ouNF53uOO+hYQevjR/Iw4ubY7dTwma6svaOadWrqRLM0Tfjc6LT39/A9I3g2x3T2kE8+yZFNagec3A/yU8wIJocq+tNExHukrr5KMAUO+YImvk9Qp07PxDaw==";
+	private static String ALIPAY_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtagb6S3YyZfq65OkUWQTJpHCRq4pH41Mxiwqq+dsv9gy5f4JlcrFgN6JK3GhWM+fPX3kU+oZCIxhcG7AeIXzemNSWnopADj4DRKm2oKrR5xLJneKDJQsBqB43qQL8Un1RY2yh7lfUwIbCr23G2FwZ5jiOSWU8l319HJohQ5FKmYap7P5Bi2YT0htKNPcTBr13OLXr4FElB+vK5XdBzZnrYwAg5RThf4si/1XadSF1qhtEbztJzIM/hac+KaxiSVnd5qLXW2IOILg/juekMTV/f06EXM35PjC57C7QdVYRlGIJ01EKDa+xXA82ZLyNjDZJ7ifaViXU7vTeni3Lo4+mwIDAQAB";
+
+	// String APP_ID="2018041202543636";
+	// String
+	// APP_PRIVATE_KEY="MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCcKEGTDajnzIJfJDglexnETX6IJUMLpyBESOqo11wIddgIuCtnhr9LpBGgw3VGXXOQiLTWs32/52jd9jqjIecrOXSZjP/G5XxWbpHVt/TJ+2aupcuopQ2xG8KS/P7wB94JrJiotoFV47IFAiLnoLBcf3fa+gAw9ZPpQOvSDNycpnqwZTRCALwGyjwgkknutP8zeAgzn7cbr5KuNq4yWWmBXHTGM9MBc7IJ22Em9WzK2EoLxZ32auJ2SQZhoqGxNeb70zCfbO17QNjtcgZaTiVLn1Km4hwrQvgZ/dW4xeB6+hV3Hopme4Yh0Cr7s6xNxbgyDJlqSCN9jYYQS39cHGvlAgMBAAECggEAd+RcfFf3f4i/6+Y2CWjbHqFU7ZiWQkMdfe/x4pH+gixgIkmsYX7OLngYZLLMvqqPSL/8//6tJIK6O/iJiqhEASbKw/3Cf2XAMegQpeLn2Y/ghWSb2a5ntbwXhp0h6w5PRmQyjQ4afOQl0LyUKfxwi4P+dKyPKwfReTu0EwB2/PmHnGbpg+tksWpzJn5R5bKsQpCCugwbms4VQwLhZ3R7mc+PRvoDfltolDAJmR54YQQ09mcE+W+5qrfDoilGbeOcA0WmI/7odVccD5TauGTbEzsmWTs71tlGAFA+wJl2pp5kbuLSwjIarFmKMsra9pZKZMYht0KcDd+WtXtrgJh9vQKBgQDzqIAQbaiLtWkZ0G+PlughJwohLMa8rOq3+OwA9cSMQnPYxdRwpOcqPr3kTL3A81shoIggOFFaMth+JtTfpxyS2CKfvB8fhCC7hKYENoMqfRnw/9NxhuR06nWS5YQsfhjqdbTCvbpoH3t/pmSnp0AeIj9nhD97NrBwiBRDnZL5UwKBgQCkESMIZGJSBnD6vvWnUd7Bj6IZ6VmES7SwsrynwrHriSShCRyivrpGUPNCsZDoYihPR/TwI19v9k1Wo8zLGt9/LV+XqVgW8+1twa9wa6Tn3qSXgSANEGWMr8SBMlhxqyzeRp2KEmwjJodpYQ5VdkIc7FpBVTG78ttKTpDdPpSG5wKBgQCM6EkHNyNdiA+7yfp6Q38CjR0iik50Flu3ANEazQZZRqTQG7f7XKICoD4YpPineRSeocOXPnptezIP4k0A+hdgJHYBgj1NcI+tYczQauX30FkMMiYJZUUBCAXuaaTCRjoKfP+ID0iZpns5GvTir6o4wv1/088SZlIrAccWQy4X2QKBgCQauVDhdlmCnV4wo7J8a77AsvVsyow4dLzluGpah/jDJ1JgxPJzcl6C9eVZWgApiaFYvmgSALCMzRwh07FmaoR8IasoUwBKEZezpb3hklqMPkAw5DK7xv0cuOuNfrUU7DzF4Wk/AJkDo4znFNZtvcLLqFj0PIuVt/g0LeDiIqFFAoGBAJThtO2Rohuwkw+atdJ0Sy4zkOZ6W/ul01OIYgTP8P4Lz6Ip0c1Tp4/KjdR9mnk+wLUVUtY60hyq0jTvz+GGv2fglan4IhvsaRl2Y4HzufGRJD/5WdIOprgpVeG+WYOyq00L6mTUm585wwFChxRLrO9CQj353smqCtVrf8nG8dLw";
+	// String
+	// ALIPAY_PUBLIC_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnChBkw2o58yCXyQ4JXsZxE1+iCVDC6cgREjqqNdcCHXYCLgrZ4a/S6QRoMN1Rl1zkIi01rN9v+do3fY6oyHnKzl0mYz/xuV8Vm6R1bf0yftmrqXLqKUNsRvCkvz+8AfeCayYqLaBVeOyBQIi56CwXH932voAMPWT6UDr0gzcnKZ6sGU0QgC8Bso8IJJJ7rT/M3gIM5+3G6+SrjauMllpgVx0xjPTAXOyCdthJvVsythKC8Wd9mridkkGYaKhsTXm+9Mwn2zte0DY7XIGWk4lS59SpuIcK0L4Gf3VuMXgevoVdx6KZnuGIdAq+7OsTcW4MgyZakgjfY2GEEt/XBxr5QIDAQAB";
+
+	// 比特
+	//private static String APP_ID="2018061360409259";
+	//private static String APP_PRIVATE_KEY="MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCyFLobZkmZJgwliRZN0J0zIKYfsVX/A7b4+1+A+mLYHaAJ2vCpjkk94+LYSPQVuji3Obo4nc23tNkHUgFJxcyiZPZSPrUbz234agRXBZf4cycEDswZW/O+Dmigx56utrdvX5G8MAVOMRvz1apC0WjEoL//lf2eDAi4bL/sqNRW3xNr63ABPNwDO2JDnEVLYVQlDdoxrvqUo1ioYyr/ykcOb4hxE4wOj37oBYFDz+teCrOkltUE2oLKO8FXLYjx8UJTX6ijXt1yd/XBeKT6Nj0k1vb4tVaFOuuVa1BL2wOiexPz9ZVYI+2eOY3bg97koVaHnj5LiskRhtFJauShl26jAgMBAAECggEAPu6ENlqXd7+yWzFu6GDorMDE9D4/Hbe6WZK71WCmvaj6fYEZu1HFIFIAQF7Ho0YD9Pw5ivh5Uopeh++69M8p2dnEEpyGdCWBv1/32KjpY6uOBikUh4GvSWLeJrNkqGl5uaoUXmS5+z/vmOPRH3vRgmssbq4ayleGXWZRDNk88NWdW3s99OBKZG8CWIsQH6F3+imAeCMVABHp5Eag7VqJfApPltrCP7P41nHZaC5d+CZjasW2bKmpNshMxnE5W5R6D+LdJ4GwlKfTxAFLHWZWS/2RZQrXMbhH0jT7bcTUrCSdySQDjaYucgC+QFcnRMV4qD8e1FcvqXoB/sucJlIqwQKBgQDjPrpVkrfdpJMU/d9yc1w4dQcsQOqFsteg3F+sD4ZyJzDqH/rnpec0tb/aFmMFhDSmkQdcyxVtZcQtDLT2tzsiLNzYSjDK2FC4rv9XI5lPETKLdFYEPakGrSj6aM2Jv+7UXC3TouNWdh3t1iLQAUfvN5zJDmTuqRUTDZQHTZU7DQKBgQDInWaWJEJTpp9iUsPj+BoR65xFZm0e+7eff8heQ7P4u4Tg+pZgBslxyRnh9bfRLNJ5eglPhbqVhSs57lnM5ISLGbkNml1K3GGvXhzRWH+H6pGdGLVQudM5xV2CVgGwK09jbmA+X6Jvc0fsw8tD0DJCHAMl+ATTPOtLLfuHnqkkbwKBgQCS+x6gfL5qIKl1eWNObqkmZyNVj0NhaLSpegBzlLMcIJc1x6uMqzTpVekaUUKI7eL0HXgKn9xjHuCNVtuxfABGcYgCabI3cUR8v8ut+/uMNY5gvsVoBs3N4LBRjvnqb/c06c5GReQPJ2TiUY/AxCNX6buCG8pSx5A2+6BUPO0Z/QKBgE3La+qxKN9Tb98rBTe0EDf+y9zFuW8YYb6CSOr1CidcYEz2H7YhK6DqQRU0uhFtdjkRL+ccjpxIxdhzK3Oe8h8W3IH/6EmNaHwe3MH5tYq5Vbo7yKQDS3vNo1NVktYEFYcTWFMXtt/NLokL7Bjh9XtZbYcdxJE9wGio7i9LQYAVAoGBAIcwPcc5xfJLqFE48jzd/y719u05xGDN8Z+hMADfFedlF01SZNCcMbVJNIyQaQsDl/HkR8drhxIDrOsG3FiyptZOi5f1dQEwMkjPhR4t1qPAQgK3Wq23KWRfTDYuDpLCMxFUP9GnocXbbM7C5NEH0xvb9KRbl3g0UMhbg7QNLiK7";
+    //private static String ALIPAY_PUBLIC_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAshS6G2ZJmSYMJYkWTdCdMyCmH7FV/wO2+PtfgPpi2B2gCdrwqY5JPePi2Ej0Fbo4tzm6OJ3Nt7TZB1IBScXMomT2Uj61G89t+GoEVwWX+HMnBA7MGVvzvg5ooMeerra3b1+RvDAFTjEb89WqQtFoxKC//5X9ngwIuGy/7KjUVt8Ta+twATzcAztiQ5xFS2FUJQ3aMa76lKNYqGMq/8pHDm+IcROMDo9+6AWBQ8/rXgqzpJbVBNqCyjvBVy2I8fFCU1+oo17dcnf1wXik+jY9JNb2+LVWhTrrlWtQS9sDonsT8/WVWCPtnjmN24Pe5KFWh54+S4rJEYbRSWrkoZduowIDAQAB";
+	
+	// 签名方式
+	private static String sign_type = "RSA2";
+	// 编码格式
+	private static String CHARSET = "utf-8";
+	// 正式环境支付宝网关，如果是沙箱环境需更改成https://openapi.alipaydev.com/gateway.do
+	private static String url = "https://openapi.alipay.com/gateway.do";
+	
+	public static String getPayBody(String orderNum, String subject, String money, String body, String notify_url) {
+		
+		// 实例化客户端
+		AlipayClient alipayClient = new DefaultAlipayClient(url, APP_ID, APP_PRIVATE_KEY, "json", CHARSET,
+				ALIPAY_PUBLIC_KEY, sign_type);
+		// 实例化具体API对应的request类,类名称和接口名称对应,当前调用接口名称：alipay.trade.app.pay
+		AlipayTradeAppPayRequest request = new AlipayTradeAppPayRequest();
+		// SDK已经封装掉了公共参数，这里只需要传入业务参数。以下方法为sdk的model入参方式(model和biz_content同时存在的情况下取biz_content)。
+		AlipayTradeAppPayModel model = new AlipayTradeAppPayModel();
+		model.setBody(body);
+		model.setSubject(subject);
+		// 请保证OutTradeNo值每次保证唯一
+		model.setOutTradeNo(orderNum);
+		model.setTimeoutExpress("30m");
+		model.setTotalAmount(money);
+		model.setProductCode("QUICK_MSECURITY_PAY");
+		request.setBizModel(model);
+		request.setNotifyUrl(notify_url);
+		try {
+			// 这里和普通的接口调用不同，使用的是sdkExecute
+			AlipayTradeAppPayResponse response = alipayClient.sdkExecute(request);
+			System.out.println(response.getBody());// 就是orderString
+													// 可以直接给客户端请求，无需再做处理。
+			return response.getBody().toString();
+		} catch (AlipayApiException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public static String getWebPayBody(String orderNum, String subject, String money, String body, String notify_url,String return_url) {
+		
+	
+		// 实例化客户端
+		AlipayClient alipayClient = new DefaultAlipayClient(url, APP_ID, APP_PRIVATE_KEY, "json", CHARSET,
+				ALIPAY_PUBLIC_KEY, sign_type);
+		// 实例化具体API对应的request类,类名称和接口名称对应,当前调用接口名称： alipay.trade.page.pay 
+		AlipayTradePagePayRequest request=new AlipayTradePagePayRequest();		
+		// SDK已经封装掉了公共参数，这里只需要传入业务参数。以下方法为sdk的model入参方式(model和biz_content同时存在的情况下取biz_content)。
+		AlipayTradePagePayModel model=new AlipayTradePagePayModel();		
+		model.setBody(body);
+		model.setSubject(subject);
+		// 请保证OutTradeNo值每次保证唯一
+		model.setOutTradeNo(orderNum);
+		model.setTimeoutExpress("30m");
+		model.setTotalAmount(money);
+		model.setProductCode("FAST_INSTANT_TRADE_PAY");
+		request.setBizModel(model);
+		request.setNotifyUrl(notify_url);
+		request.setReturnUrl(return_url);		
+		try {
+			// 这里和普通的接口调用不同，使用的是sdkExecute
+			AlipayTradePagePayResponse response=alipayClient.pageExecute(request);			
+			System.out.println(response.getBody());// 就是orderString
+													// 可以直接给客户端请求，无需再做处理。
+			return response.getBody().toString();
+		} catch (AlipayApiException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+}

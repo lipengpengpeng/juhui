@@ -1,0 +1,520 @@
+package cc.messcat.gjfeng.interceptor;
+
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.ModelAndView;
+
+import cc.messcat.gjfeng.common.security.VerifyToken;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import net.sf.json.JSONObject;
+
+public class TokenInterceptor implements HandlerInterceptor {
+
+	// Action之前执行
+	/* 
+	 * 加密规则：signKey+方法名+约定参数值
+	 * @see org.springframework.web.servlet.HandlerInterceptor#preHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+	 */
+	@SuppressWarnings("rawtypes")
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object arg2) throws Exception {
+		String uri = request.getRequestURI();
+		boolean isTokenCorrect = false;														// 拦截结果
+		try {
+			Map paramMap = getParamFromRequest(request);									// 获取参数map
+			String token = (String) paramMap.get("token");
+			if (StringUtil.isNotBlank(token)) {
+				String[] paramNames = getParamNames(uri);									// 获取token参数名
+				String[] tokenDetail = getTokenDetails(request, paramNames, paramMap);		// 获取token参数值
+				isTokenCorrect = VerifyToken.verify(token, tokenDetail);					// 判断token是否正确
+			}
+		} catch (Exception e) {
+			System.out.println(request.getRequestURL() + "=>token拦截器异常！\n" + e);
+			isTokenCorrect = false;
+		}
+		// 返回
+		if (!isTokenCorrect) {
+			System.out.println(request.getRequestURL() + "=>token拦截结果：" + isTokenCorrect);
+			ResultVo resultVo=new ResultVo(500, "系统错误拦截");
+			JSONObject myJson = JSONObject.fromObject(resultVo);
+			response.setContentType("text/html");
+			response.setCharacterEncoding("UTF-8");
+			response.getWriter().print(myJson);
+			response.getWriter().flush();
+			response.getWriter().close();
+		}
+		return isTokenCorrect;
+	}
+
+	// 最后执行，可用于释放资源
+	@Override
+	public void afterCompletion(HttpServletRequest arg0, HttpServletResponse arg1, Object arg2, Exception arg3) throws Exception {
+		// TODO Auto-generated method stub
+
+	}
+
+	// 生成视图之前执行
+	@Override
+	public void postHandle(HttpServletRequest arg0, HttpServletResponse arg1, Object arg2, ModelAndView arg3) throws Exception {
+		// TODO Auto-generated method stub
+
+	}
+
+	/**
+	 * 从request中获取参数map
+	 * 
+	 * @param request
+	 * @param response
+	 * @return
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private Map getParamFromRequest(HttpServletRequest request) {
+		Map map = new HashMap();
+		// 根据不同的请求方式用不同的方法来获取参数
+		if ("GET".equals(request.getMethod())) {
+			String queryString = request.getQueryString();
+			// 获取参数
+			map = InterceptorUtil.queryStringToMap(queryString);
+		} else if ("POST".equals(request.getMethod())) {
+			Enumeration pNames = request.getParameterNames();
+			while (pNames.hasMoreElements()) {
+				String name = (String) pNames.nextElement();
+				String value = request.getParameter(name);
+				map.put(name, value);
+			}
+		}
+		return map;
+	}
+
+	/**
+	 * 根据所需要的参数名将参数组合成token参数
+	 * 
+	 * @param paramNames
+	 *            所需要的参数名
+	 * @return paramData 参数值map
+	 */
+	@SuppressWarnings("rawtypes")
+	public String[] getTokenDetails(HttpServletRequest request, String[] paramNames, Map paramData) {
+		String[] tokenDetail;
+		int tokenDetailLen = paramNames.length;
+		// 将接口名和参数一起装进tokenDetail里面作为token的参数
+		tokenDetail = new String[tokenDetailLen];
+		// 第一个参数为接口名
+		tokenDetail[0] = paramNames[0];
+		// 将参数的值装入tokenDetail
+		for (int i = 1; i < tokenDetail.length; i++) {
+			if (paramData.get(paramNames[i]) != null) {
+				tokenDetail[i] = paramData.get(paramNames[i]).toString();
+			} else {
+				// 代表参数是直接在url后面的，如...get**/{player}
+				String uri = request.getRequestURI();
+				System.out.println("uri:" + uri);
+				tokenDetail[i] = uri.substring(uri.lastIndexOf('/') + 1);
+			}
+		}
+		return tokenDetail;
+	}
+
+	/**
+	 * 根据请求url获取所需要的token参数名 第一个值为接口名
+	 */
+	public String[] getParamNames(String uri) {
+		if (matcher(".*/app/index/v1_0/o2o", uri)) {
+			String[] params = { "o2o"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/o2o/like", uri)){
+			String[] params = { "like","longitude","latitude"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/o2o/subColumn.*", uri)){
+			String[] params = { "subColumn"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/o2o/search", uri)){
+			String[] params = { "search"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/o2o/addSearch", uri)){
+			String[] params = {"addSearch","account"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/online", uri)){
+			String[] params = { "online"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/findNearColum", uri)){
+			String[] params = { "findNearColum"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/findNearSubColum", uri)){
+			String[] params = { "findNearSubColum"};
+			return params;
+		}else if(matcher(".*/app/index/v1_0/near", uri)){
+			String[] params = { "near"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/o2o/productDetail.*", uri)){
+			String[] params = { "productDetail","longitude","latitude"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/o2o/hotProduct", uri)){
+			String[] params = { "hotProduct","id"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/o2o/products", uri)){
+			String[] params = { "products","longitude","latitude"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/online/onlineProductsByAllColumn.*", uri)){
+			String[] params = { "onlineProductsByAllColumn","longitude","latitude"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/online/onlineProductsDetailInfo/*", uri)){
+			String[] params = { "onlineProductsDetailInfo","id"};
+			return params;
+		}else if(matcher(".*/app/product/v1_0/online/product/stockAndPrice", uri)){
+			String[] params = { "stockAndPrice","proId","attrIds"};
+			return params;
+		}else if(matcher(".*/app/order/v1_0/getMemAddreById", uri)){
+			String[] params = { "getMemAddreById","id"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/actCart", uri)) {
+			String[] params = { "actCart", "cartIds"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/addOrder", uri)) {
+			String[] params = { "addOrder", "payType"};
+			return params;
+		}else if (matcher(".*/app/cart/v1_0/addCart", uri)) {
+			String[] params = { "addCart", "account"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/my", uri)) {
+			String[] params = { "my"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/update", uri)) {
+			String[] params = { "update","id"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/myQr", uri)) {
+			String[] params = {"myQr"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/countMemberInfo", uri)) {
+			String[] params = { "countMemberInfo","account","type"};
+			return params;
+		}else if (matcher(".*/app/cart/v1_0/myCart", uri)) {
+			String[] params = { "myCart","account"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/setPay", uri)) {
+			String[] params = { "setPay","mobile"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/myCollect", uri)) {
+			String[] params = { "myCollect"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/getMemberLowerLevel", uri)) {
+			String[] params = { "getMemberLowerLevel","superId"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/getMyAddress", uri)) {
+			String[] params = { "getMyAddress"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/getAddressDetail", uri)) {
+			String[] params = { "getAddressDetail"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/updateAddress", uri)) {
+			String[] params = { "updateAddress","id","account"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/updateAddressInIos", uri)) {
+			String[] params = { "updateAddressInIos","id","account"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/default", uri)) {
+			String[] params = { "default","id","account"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/delAdress", uri)) {
+			String[] params = { "delAdress","id","account"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/newsAddress", uri)) {
+			String[] params = { "newsAddress","account"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/newsAddressInIos", uri)) {
+			String[] params = { "newsAddressInIos","account"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/realNameByBankCrad", uri)) {
+			String[] params = { "realNameByBankCrad","account"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/realNameByAly", uri)) {
+			String[] params = { "realNameByAly","account"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/getOrder", uri)) {
+			String[] params = { "getOrder","account","status"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/updateOrderStatus", uri)) {
+			String[] params = { "updateOrderStatus","account","orderSn"};
+			return params;
+		}else if (matcher(".*/app/comment/v1_0/newProCommet", uri)) {
+			String[] params = {"newProCommet","memberId","orderSn"};
+			return params;
+		}else if (matcher(".*/app/cart/v1_0/updateCartNum", uri)) {
+			String[] params = { "updateCartNum"};
+			return params;
+		}else if (matcher(".*/app/cart/v1_0/delCart.*", uri)) {
+			String[] params = { "delCart"};
+			return params;
+		}else if (matcher(".*/sms/send", uri)) {
+			String[] params = { "send","mobile"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/getAreaByType", uri)) {
+			String[] params = { "getAreaByType"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/getProvinceByLetter", uri)) {
+			String[] params = { "getProvinceByLetter"};
+			return params;
+		}else if (matcher(".*/app/address/v1_0/getCityName", uri)) {
+			String[] params = { "getCityName"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/aboutGjf", uri)) {
+			String[] params = { "aboutGjf"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/consumption", uri)) {
+			String[] params = { "consumption"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/agent", uri)) {
+			String[] params = { "agent"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/service", uri)) {
+			String[] params = { "service"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/download", uri)) {
+			String[] params = { "download"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/toDrawCash", uri)) {
+			String[] params = { "toDrawCash","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/addDrawCash", uri)) {
+			String[] params = { "addDrawCash","account","money"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/getMyBank", uri)) {
+			String[] params = { "getMyBank","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/getDrawHistory", uri)) {
+			String[] params = { "getDrawHistory","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/myBanks", uri)) {
+			String[] params = { "myBanks","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/bindBank", uri)) {
+			String[] params = { "bindBank","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/getAllBank", uri)) {
+			String[] params = { "getAllBank"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/deleteMemBank", uri)) {
+			String[] params = { "deleteMemBank","account","bankId"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/diviHis", uri)) {
+			String[] params = { "diviHis"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/getInterests", uri)) {
+			String[] params = { "getInterests"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/getParticipate", uri)) {
+			String[] params = { "getParticipate"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/addBenefit", uri)) {
+			String[] params = { "addBenefit","account","mobile"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/addShouXin", uri)) {
+			String[] params = { "addShouXin","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/benefits", uri)) {
+			String[] params = { "benefits","account"};
+			return params;
+		}else if (matcher(".*/app/store/v1_0/addStore", uri)) {
+			String[] params = { "addStore"};
+			return params;
+		}else if (matcher(".*/app/store/v1_0/myStore", uri)) {
+			String[] params = { "myStore","account"};
+			return params;
+		}else if (matcher(".*/app/store/v1_0/updateBanner", uri)) {
+			String[] params = { "updateBanner"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/myStorePro", uri)) {
+			String[] params = { "myStorePro","account"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/delStorePro", uri)) {
+			String[] params = { "delStorePro","account"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/addProduct", uri)) {
+			String[] params = { "addProduct"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/updatePro", uri)) {
+			String[] params = { "updatePro"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/toUpdate", uri)) {
+			String[] params = { "toUpdate","id","account"};
+			return params;
+		}else if (matcher(".*/app/v1_0/register", uri)) {
+			String[] params = { "register"};
+			return params;
+		}else if (matcher(".*/app/v1_0/login", uri)) {
+			String[] params = { "login"};
+			return params;
+		}else if (matcher(".*/app/v1_0/forgetPassWord", uri)) {
+			String[] params = { "forgetPassWord"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/toAdd", uri)) {
+			String[] params = { "toAdd"};
+			return params;
+		}else if (matcher(".*/app/product/v1_0/subColumn", uri)) {
+			String[] params = { "subColumn"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/findO2oOrderByPage", uri)) {
+			String[] params = { "findO2oOrderByPage","storeId"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/goMoneyPage", uri)) {
+			String[] params = { "goMoneyPage","storeId"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/goAllShouXin", uri)) {
+			String[] params = { "goAllShouXin","account"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/addMyCollect", uri)) {
+			String[] params = { "addMyCollect","account","collectType"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/delectMyCollect", uri)) {
+			String[] params = { "delectMyCollect","colId"};
+			return params;
+		}else if (matcher(".*/app/comment/v1_0/getAllProCommetByPage", uri)) {
+			String[] params = {"getAllProCommetByPage","proId"};
+			return params;
+		}else if (matcher(".*/app/store/v1_0/updateIntro", uri)) {
+			String[] params = {"updateIntro","storeId"};
+			return params;
+		}else if (matcher(".*/app/v1_0/bind", uri)) {
+			String[] params = {"bind","mobile"};
+			return params;
+		}else if (matcher(".*/app/member/v1_0/findMemberByMoblie", uri)) {
+			String[] params = {"findMemberByMoblie","mobile"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/memService", uri)) {
+			String[] params = { "memService"};
+			return params;
+		}else if (matcher(".*/app/rule/v1_0/storeService", uri)) {
+			String[] params = { "storeService"};
+			return params;
+		}else if (matcher(".*/app/v1_0/getMemberByUid", uri)) {
+			String[] params = { "getMemberByUid","uid"};
+			return params;
+		}else if (matcher(".*/app/order/v1_0/payOrderSign", uri)) {
+			String[] params = { "payOrderSign","orderSn","account"};
+			return params;
+		}else if (matcher(".*/app/store/v1_0/updateAddressInfo", uri)) {
+			String[] params = { "updateAddressInfo","storeId"};
+			return params;
+		}else if (matcher(".*/app/v1_0/weixinRegister", uri)) {
+			String[] params = { "weixinRegister","uid"};
+			return params;
+		}else if (matcher(".*/app/v1_0/updataLoginPassword", uri)) {
+			String[] params = { "updataLoginPassword","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/agent", uri)) {
+			String[] params = { "agent","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/findNextAgent", uri)) {
+			String[] params = { "findNextAgent","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/agentHistory", uri)) {
+			String[] params = { "agentHistory","account"};
+			return params;
+		}else if (matcher(".*/app/trade/v1_0/transferDividendsMoney", uri)) {
+			String[] params = { "transferDividendsMoney","account"};
+			return params;
+		}else if (matcher(".*app/upgrede/v1_0/findAppUpgredeByType", uri)) {
+			String[] params = { "findAppUpgredeByType"};
+			return params;
+		}else if (matcher(".*app/upgrede/v1_0/sendAndroidUnicast", uri)) {
+			String[] params = { "sendAndroidUnicast"};
+			return params;
+		}else if (matcher(".*app/index/v1_0/onlineInH5", uri)) {
+			String[] params = { "onlineInH5"};
+			return params;
+		}else if (matcher(".*app/product/v1_0/online/onlineProductsDetailInfoInH5", uri)) {
+			String[] params = { "onlineProductsDetailInfoInH5","id"};
+			return params;
+		}else if (matcher(".*app/order/v1_0/actCartInH5", uri)) {
+			String[] params = { "actCartInH5","cartIds"};
+			return params;
+		}else if (matcher(".*app/order/v1_0/toAdd", uri)) {
+			String[] params = { "toAdd","account"};
+			return params;
+		}else if (matcher(".*app/order/v1_0/detail", uri)) {
+			String[] params = { "detail","account","orderSn"};
+			return params;
+		}else if (matcher(".*app/order/v1_0/yinLPay", uri)) {
+			String[] params = { "yinLPay","orderId","account"};
+			return params;
+		}else if (matcher(".*app/order/v1_0/yinLPayCofirom", uri)) {
+			String[] params = { "yinLPayCofirom","orderId","account"};
+			return params;
+		}else if (matcher(".*app/member/v1_0/myWallet", uri)) {
+			String[] params = { "myWallet","account"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/transferPage", uri)) {
+			String[] params = { "transferPage"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/memberPointTransfer", uri)) {
+			String[] params = { "memberPointTransfer","type","account"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/findTransferHistory", uri)) {
+			String[] params = { "findTransferHistory","type","account"};
+			return params;
+		}else if (matcher(".*app/rule/v1_0/consumptionInH5", uri)) {
+			String[] params = { "consumptionInH5"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/getSalesWelfare", uri)) {
+			String[] params = { "getSalesWelfare","account"};
+			return params;
+		}else if (matcher(".*app/product/v1_0/online/allColumn", uri)) {
+			String[] params = { "allColumn"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/toFhTreasurePage", uri)) {
+			String[] params = { "toFhTreasurePage","account"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/toBalanceTransferPage", uri)) {
+			String[] params = { "toBalanceTransferPage","account"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/transderBalanceToTreasure", uri)) {
+			String[] params = { "transderBalanceToTreasure","account","money"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/transferFhTreasurePage", uri)) {
+			String[] params = { "transferFhTreasurePage","mobile","account","payPassword"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/toFhTreasureDrawCash", uri)) {
+			String[] params = { "toFhTreasureDrawCash","account"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/addFhTreasureDrawCash", uri)) {
+			String[] params = { "addFhTreasureDrawCash","account","money"};
+			return params;
+		}else if (matcher(".*app/trade/v1_0/toFhTreasureTradeHistory", uri)) {
+			String[] params = { "toFhTreasureTradeHistory","account"};
+			return params;
+		}
+
+		return null;
+	}
+
+	/**
+	 * 正则表达式与字符串的匹配
+	 * 
+	 * @param regex
+	 *            规则
+	 * @param uri
+	 *            匹配的字符串
+	 * @return
+	 */
+	public boolean matcher(String regex, String uri) {
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(uri);
+		return matcher.matches();
+	}
+
+	public static void main(String[] args) {
+		TokenInterceptor i = new TokenInterceptor();
+		String regex = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$";
+		String num = "aVd1369999@163.com";
+		System.out.println(i.matcher(regex, num));
+	}
+}

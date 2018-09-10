@@ -1,0 +1,261 @@
+package cc.messcat.gjfeng.dubbo;
+
+import java.text.ParseException;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dubbo.core.CountInfoDubbo;
+import cc.messcat.gjfeng.service.count.CountInfoService;
+
+public class CountInfoDubboImpl implements CountInfoDubbo {
+
+	@Autowired
+	@Qualifier("countInfoService")
+	private CountInfoService countInfoService;
+	
+	@Override
+	public ResultVo findMemberAmount(int pageNo,int pageSize) {
+		return countInfoService.findMemberAmount(pageNo,pageSize);
+	}
+
+	@Override
+	public ResultVo findMemberAmountByType(String type) {
+		return countInfoService.findMemberAmountByType(type);
+	}
+
+	@Override
+	public ResultVo findMembersLowLevelConsume(int pageNo,int pageSize) {
+		return countInfoService.findMembersLowLevelConsume(pageNo,pageSize);
+	}
+
+	@Override
+	public ResultVo findBenefitPool() {
+		return countInfoService.findBenefitPool();
+	}
+
+	@Override
+	public ResultVo findBenefitHistory(int pageNo, int pageSize) {
+		return countInfoService.findBenefitHistory(pageNo,pageSize);
+	}
+
+	@Override
+	public ResultVo findDiviData() throws ParseException{
+		return countInfoService.findDiviData();
+	}
+
+	@Override
+	public ResultVo findMessageHistory(int pageNo, int pageSize) {
+		return countInfoService.findMessageHistory(pageNo,pageSize);
+	}
+
+	@Override
+	public ResultVo findAlmostOneMonthStoreTurnover() {
+		return countInfoService.findAlmostOneMonthStoreTurnover();
+	}
+
+	@Override
+	public ResultVo findAlmostOneMonth020Turnover() {
+		return countInfoService.findAlmostOneMonth020Turnover();
+	}
+
+	@Override
+	public ResultVo findAlmostOneMonthMemberAdd(String type) {
+		return countInfoService.findAlmostOneMonthMemberAdd(type);
+	}
+
+	@Override
+	public ResultVo findAlmostThreeMonthMemberTurnover(Long id) {
+		return countInfoService.findAlmostThreeMonthMemberTurnover(id);
+	}
+
+	@Override
+	public ResultVo findCashPool() {
+		return countInfoService.findCashPool();
+	}
+
+	@Override
+	public ResultVo findSummaryReport(int pageNo,int pageSize,String addTime,String endTime,String ste) {
+		return countInfoService.findSummaryReport(pageNo,pageSize,addTime,endTime,ste);
+	}
+
+	@Override
+	public ResultVo findBenefitReport(int pageNo, int pageSize,String addTime,String endTime,String ste) {
+		return countInfoService.findBenefitReport(pageNo, pageSize,addTime,endTime,ste);
+	}
+
+	@Override
+	public ResultVo findWealOutputReport(int pageNo,int pageSize,String addTime,String endTime,String ste) {
+		return countInfoService.findWealOutputReport(pageNo,pageSize,addTime,endTime,ste);
+	}
+
+	@Override
+	public ResultVo findWealPayoutReport(int pageNo, int pageSize,String addTime,String endTime,String ste) {
+		return countInfoService.findWealPayoutReport(pageNo, pageSize,addTime,endTime,ste);
+	}
+
+	@Override
+	public ResultVo findWithdrawReport(int pageNo, int pageSize,String addTime,String endTime,String ste) {
+		return countInfoService.findWithdrawReport(pageNo, pageSize,addTime,endTime,ste);
+	}
+
+	@Override
+	public ResultVo findOrderTotalAmount() {
+		return countInfoService.findOrderTotalAmount();
+	}
+
+	@Override
+	public ResultVo findOntimeDiviAmount(String type) {
+		return countInfoService.findOntimeDiviAmount(type);
+	}
+
+	@Override
+	public ResultVo findCreditLineRecharge(int pageNo,int pageSize) throws ParseException{
+		return countInfoService.findCreditLineRecharge(pageNo,pageSize);
+	}
+	
+	/* 
+	 * 统计总报表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateSummaryReport()
+	 */
+	@Override
+	public ResultVo updateSummaryReport() {
+		return countInfoService.updateSummaryReport();
+	}
+
+	/* 
+	 * 统计让利日报表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateBenefitReport()
+	 */
+	@Override
+	public ResultVo updateBenefitReport() {
+		return countInfoService.updateBenefitReport();
+	}
+
+	/* 
+	 * 统计福利产出日报表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateWealOutputReport()
+	 */
+	@Override
+	public ResultVo updateWealOutputReport() {
+		return countInfoService.updateWealOutputReport();
+	}
+
+	/* 
+	 * 统计福利派发报表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateWealPayoutReport()
+	 */
+	@Override
+	public ResultVo updateWealPayoutReport() {
+		return countInfoService.updateWealPayoutReport();
+	}
+
+	/* 
+	 * 统计提现日报表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateWithdrawReport()
+	 */
+	@Override
+	public ResultVo updateWithdrawReport() {
+		return countInfoService.updateWithdrawReport();
+	}
+	
+	/* 
+	 * 统计资金池表
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateWithdrawReport()
+	 */
+	@Override
+	public ResultVo updatePoolReport() {
+		return countInfoService.updatePoolReport();
+	}
+	
+	/* 
+	 * 修改总报表和福利派发报表的福利派发为实际派发额
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#updateSummaryAndPayoutReport()
+	 */
+	public ResultVo updateSummaryAndPayoutReport(){
+		return countInfoService.updateSummaryAndPayoutReport();
+	}
+
+	@Override
+	public ResultVo findStoreCreditLine(String storeNum, String storeName, String memeberName, int pageNo,
+			int pageSize,String orderType) {
+		return countInfoService.findStoreCreditLine(storeNum,storeName,memeberName,pageNo,pageSize,orderType);
+	}
+
+	@Override
+	public ResultVo findErrorMsg(int pageNo, int pageSize) {
+		return countInfoService.findErrorMsg(pageNo,pageSize);
+	}
+
+	/*
+	 * 查询区域业绩
+	 * @see cc.messcat.gjfeng.dubbo.core.CountInfoDubbo#findRegionalPerformance(int, int, java.lang.Long, java.lang.Long, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findRegionalPerformance(int pageNo, int pageSize,Long provinceId,Long cityId,Long areaId,String startTime,String endTime) {
+		return countInfoService.findRegionalPerformance(pageNo, pageSize, provinceId, cityId, areaId,startTime,endTime);
+	}
+	
+	@Override
+	public ResultVo findCountRegionalPerformance(Long provinceId, Long cityId, Long areaId, String startTime,
+			String endTime) {
+		return countInfoService.findCountRegionalPerformance(provinceId, cityId, areaId, startTime, endTime);
+	}
+
+	@Override
+	public ResultVo findAlmostOneMonthBenefitDay(String type) {
+		return countInfoService.findAlmostOneMonthBenefitDay(type);
+	}
+
+	@Override
+	public ResultVo findTodayO2OOrders(int pageNo, int pageSize) {
+		return countInfoService.findTodayO2OOrders(pageNo, pageSize);
+	}
+
+	@Override
+	public ResultVo findPoolIn(int pageNo, int pageSize, String op, String type) {
+		return countInfoService.findPoolIn(pageNo, pageSize, op, type);
+	}
+
+	@Override
+	public ResultVo findPoolOut(int pageNo, int pageSize, String op, String type) {
+		return countInfoService.findPoolOut(pageNo, pageSize, op, type);
+	}
+	
+	
+
+	@Override
+	public ResultVo findPoolDetail(int pageNo, int pageSize, String addTime, String type) {
+		return countInfoService.findPoolDetail(pageNo, pageSize, addTime, type);
+	}
+
+	@Override
+	public ResultVo findTradeDiviByAgent(int pageNo, int pageSize, String addTime, String type) {
+		return countInfoService.findTradeDiviByAgent(pageNo, pageSize, addTime, type);
+	}
+
+	/**
+	 * 统计总报表信息
+	 */
+	@Override
+	public ResultVo countTotalDataByTime(int pageNo, int pageSize, String beginTime, String endTime) {
+		
+		return countInfoService.countDataByTime(pageNo, pageSize, beginTime, endTime);
+	}
+
+	/**
+	 * 统计总额
+	 */
+	@Override
+	public ResultVo countTotalDataInfo(String beginTime, String endTime) {
+		
+		return countInfoService.totalDataInfo(beginTime, endTime);
+	}
+
+
+	
+	
+	
+
+}

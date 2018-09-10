@@ -1,0 +1,126 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content=""/>
+    <meta name="keywords" content=""/>
+    <meta name="author" content="Lucky"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/><!-- 是否启用 WebApp 全屏模式 -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"/><!-- 设置状态栏的背景颜色 -->
+    <meta name="viewport" content="initial-scale=1.0,user-scalable=no,width=device-width,minimum-scale=1.0,maximum-scale=1.0"/>
+    <meta name="format-detection" content="telephone=no,email=no"/><!-- 禁止数字识自动别为电话号码 --><!-- 不让android识别邮箱 -->
+    <title>金凤凰-提交订单</title>
+    <link rel="stylesheet" type="text/css" href="css/common.css">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+	<link rel="stylesheet" type="text/css" href="layer_mobile/need/layer.css">	
+    <script src="js/jquery-1.11.3.min.js"></script>
+    <script src="js/common.js"></script>
+	<script type="text/javascript" src="layer_mobile/layer.js"></script>
+</head>
+<body>
+	<div class="container">
+		<div class="wrap-sub-box">
+			<div class="wrap-sub-1">
+				<div class="wrap-item-top clearfix">
+					<div class="wrap-sub-left left">双人牛扒套餐，提供免费WIFI...</div>
+					<div class="wrap-sub-right right sub-rmb" id="top-money">780</div>
+				</div>
+				<div class="wrap-sub-row clearfix">
+					<label class="wrap-sub-label left">数量</label>
+					<div class="wrap-sub-number right">
+						<button type="button" class="sub-reduce">-</button>
+                        <input type="number" name="" class="sub-input" value="1">
+                        <button type="button" class="sub-add sub-add-red">+</button>
+					</div>
+				</div>
+				<div class="wrap-sub-row clearfix">
+					<label class="wrap-sub-label left">小计</label>
+					<div class="wrap-sub-cont right">
+						<span class="wrap-sub-text sub-rmb" id="small-count">780</span>
+					</div>
+				</div>
+			</div>
+			<div class="wrap-sub-2">
+				<div class="wrap-sub-row clearfix">
+					<label class="wrap-sub-label left">订单合计</label>
+					<div class="wrap-sub-cont right">
+						<span class="wrap-sub-text sub-red" id="all-count">780</span>
+					</div>
+				</div>
+				<div class="wrap-sub-row clearfix">
+					<label class="wrap-sub-label left">手机号码</label>
+					<div class="wrap-sub-cont right">
+						<span class="wrap-sub-text">135****4359</span>
+					</div>
+				</div>
+			</div>
+			<div class="btn-box">
+                <button type="button" class="btn" id="go-order">提交订单</button>
+            </div>
+		</div>
+		
+	</div>
+	<script type="text/javascript">
+		$(function(){
+			$(".sub-add").on("touchend",function(){
+				var num = $(this).siblings(".sub-input").val();
+				num++;
+				$(".sub-input").val(num);
+				var money = $("#top-money").text();
+				$("#small-count,#all-count").text(money*num);
+			});
+
+			$(".sub-reduce").on("touchend",function(){
+				var num = $(this).siblings(".sub-input").val();
+				if(num>1){
+					num--;
+					$(".sub-input").val(num);
+				}else if(num==1){
+					layer.open({
+						content:'数量最小为1',
+						skin: 'msg',
+						time:'0.8',
+						style:'bottom:0;'
+					})
+				}
+				var money = $("#top-money").text();
+				$("#small-count,#all-count").text(money*num);
+			});
+
+			$(".sub-input").on("input",function(){
+				var reg =/^[0-9]*[1-9][0-9]*$/;
+				var num = $(this).val();
+				if(reg.test(num)){
+					var money = $("#top-money").text();
+					$("#small-count,#all-count").text(money*num);
+				}else{
+					layer.open({
+						content:'数量最小为1',
+						skin: 'msg',
+						time:'0.8',
+						style:'bottom:0;'
+					})
+					
+				}
+			});
+
+			$("#go-order").on("touchend",function(){
+				var num = $(".sub-input").val();
+				if(num!=""){
+
+				}else{
+					layer.open({
+						content:'数量不能为空',
+						skin: 'msg',
+						time:'0.8',
+						style:'bottom:0;'
+					})
+				}
+			});
+
+			
+			
+		})
+	</script>
+</body>
+</html>

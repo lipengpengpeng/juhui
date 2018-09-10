@@ -1,0 +1,316 @@
+package cc.messcat.gjfeng.web.wechat;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.util.BaiduApi;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.dubbo.core.GjfAddressDubbo;
+import cc.messcat.gjfeng.util.SessionUtil;
+import net.sf.json.JSONObject;
+
+@Controller
+@RequestMapping("wx/address/")
+public class AddressController extends BaseController {
+	
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("response")
+	private HttpServletResponse response;
+	
+	@Autowired
+	@Qualifier("addressDubbo")
+	private GjfAddressDubbo addressDubbo;
+	
+	
+	/**
+	 * @描述 跳转到切换定位地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "toLocal", method = RequestMethod.GET)
+	public ModelAndView toLocalAddress(){
+		return new ModelAndView("wx/o2o-shop/index-cityChange");
+	}
+
+	/**
+	 * @描述 跳转到我的收货地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "toFind", method = RequestMethod.GET)
+	public ModelAndView toMyAddress(String type,String goodSource){
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+            String account=SessionUtil.getAccountSession(request);
+			resultVo=addressDubbo.findMyDeliveryAddress(account,goodSource);
+			model.put("resultVo", resultVo);
+			model.put("type", type);
+			model.put("goodSource", goodSource);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/online-shop/address-choice", model);
+	}
+	
+	/**
+	 * @描述 跳转到修改我的收货地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "toUpdate", method = RequestMethod.GET)
+	@ResponseBody
+	public Object toUpdateMyAddress(@RequestParam("id") Long id,String goodSource){
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			resultVo=addressDubbo.findAddressById(id,account,goodSource);
+			model.put("resultVo", resultVo);
+			model.put("goodSource", goodSource);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return new ModelAndView("wx/online-shop/address-update", model);
+	}
+	
+	/**
+	 * @描述 修改收货地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "update", method = RequestMethod.POST)
+	@ResponseBody
+	public Object updateAddress(@RequestParam("id") Long id,String consigneeName,String consigneeSex,String mobile,Long proviceId,Long cityId,Long areaId,String addressDetail,Long townId,String goodSource){
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			Object[] object={account,consigneeName,consigneeSex,mobile,proviceId,cityId,areaId,addressDetail,id,townId};
+			addressDubbo.updateAddress(object);
+			resultVo=addressDubbo.findMyDeliveryAddress(account,goodSource);
+			model.put("resultVo", resultVo);
+			model.put("goodSource", goodSource);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return new ModelAndView("wx/online-shop/address-choice", model);
+	}
+	
+	/**
+	 * @描述 修改为默认地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "default", method = RequestMethod.POST)
+	@ResponseBody
+	public Object setDefaultAddress(@RequestParam("id") Long id,String goodSource){
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			resultVo=addressDubbo.updateAdressIsDefault(id, account,goodSource);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 删除地址
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "del", method = RequestMethod.POST)
+	@ResponseBody
+	public Object delAddress(@RequestParam("id") Long id){
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			resultVo=addressDubbo.delAddress(id, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 跳转到添加收货地址页面
+	 * @return
+	 */
+	@RequestMapping(value = "goNewsAddress", method = RequestMethod.GET)
+	@ResponseBody
+	public ModelAndView goNewsAddress(String type,String goodSource){
+		Map<String, Object> model = new HashMap<String, Object>();
+		model.put("type", type);
+		model.put("goodSource", goodSource);
+		return new ModelAndView("wx/online-shop/address-add",model);
+	}
+	
+	/**
+	 * @描述 新增地址
+	 * @return
+	 */
+	@RequestMapping(value = "newsAddress", method = RequestMethod.POST)
+	@ResponseBody
+	public Object newsAddress(String consigneeName,String consigneeSex,String mobile,Long proviceId,Long cityId,Long areaId,String addressDetail,String goodSource,Long townId){	
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			Object[] object={account,consigneeName,consigneeSex,mobile,proviceId,cityId,areaId,addressDetail,goodSource,townId};
+			resultVo=addressDubbo.addDeliveryAddress(object);
+			
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;		
+	}
+	
+	/**
+	 * @描述 跳转到添加收货地址页面
+	 * @return
+	 */
+	@RequestMapping(value = "getAllProvince", method = RequestMethod.GET)
+	@ResponseBody
+	public Object getAllProvince(Long fatherId,String addressType,String goodSource){
+		try {		
+			resultVo=addressDubbo.findAddress(fatherId, addressType,goodSource);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 根据字母获取省市区
+	 * @return
+	 */
+	@RequestMapping(value = "getProvinceByLetter", method = RequestMethod.GET)
+	@ResponseBody
+	public Object getProvinceByLetter(String letter,String type){
+		try {	
+			resultVo=addressDubbo.findAddressByLetter(letter, type);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 根据经纬度获取城市名称
+	 * @author Karhs
+	 * @date 2017年2月3日
+	 * @param latitude
+	 * @param longitude
+	 * @return
+	 */
+	@RequestMapping(value = "getCityName", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getCityName(@RequestParam("latitude") double latitude,@RequestParam("longitude") double longitude){
+		String cityName="广州";
+		Long cityCode=440100L;
+		try {
+			request.getSession().setAttribute("longitude",longitude);
+			request.getSession().setAttribute("latitude",latitude);
+			JSONObject json=BaiduApi.getLngAndLatToAddress(latitude, longitude);
+			int status=(int) json.get("status");
+			if (status==0) {
+				JSONObject localJson=JSONObject.fromObject(JSONObject.fromObject(json.get("result")).get("addressComponent"));
+				cityName=(String) localJson.get("city");
+				//cityName=cityName.substring(0, cityName.length()-1);
+				cityCode=localJson.getLong("adcode");
+				request.getSession().setAttribute("localStatus","1");	//定位成功
+			}
+			resultVo=new ResultVo(200, "查询成功", cityName);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+			resultVo.setResult(cityName);
+		}
+		request.getSession().setAttribute("cityName",cityName);
+		request.getSession().setAttribute("cityCode",cityCode);
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 设置城市名称到session，比如热门城市或者选择的城市
+	 * @author Karhs
+	 * @date 2017年2月3日
+	 * @param cityName
+	 * @return
+	 */
+	@RequestMapping(value = "setCityName", method = RequestMethod.POST)
+	@ResponseBody
+	public Object setCityName(@RequestParam("cityName") String cityName,String cityCode){
+		try {
+			//1.设置城市名称
+			request.getSession().setAttribute("cityName",cityName);
+			
+			//2.根据城市名称获取该城市的经纬度
+			Map<String, BigDecimal> map=BaiduApi.getGeocoderLatitude(cityName);
+			request.getSession().setAttribute("longitude",map.get("lng"));
+			request.getSession().setAttribute("latitude",map.get("lat"));
+			
+			//3.修改当前定位为成功
+			request.getSession().setAttribute("localStatus","1");	//定位成功
+			
+			request.getSession().setAttribute("cityCode",null);
+			resultVo=new ResultVo(200, "操作成功", cityName);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 *获取京东省份信息
+	 * @return
+	 */
+	@RequestMapping(value = "getJdProvice", method = RequestMethod.GET)
+	@ResponseBody
+	public Object getJdProvice(){
+		try {
+			resultVo=addressDubbo.addJdProvince();
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 *获取京东省份下城市区域信息
+	 * @return
+	 */
+	@RequestMapping(value = "getJdProviceLower", method = RequestMethod.GET)
+	@ResponseBody
+	public Object getJdProviceLower(){
+		try {
+			resultVo=addressDubbo.addProvinceLower();
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, AddressController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	
+}

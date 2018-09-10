@@ -1,0 +1,330 @@
+﻿<%@ page contentType="text/html;charset=UTF-8"%>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>模板</title>
+		<%@ include file="/common/taglibs.jsp"%>
+		<%@ include file="/common/meta.jsp"%>
+		<%@ include file="/common/content.jsp"%>
+		<style>
+			.headbg1 {
+				background: #c9e6f5;
+				font-weight: bold;
+				padding-left: 15px;
+			}
+			
+			.headbg1 td {
+				font-weight: bold;
+				text-align: center;
+			}
+			.mask{margin:0;padding:0;border:none;width:100%;height:100%;background:#333;opacity:0.6;filter:alpha(opacity=60);z-index:9999;position:fixed;top:0;left:0;display:none;}
+			#LoginBox{position:absolute;left:460px;top:150px;background:white;width:426px;height:282px;border:3px solid #444;border-radius:7px;z-index:10000;display:none;}
+			.row1{background:#f7f7f7;padding:0px 20px;line-height:50px;height:50px;font-weight:bold;color:#666;font-size:20px;}
+			.row{height:77px;line-height:77px;padding:0px 30px;font-family:华文楷体;font-size:x-large;}
+			.close_btn{font-family:arial;font-size:30px;font-weight:700;color:#999;text-decoration:none;float:right;padding-right:4px;}
+			.inputBox{border:1px solid #c3c3c3;padding:1px 3px 6px 3px;border-radius:5px;margin-left:5px;}
+			#txtName{height:27px;width:230px;border:none;}
+			#tradeMoney{height:27px;width:230px;border:none;}
+			#loginbtn{color:White;background:#4490f7;text-decoration:none;padding:10px 95px;margin-left:87px;margin-top:40px;border-radius:5px;opacity:0.8;filter:alpha(opacity=80);    text-align: center;}
+			.warning{float:right;color:Red;text-decoration:none;font-size:20px;font-weight:bold;margin-right:20px;display:none;}
+		</style>
+	
+	<script type="text/javascript">
+	
+	//弹出
+	function getThis(id,token,account,amount) {
+		$("body").append("<div id='mask'></div>");
+		$("#lineOfCradeForm").append("<input type='hidden' name='id' value='"+id+"'>");
+		$("#lineOfCradeForm").append("<input type='hidden' name='token' value='"+token+"'>");
+		$("#lineOfCradeForm").append("<input type='hidden' name='account' value='"+account+"'>");
+		$("#lineOfCradeForm").append("<input type='hidden' id='amount' name='amount' value='"+amount+"'>");
+		$("#mask").addClass("mask").fadeIn("slow");
+		$("#LoginBox").fadeIn("slow");
+	}
+	
+	
+	function clearNoNum(obj){  
+		  obj.value = obj.value.replace(/[^\d.]/g,"");  //清除“数字”和“.”以外的字符   
+		  obj.value = obj.value.replace(/\.{2,}/g,"."); //只保留第一个. 清除多余的   
+		  obj.value = obj.value.replace(".","$#$").replace(/\./g,"").replace("$#$",".");  
+		  obj.value = obj.value.replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3');//只能输入两个小数   
+		  if(obj.value.indexOf(".")< 0 && obj.value !=""){//以上已经过滤，此处控制的是如果没有小数点，首位不能为类似于 01、02的金额  
+		   obj.value= parseFloat(obj.value);  
+		  }  
+		} 
+		$(document).ready(function(){
+		//
+		//按钮的透明度
+		$("#loginbtn").hover(function () {
+			$(this).stop().animate({
+				opacity: '1'
+			}, 600);
+		}, function () {
+			$(this).stop().animate({
+				opacity: '0.8'
+			}, 1000);
+		});
+		//文本框不允许为空---按钮触发
+		$("#loginbtn").click(function () {
+			var val=$('input:radio[name="type"]:checked').val();
+			if(val == null){
+				alert("请选择类型!");
+				return false;
+			}
+			var tradeMoney = $("#tradeMoney").val();
+			var amount = $("#amount").val();
+			var temp = amount - tradeMoney;
+			if(val == 0 && temp< 0){
+				alert("消费额超过授信余额!");
+				return false;
+			}
+			var tradeMoney = $("#tradeMoney").val();
+			if (tradeMoney == "" || tradeMoney == undefined || tradeMoney == null) {
+				$("#warn2").css({ display: 'block' });
+			}else{
+				$("#mask").css({ display: 'none' });
+    			$("#tradeMoney").empty();
+    			$("#LoginBox").fadeOut("fast");
+				$.ajax({
+	        		url : 'storeInfoAction!rechargeLineOfCredit.action',
+	        		type : 'post',
+	        		data : $("#lineOfCradeForm").serialize(),
+	        		dataType : "text",
+	        		success : function(data){
+	        			$("#lineOfCradeForm input[type='hidden']").remove();
+	        			var jsondata = eval("("+data+")");  
+	        			alert(jsondata.msg);
+	        			window.location.reload();
+	        		},
+	        		error : function(data){
+	        			 $("#lineOfCradeForm input[type='hidden']").remove();
+	        			 alert("操作出错!请稍后再试");
+	        		}
+	        	});
+			}
+		});
+		$("#tradeMoney").focus(function () {
+			$("#warn2").css({ display: 'none' });
+		});
+		//关闭
+		$(".close_btn").hover(function () { $(this).css({ color: 'black' }) }, function () { $(this).css({ color: '#999' }) }).click(function () {
+			$("#LoginBox").fadeOut("fast");
+			$("#lineOfCradeForm input[type='hidden']").remove();
+			$("#mask").css({ display: 'none' });
+		});
+	});
+		
+		function updateLocation(id,token){
+			var r = confirm('确定执行该操作吗?');
+			if(r){
+				$.ajax({
+	        		url : 'storeInfoAction!refreshLocation.action',
+	        		type : 'post',
+	        		data : {
+	        			id:id,
+	        			token:token
+	        		},
+	        		dataType : "text",
+	        		success : function(data){
+	        			var jsondata = eval("("+data+")");  
+	        			alert(jsondata.msg);
+	        		},
+	        		error : function(data){
+	        			 alert("操作出错!请稍后再试");
+	        		}
+	        	});
+			}
+			return false;
+		}
+	</script>	
+	</head>
+	<body>
+		<div class="rhead">
+			<div class="rpos">
+				当前位置: 店铺管理- 店铺列表
+			</div>
+			<!-- <div class="ropt">
+				<a href="gjfMemberInfoAction!newPage.action">新增</a>
+			</div> -->
+			<div class="clear"></div>
+		</div>
+		<form action="${ctx}/subsystem/storeInfoAction!retrieveStoreByPager.action" method="get">
+		    <table class="listTable2">
+		    	<tr>
+		    		<td>
+				      关键字：<input type="text" placeholder="请输入关键字" name="likeValue" value="${likeValue }"/>&nbsp;&nbsp;
+				      店铺属性：<select name="storePro">
+							<option value="" <c:if test="${empty storePro}">selected="selected"</c:if>>全部</option>
+					       <option value="0" <c:if test="${storePro eq '0'}">selected="selected"</c:if>>O2O</option>
+					       <option value="1" <c:if test="${storePro eq '1'}">selected="selected"</c:if>>普通商城</option>
+					    </select>&nbsp;&nbsp;
+				       店铺类型：<select name="storeType">
+							   <option value="" <c:if test="${empty storeType}">selected="selected"</c:if>>全部</option>
+						       <option value="0" <c:if test="${storeType eq '0'}">selected="selected"</c:if>>个体入驻</option>
+						       <option value="1" <c:if test="${storeType eq '1'}">selected="selected"</c:if>>企业入驻</option>
+						    </select>&nbsp;&nbsp;
+				      店铺状态：<select name="storeStatus">
+								   <option value="" <c:if test="${empty storeStatus}">selected="selected"</c:if>>全部</option>
+							       <option value="0" <c:if test="${storeStatus eq '0'}">selected="selected"</c:if>>关闭</option>
+							       <option value="1" <c:if test="${storeStatus eq '1'}">selected="selected"</c:if>>开启</option>
+							       <option value="2" <c:if test="${storeStatus eq '2'}">selected="selected"</c:if>>审核中</option>
+							       <option value="3" <c:if test="${storeStatus eq '3'}">selected="selected"</c:if>>审核失败</option>
+				    </select>&nbsp;&nbsp;
+				    <input type="submit" value="查询"/>
+		    		</td>
+		    	</tr>
+		    </table>
+		</form>
+	<form name="lineOfCradeForm" id="lineOfCradeForm">	
+		<div id="LoginBox">
+	        <div class="row1">
+	            授信金额：<a href="javascript:void(0)" title="关闭窗口" class="close_btn" id="closeBtn">×</a>
+	        </div>
+	        <div class="row">
+			             类&nbsp;&nbsp;&nbsp;&nbsp;型： 
+			            消费：<input type="radio" id="type" name="type" value="0"/>
+			            充值：<input type="radio" id="type" name="type" value="1" />
+	        </div>
+	        <div class="row">
+	           		 金&nbsp;&nbsp;&nbsp;&nbsp;额：&nbsp;&nbsp;<input type="text" id="tradeMoney" name="tradeMoney" style="border: 1px solid #e5e5e5;width: 200px;" placeholder="仅数字，小数点后最多两位" onkeyup="clearNoNum(this)"/>
+	           		<a href="javascript:void(0)" title="提示" style="color: red" class="warning" id="warn2">*</a>
+	        </div>
+	        <div class="row" >
+	            <a href="javascript:void(0)" id="loginbtn" onclick="">提交</a>
+	        </div>
+  	  </div>
+    </form>
+		<table class="listTable3" onmouseover="changeto()" onmouseout="changeback()">
+			<tr id="nc" class="headbg">
+				<td>序号</td>
+				<td>店铺名称</td>
+				<td>店铺编码</td>
+				<td>店主卖家联系人</td>						
+				<td>会员名称</td>
+				<td>商家已领比例</td>
+				<td>授信额度</td>
+				<td>店铺属性</td>
+				<td>店铺类型</td>
+				<td>店铺状态</td>
+
+				<td>操作</td>
+			</tr>
+             <c:if test="${not empty resultVo.result}">
+                <c:forEach var="bean" items="${resultVo.result.resultList}"
+				varStatus="status">
+				<tr>
+					<td>${status.count}</td>
+					<td>${bean.storeName}</td>
+					<td>${bean.storeNum}</td>
+					<td>${bean.sellerName}</td>
+					<%-- <td>${bean.sellerMobile}</td> --%>
+					<td>${bean.memberId.name}</td>
+					<fmt:parseNumber value="${bean.storeBenefitTotalMoney}" var="pageUnPayAmount" />
+					<fmt:parseNumber value="${bean.storeDividendsTotalMoneyBla}" var="storeDividendsTotalMoneyBla" />
+					 <c:if test="${pageUnPayAmount==0}">
+					   <td>0.00</td>					  
+					</c:if>
+					<c:if test="${pageUnPayAmount ne 0}">					   
+					   <td>
+						  <fmt:formatNumber value="${(pageUnPayAmount-storeDividendsTotalMoneyBla)/pageUnPayAmount}" maxFractionDigits="2" type="percent" />
+					   </td> 
+					</c:if> 
+					<td>${bean.memberId.lineOfCrade}</td>
+					
+					<c:if test="${bean.storePro==0}">
+					    <td>O2O</td>
+					</c:if>
+					<c:if test="${bean.storePro==1}">
+					    <td>网上商城</td>
+					</c:if>
+					
+					<c:if test="${bean.storeType==0}">
+					    <td>个体入驻</td>
+					</c:if>
+					<c:if test="${bean.storeType==1}">
+					    <td>企业入驻</td>
+					</c:if>
+					
+					<c:if test="${bean.storeStatus==0}">
+					    <td>关闭</td>
+					</c:if>
+					<c:if test="${bean.storeStatus==1}">
+					    <td>开启</td>
+					</c:if>
+					<c:if test="${bean.storeStatus==2}">
+					    <td>审核中 </td>
+					</c:if>
+					<c:if test="${bean.storeStatus==3}">
+					    <td>审核失败</td>
+					</c:if>
+					
+					
+
+					 <td>
+						<a href="${ctx}/subsystem/storeInfoAction!retrieveStoreById.action?id=${bean.id}&token=${bean.token}">查看</a>
+						&nbsp; &nbsp;
+						<security:authorize ifAnyGranted="GJF_STORE_LIST_UPDATE">
+							<a href="${ctx}/subsystem/storeInfoAction!eidtPage.action?id=${bean.id}&token=${bean.token}">编辑</a>
+						&nbsp; &nbsp;
+						</security:authorize>
+						<security:authorize ifAnyGranted="GJF_STORE_LIST_CHECK">
+							<c:if test="${bean.storeStatus==2}">
+							    <a href="${ctx}/subsystem/storeInfoAction!goStatusPage.action?id=${bean.id}&token=${bean.token}">审核</a>
+							</c:if>
+							<c:if test="${bean.storeStatus==1}">
+							    <a href="${ctx}/subsystem/storeInfoAction!goStatusPage.action?id=${bean.id}&token=${bean.token}">关闭</a>
+							</c:if>
+							<c:if test="${bean.storeStatus==0}">
+							    <a href="${ctx}/subsystem/storeInfoAction!goStatusPage.action?id=${bean.id}&token=${bean.token}">开启</a>
+							</c:if>
+							&nbsp; &nbsp;
+						</security:authorize>
+						<security:authorize ifAnyGranted="GJF_STORE_LIST_DELETE">
+						<a href="${ctx}/subsystem/storeInfoAction!delStore.action?id=${bean.id}&token=${bean.token}"
+								onclick="{if(confirm('你真的要删除吗?')){return true;}return false;}">删除</a>
+						&nbsp; &nbsp;
+						</security:authorize>
+						<security:authorize ifAnyGranted="GJF_STORE_LIST_RECHARGE">
+							<a href="javascript:void(0)" id="example" onclick="getThis('${bean.id}','${bean.token }','${bean.memberId.mobile }',${bean.memberId.lineOfCrade});">授信充值</a>
+						&nbsp; &nbsp;
+						</security:authorize>
+						<a href="javascript:void(0)" onclick="updateLocation('${bean.id}','${bean.token}')" >重新定位</a>
+						&nbsp; &nbsp;
+						<a href="countInfoAction!findOrderByCondition.action?id=${bean.id }&token=${bean.token}">销售明细</a>
+						&nbsp; &nbsp;
+					</td>
+				</tr>
+			  </c:forEach>
+             </c:if>
+			
+
+		</table>
+
+		<c:if test="${not empty resultVo.result}">
+			<s:form action="storeInfoAction!retrieveStoreByPager.action"
+					namespace="/subsystem" method="post" name="form1" theme="simple" id="form1">
+					 <input type="hidden"  name="likeValue" value="${likeValue }"/>
+				     <select name="storePro" style="display: none;">
+							<option value="" <c:if test="${empty storePro}">selected="selected"</c:if>>全部</option>
+					       <option value="0" <c:if test="${storePro eq '0'}">selected="selected"</c:if>>O2O</option>
+					       <option value="1" <c:if test="${storePro eq '1'}">selected="selected"</c:if>>普通商城</option>
+					    </select>
+				       <select name="storeType" style="display: none;">
+						   <option value="" <c:if test="${empty storeType}">selected="selected"</c:if>>全部</option>
+					       <option value="0" <c:if test="${storeType eq '0'}">selected="selected"</c:if>>个体入驻</option>
+					       <option value="1" <c:if test="${storeType eq '1'}">selected="selected"</c:if>>企业入驻</option>
+					</select>
+				      <select name="storeStatus" style="display: none;">
+						   <option value="" <c:if test="${empty storeStatus}">selected="selected"</c:if>>全部</option>
+					       <option value="0" <c:if test="${storeStatus eq '0'}">selected="selected"</c:if>>关闭</option>
+					       <option value="1" <c:if test="${storeStatus eq '1'}">selected="selected"</c:if>>开启</option>
+					       <option value="2" <c:if test="${storeStatus eq '2'}">selected="selected"</c:if>>审核中</option>
+					       <option value="3" <c:if test="${storeStatus eq '3'}">selected="selected"</c:if>>审核失败</option>
+				    </select>
+				<!-- 分页 -->
+				<%@ include file="../../common/pager.jsp"%>
+			</s:form>
+		</c:if>
+	</body>
+</html>

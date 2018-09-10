@@ -1,0 +1,1746 @@
+package cc.messcat.gjfeng.service.benefit;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.Sha256;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeBenefitVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.benefit.GjfBenefitInfoDao;
+import cc.messcat.gjfeng.dao.count.CountInfoDao;
+import cc.messcat.gjfeng.entity.GjfBenefitHistory;
+import cc.messcat.gjfeng.entity.GjfBenefitInfo;
+import cc.messcat.gjfeng.entity.GjfBenefitPool;
+import cc.messcat.gjfeng.entity.GjfMemberConsumptiomNum;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfMemberTradeBenefit;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDetail;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDivi;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDiviHistory;
+import cc.messcat.gjfeng.entity.GjfMemberTradeIndi;
+import cc.messcat.gjfeng.entity.GjfMemberTradeOpcenter;
+import cc.messcat.gjfeng.entity.GjfOrderInfo;
+import cc.messcat.gjfeng.entity.GjfSetBaseInfo;
+import cc.messcat.gjfeng.entity.GjfSetDividends;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.entity.GjfTransferHistory;
+import cc.messcat.gjfeng.entity.GjfspecialMemberTradeDivi;
+
+@Service("gjfBenefitInfoService")
+public class GjfBenefitInfoServiceImpl implements GjfBenefitInfoService {
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoDao")
+	private GjfBenefitInfoDao gjfBenefitInfoDao;
+	
+	@Autowired
+	@Qualifier("countInfoDao")
+	private CountInfoDao countInfoDao;
+
+	/*
+	 * 用户每消费一笔，就会计算一次其所获得的分红权
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#
+	 * updateMemberBenefitNotify(java.lang.String, java.lang.String,
+	 * java.lang.Double, java.lang.Double)
+	 */
+	@Override
+	public ResultVo updateMemberDividendsNumNotify(String membersMobile, String merchantsMobile,
+			Double consumptionMoney, String tradeNo) {
+		if (StringUtil.isBlank(membersMobile) || StringUtil.isBlank(merchantsMobile)
+				|| ObjValid.isNotValid(consumptionMoney)) {
+			throw new MyException(400, "数据有误", null);
+		}
+
+		double totalBenefit = new BigDecimal(consumptionMoney * 0.12).setScale(2, BigDecimal.ROUND_UP).doubleValue();
+
+		BigDecimal subPlaSys = new BigDecimal(0.00);
+
+		// 1.更新用户的分红权
+		
+		 //BigDecimal[] directBenefit1 = updateMemberBenefitNum(membersMobile,"0", consumptionMoney, totalBenefit, tradeNo, subPlaSys);
+		 
+		BigDecimal[] directBenefit1 = updateMemberBenefitNumCanSetInBack(membersMobile, "0", consumptionMoney,
+			totalBenefit, tradeNo, subPlaSys);
+
+		// 2.更新商家的分红权
+		subPlaSys = directBenefit1[2];
+		//updateMemberBenefitNum(merchantsMobile, "1", consumptionMoney,totalBenefit, tradeNo, subPlaSys);
+		updateMemberBenefitNumCanSetInBack(merchantsMobile, "1", consumptionMoney, totalBenefit, tradeNo, subPlaSys);
+
+		// 3.直推会员分红
+		updateBenefit(directBenefit1[0], membersMobile, "0", "0", tradeNo);
+		// 4.直推商家分红
+		updateBenefit(directBenefit1[1], merchantsMobile, "1", "0", tradeNo);
+
+		// 5.计算个代分红
+		addIndiBenefit(merchantsMobile, tradeNo, consumptionMoney, totalBenefit);
+		//6.计算运营中心分红
+		addOperationCenterBenefit(merchantsMobile, tradeNo, consumptionMoney, totalBenefit);
+
+		// 記錄用戶讓利次數
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("tradeNo", tradeNo);
+		GjfMemberTradeBenefit benefit = gjfBenefitInfoDao.query(GjfMemberTradeBenefit.class, attrs);
+		if (BeanUtil.isValid(benefit)) {
+			// 查詢用戶消費記錄
+			List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao
+					.findMemberCousumptionNum(benefit.getMemberId().getId());
+			// 如果不為空則直接加一
+			if (BeanUtil.isValid(list)) {
+				GjfMemberConsumptiomNum consumptiomNum = list.get(0);
+				consumptiomNum.setBenefitNum(consumptiomNum.getBenefitNum() + 1);
+				gjfBenefitInfoDao.update(consumptiomNum);
+			} else {
+				GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+				consumptiomNum.setBenefitNum(1);
+				consumptiomNum.setShopConsumptionNum(0);
+				consumptiomNum.setMemberId(benefit.getMemberId().getId());
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				String date = sdf.format(new Date());
+				ParsePosition ps = new ParsePosition(0);
+				consumptiomNum.setAddTime(sdf.parse(date, ps));
+				gjfBenefitInfoDao.save(consumptiomNum);
+			}
+			// 判断用户最早消费时间是否为空
+			if (!BeanUtil.isValid(benefit.getMemberId().getFirstConsumptionTime())) {
+				GjfMemberInfo member = benefit.getMemberId();
+				member.setFirstConsumptionTime(new Date());
+			}			
+		}
+		return null;
+	}
+
+	/*
+	 * 用户每消费一笔，就会计算一次其所获得的分红权
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#
+	 * updateMemberBenefitNum(java.lang.String, java.lang.Double)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public BigDecimal[] updateMemberBenefitNum(String membersMobile, String memberType, Double consumptionMoney,
+			Double totalBenefit, String tradeNo, BigDecimal subSysPla) {
+
+		BigDecimal diviNum = new BigDecimal(0.000000);
+
+		if (memberType.equals("0")) {
+			double cumulativeMoney = 0.00;
+			// 1.求目前剩余的用户(商家)计算分红权的额度，并加上当次消费额度
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("mobile", membersMobile);
+			GjfMemberInfo gjfMemberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+
+			// 2.求用户累计消费额度
+			double bfCumulativeMoney = gjfMemberInfo.getCumulativeMoney().doubleValue();
+			BigDecimal benefitMoney = new BigDecimal(totalBenefit).setScale(2, BigDecimal.ROUND_UP);
+
+			gjfMemberInfo.setCumulativeMoney(gjfMemberInfo.getCumulativeMoney().add(new BigDecimal(consumptionMoney)));
+			gjfMemberInfo
+					.setConsumptionMoney(gjfMemberInfo.getConsumptionMoney().add(new BigDecimal(consumptionMoney)));
+			cumulativeMoney = gjfMemberInfo.getCumulativeMoney().doubleValue();
+
+			// 3.根据目前的分红权额度以及相对应的累积消费额度计算分红权个数
+			if (bfCumulativeMoney <= 10000) {
+				// 3.1 小于1万 500一个分红权
+				if (cumulativeMoney <= 10000) {
+					BigDecimal a = new BigDecimal(consumptionMoney).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a;
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "1", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (cumulativeMoney > 10000 && cumulativeMoney <= 10000 * 100) {
+					BigDecimal a = new BigDecimal(10000 - bfCumulativeMoney).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((cumulativeMoney - 10000)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a.add(b);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "2", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (cumulativeMoney > 10000 * 100) {
+					BigDecimal a = new BigDecimal((10000 - bfCumulativeMoney)).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((10000 * 100 - 10000)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal c = new BigDecimal((cumulativeMoney - 10000 * 100)).divide(new BigDecimal(5000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a.add(b).add(c);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "3", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				}
+			} else if (bfCumulativeMoney > 10000 && bfCumulativeMoney <= 10000 * 100) {
+				// 3.2 1万-100万 1000一个分红权
+				if (cumulativeMoney > 10000 && cumulativeMoney <= 10000 * 100) {
+					BigDecimal a = new BigDecimal(consumptionMoney).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a;
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "2", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (cumulativeMoney > 10000 * 100) {
+					BigDecimal a = new BigDecimal((10000 * 100 - bfCumulativeMoney)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((cumulativeMoney - 10000 * 100)).divide(new BigDecimal(5000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a.add(b);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "3", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				}
+			} else if (bfCumulativeMoney > 10000 * 100) {
+				// 3.3 100万以上 5000一个分红权
+				BigDecimal a = new BigDecimal(consumptionMoney).divide(new BigDecimal(5000), 6, BigDecimal.ROUND_DOWN);
+				diviNum = a;
+
+				GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1", diviNum,
+						benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(), null, null,
+						"0", "3", "0", "");
+				diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+						CommonStatus.SIGN_KEY_NUM));
+				gjfBenefitInfoDao.save(diviHistory);
+			}
+			
+			//升级活跃区
+			//获取订单信息
+			Map<String, Object> neMap=new HashMap<>();
+			neMap.put("tradeNo", tradeNo);
+			GjfMemberTradeBenefit benefit = countInfoDao.query(GjfMemberTradeBenefit.class, neMap);
+			benefit.setChangeAcivityStatus("0");
+			benefit.setConsumptionMoney(new BigDecimal(0.00));
+			
+			if("0".equals(gjfMemberInfo.getIsActiveMember())){
+				
+				//获取用户本周让利金额
+				BigDecimal meBeMoey=countInfoDao.findCountCousumMoney("0",gjfMemberInfo.getId());
+				if("0".equals(benefit.getPayType())||"1".equals(benefit.getPayType())){
+					meBeMoey=meBeMoey.add(new BigDecimal(totalBenefit));
+				}				
+			    //取整				
+				Double meBeMoney=Math.floor(meBeMoey.doubleValue());
+				//BigDecimal totalUnit=getUnitAveragePrice("0");
+				BigDecimal argUnit=new BigDecimal("1");
+				Map<String,Object>  setAttrs=new HashMap<String,Object>();
+				setAttrs.put("key", "MEMBER_UNIT_PRICE_");
+				setAttrs.put("status", "1");
+				GjfSetBaseInfo baseInfo=gjfBenefitInfoDao.query(GjfSetBaseInfo.class, setAttrs);
+				if(BeanUtil.isValid(baseInfo)){
+					argUnit=new BigDecimal(baseInfo.getValue());
+				}
+				if("1".equals(gjfMemberInfo.getType())){
+					Map<String, Object> storeAttrs=new HashMap<String,Object>();
+					storeAttrs.put("memberId.id", gjfMemberInfo.getId());
+					GjfStoreInfo storeInfo=gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+					//如果用户存在并且店铺为不活跃
+					if(BeanUtil.isValid(storeInfo)&&"0".equals(storeInfo.getIsActivityStore())){
+						BigDecimal totalDivi=gjfMemberInfo.getDividendsNum().add(storeInfo.getStoreDividendsNum());
+						//分红权取整
+						Double intTotalDivi=Math.floor(totalDivi.doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intTotalDivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoney>=niceBeMoney.doubleValue()){
+							gjfMemberInfo.setIsActiveMember("1");
+							storeInfo.setIsActivityStore("1");
+							//查询用户升级金额
+						    BigDecimal upgradeMoney=countInfoDao.findMemberBenefitUpgradeMoney(gjfMemberInfo.getId());
+							benefit.setConsumptionMoney(niceBeMoney.subtract(upgradeMoney));
+							benefit.setChangeAcivityStatus("1");
+							gjfBenefitInfoDao.update(storeInfo);
+						}else{
+							if(gjfMemberInfo.getDividendsNum().doubleValue()>=storeInfo.getStoreDividendsNum().doubleValue()){
+								//分红权取整
+								if("0".equals(storeInfo.getIsActivityStore())){
+									Double intStoredivi=Math.floor(storeInfo.getStoreDividendsNum().doubleValue());
+									BigDecimal sniceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intStoredivi)).setScale(2, BigDecimal.ROUND_DOWN);
+									if(meBeMoney>=sniceBeMoney.doubleValue()){
+										storeInfo.setIsActivityStore("1");
+										benefit.setConsumptionMoney(sniceBeMoney);
+										benefit.setChangeAcivityStatus("1");
+										gjfBenefitInfoDao.update(storeInfo);
+									}
+								}
+								
+							}else{
+								Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+								BigDecimal miceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+								if(meBeMoney>=miceBeMoney.doubleValue()){
+									benefit.setConsumptionMoney(miceBeMoney);
+									benefit.setChangeAcivityStatus("1");
+									gjfMemberInfo.setIsActiveMember("1");
+								}
+							}
+						}
+					}else{//如果已经是活跃商家
+						Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoney>=niceBeMoney.doubleValue()){
+							benefit.setConsumptionMoney(niceBeMoney);
+							benefit.setChangeAcivityStatus("1");
+							gjfMemberInfo.setIsActiveMember("1");
+						}
+					}
+					
+					
+				}else{//如果为普通用户
+					Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+					BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+					if(meBeMoney>=niceBeMoney.doubleValue()){
+						benefit.setConsumptionMoney(niceBeMoney);
+						benefit.setChangeAcivityStatus("1");
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+				}
+				
+				if(!BeanUtil.isValid(gjfMemberInfo.getFirstConsumptionTime())){
+					//查询用户是否第一次消费
+					Map<String, Object> comAttrs=new HashMap<>();
+					comAttrs.put("memberId.id", gjfMemberInfo.getId());
+					List<GjfMemberTradeBenefit> bList=gjfBenefitInfoDao.queryList(GjfMemberTradeBenefit.class, 0, 2, "addTime", "desc", comAttrs);
+					List<GjfOrderInfo> oList=gjfBenefitInfoDao.queryList(GjfOrderInfo.class, 0, 2, "addTime", "desc", comAttrs);
+					if(BeanUtil.isValid(bList)&&!BeanUtil.isValid(oList)&&bList.size()==1){
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+					if(!BeanUtil.isValid(bList)&&BeanUtil.isValid(oList)&&oList.size()==1){
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+				}
+				
+			
+				
+			}else{
+										
+				if("1".equals(gjfMemberInfo.getType())){
+					//获取用户本周让利金额
+					BigDecimal meBeMoey=countInfoDao.findCountCousumMoney("0",gjfMemberInfo.getId());
+					//BigDecimal totalUnit=getUnitAveragePrice("0");
+					BigDecimal argUnit=new BigDecimal("1");
+					Map<String,Object>  setAttrs=new HashMap<String,Object>();
+					setAttrs.put("key", "MEMBER_UNIT_PRICE_");
+					setAttrs.put("status", "1");
+					GjfSetBaseInfo baseInfo=gjfBenefitInfoDao.query(GjfSetBaseInfo.class, setAttrs);
+					if(BeanUtil.isValid(baseInfo)){
+						argUnit=new BigDecimal(baseInfo.getValue());
+					}
+				
+					Map<String, Object> storeAttrs=new HashMap<String,Object>();
+					storeAttrs.put("memberId.id", gjfMemberInfo.getId());
+					GjfStoreInfo storeInfo=gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+					if("0".equals(storeInfo.getIsActivityStore())){
+						Double intMemdivi=Math.floor(storeInfo.getStoreDividendsNum().doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoey.doubleValue()>=niceBeMoney.doubleValue()){
+							benefit.setChangeAcivityStatus("1");
+							benefit.setConsumptionMoney(niceBeMoney);
+							storeInfo.setIsActivityStore("1");
+							gjfBenefitInfoDao.update(storeInfo);
+						}
+					}
+					
+				}
+			}
+			gjfMemberInfo
+			.setDividendsNum(gjfMemberInfo.getDividendsNum().add(diviNum).setScale(6, BigDecimal.ROUND_DOWN));			
+			// 4.增加分红权获取记录
+			gjfBenefitInfoDao.update(gjfMemberInfo);
+			gjfBenefitInfoDao.update(benefit);
+
+		} else {
+			Map<String, Object> storeAttrs = new HashMap<String, Object>();
+			storeAttrs.put("memberId.mobile", membersMobile);
+			GjfStoreInfo gjfStoreInfo = gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+
+			double bfTotalBenefitMoney = gjfStoreInfo.getStoreBenefitTotalMoney().doubleValue();
+			BigDecimal benefitMoney = new BigDecimal(totalBenefit).setScale(2, BigDecimal.ROUND_UP);
+
+			gjfStoreInfo.setStoreSaleTotalMoney(
+					gjfStoreInfo.getStoreSaleTotalMoney().add(new BigDecimal(consumptionMoney)));
+			gjfStoreInfo.setStoreBenefitTotalMoney(gjfStoreInfo.getStoreBenefitTotalMoney().add(benefitMoney));
+			gjfStoreInfo
+					.setStoreDividendsTotalMoneyBla(gjfStoreInfo.getStoreDividendsTotalMoneyBla().add(benefitMoney));
+			double totalBenefitMoney = gjfStoreInfo.getStoreBenefitTotalMoney().doubleValue();
+
+			// 3.根据目前的分红权额度以及相对应的累积消费额度计算分红权个数
+			if (bfTotalBenefitMoney <= 10000) {
+				// 3.1 小于1万 500一个分红权
+				if (totalBenefitMoney <= 10000) {
+					BigDecimal a = new BigDecimal(benefitMoney.doubleValue()).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a;
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+							tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00),
+							new BigDecimal(consumptionMoney), new Date(), null, null, "0", "1", "1", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (totalBenefitMoney > 10000 && totalBenefitMoney <= 10000 * 100) {
+					BigDecimal a = new BigDecimal((10000 - bfTotalBenefitMoney)).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((totalBenefitMoney - 10000)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a.add(b);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+							tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00),
+							new BigDecimal(consumptionMoney), new Date(), null, null, "0", "2", "1", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (totalBenefitMoney > 10000 * 100) {
+					BigDecimal a = new BigDecimal((10000 - bfTotalBenefitMoney)).divide(new BigDecimal(500), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((10000 * 100 - 10000)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal c = new BigDecimal((totalBenefitMoney - 10000 * 100)).divide(new BigDecimal(5000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a.add(b).add(c);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+							tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00),
+							new BigDecimal(consumptionMoney), new Date(), null, null, "0", "3", "1", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				}
+			} else if (bfTotalBenefitMoney > 10000 && bfTotalBenefitMoney <= 10000 * 100) {
+				// 3.2 1万-100万 1000一个分红权
+				if (totalBenefitMoney > 10000 && totalBenefitMoney <= 10000 * 100) {
+					BigDecimal a = new BigDecimal(benefitMoney.doubleValue()).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a;
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+							tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00),
+							new BigDecimal(consumptionMoney), new Date(), null, null, "0", "2", "1", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				} else if (totalBenefitMoney > 10000 * 100) {
+					BigDecimal a = new BigDecimal((10000 * 100 - bfTotalBenefitMoney)).divide(new BigDecimal(1000), 6,
+							BigDecimal.ROUND_DOWN);
+					BigDecimal b = new BigDecimal((totalBenefitMoney - 10000 * 100)).divide(new BigDecimal(5000), 6,
+							BigDecimal.ROUND_DOWN);
+					;
+					diviNum = a.add(b);
+
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+							tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00),
+							new BigDecimal(consumptionMoney), new Date(), null, null, "0", "3", "1", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+				}
+			} else if (bfTotalBenefitMoney > 10000 * 100) {
+				// 3.3 100万以上 5000一个分红权
+				BigDecimal a = new BigDecimal(benefitMoney.doubleValue()).divide(new BigDecimal(5000), 6,
+						BigDecimal.ROUND_DOWN);
+				diviNum = a;
+
+				GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(),
+						tradeNo + "-2", diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney),
+						new Date(), null, null, "0", "3", "1", "");
+				diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+						CommonStatus.SIGN_KEY_NUM));
+				gjfBenefitInfoDao.save(diviHistory);
+			}
+			
+			gjfStoreInfo.setStoreDividendsNum(
+					gjfStoreInfo.getStoreDividendsNum().add(diviNum).setScale(6, BigDecimal.ROUND_DOWN));
+
+			gjfBenefitInfoDao.update(gjfStoreInfo);
+		}
+
+		// 修改商家让利表记录的分红权额
+		Map<String, Object> attrsBenefit = new HashMap<String, Object>();
+		Map<String, Object> propsBenefit = new HashMap<String, Object>();
+		attrsBenefit.put("tradeNo", tradeNo);
+		if (memberType.equals("0")) {
+			propsBenefit.put("memberDividendsNum", diviNum);
+		} else {
+			propsBenefit.put("merchantsDividendsNum", diviNum);
+		}
+		gjfBenefitInfoDao.update(GjfMemberTradeBenefit.class, propsBenefit, attrsBenefit);
+
+		// 修改资金池
+		BigDecimal[] directBenefit = updateBenefitPool(memberType, totalBenefit, subSysPla);
+		return directBenefit;
+	}
+
+	/*
+	 * 计算用户每笔消费所产生的分红权额度，并返还给客户和商家
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#updateBenefit(
+	 * java.lang.Double, java.lang.String)
+	 */
+	@Override
+	public BigDecimal updateBenefit(BigDecimal totalBenefit, String membersMobile, String memberType, String actType,
+			String tradeNo) {
+		// 1.直推会员or商家分红，求出会员or商家的上一级
+		Date curDate = new Date();
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", membersMobile);
+		GjfMemberInfo gjfMemberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+		GjfBenefitInfo gjfBenefitInfo = findByType(actType);
+		if (ObjValid.isValid(gjfMemberInfo) && ObjValid.isValid(gjfMemberInfo.getSuperId()) && actType.equals("0")) {
+			Map<String, Object> supMemberAttrs = new HashMap<String, Object>();
+			supMemberAttrs.put("id", gjfMemberInfo.getSuperId());
+			supMemberAttrs.put("status", "1");
+			supMemberAttrs.put("isDel", "1");
+			// supMemberAttrs.put("isDivi", "1");
+			GjfMemberInfo superMember = gjfBenefitInfoDao.query(GjfMemberInfo.class, supMemberAttrs);
+			if (ObjValid.isNotValid(superMember)) {
+				return null;
+			}
+			double ratio = memberType.equals("0") ? gjfBenefitInfo.getDirectMembersRatio()
+					: gjfBenefitInfo.getDirectMerchantsRatio();
+			// 修改分红额度--累计分红额、余额、提现额增加
+			if (memberType.equals("0")) {
+				superMember.setDirectMemberTotalMoney(
+						superMember.getDirectMemberTotalMoney().add(totalBenefit).setScale(2, BigDecimal.ROUND_DOWN));
+			} else {
+				superMember.setDirectMerchantsTotalMoney(superMember.getDirectMerchantsTotalMoney().add(totalBenefit));
+			}
+			superMember.setBalanceMoney(superMember.getBalanceMoney().add(totalBenefit));
+			superMember.setWithdrawalMoney(superMember.getWithdrawalMoney().add(totalBenefit));
+			// 记录推荐分红金额
+			// superMember.setRecommendRewardMoney(superMember.getRecommendRewardMoney().add(totalBenefit));
+			gjfBenefitInfoDao.update(superMember);
+
+			// 添加交易流水
+			Date date = new Date();
+			GjfMemberTradeDiviHistory gjfMemberTradeDiviHistory = new GjfMemberTradeDiviHistory(null, superMember,
+					DateHelper.dataToString(curDate, "yyyyMMddHHmmss")
+							+ String.valueOf(System.currentTimeMillis()).substring(0, 5),
+					totalBenefit, new BigDecimal(0.00), new BigDecimal(0.00), new BigDecimal(0.00),
+					new BigDecimal(ratio), date, date, memberType.equals("0") ? "0" : "1", "1",
+					memberType.equals("0") ? "直推会员分红" : "直推商家分红",
+					Sha256.getSha256Hash(superMember.getId().toString(), "2016", CommonStatus.SIGN_KEY_NUM));
+			gjfBenefitInfoDao.save(gjfMemberTradeDiviHistory);
+
+			// 添加余额和提现额度变更流水
+			GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, superMember, tradeNo + "-1", totalBenefit,
+					new Date(), new Date(), "0", "1", gjfMemberTradeDiviHistory.getTradeTrmo());
+			GjfMemberTradeDetail detail2 = new GjfMemberTradeDetail(null, superMember, tradeNo + "-2", totalBenefit,
+					new Date(), new Date(), "1", "1", gjfMemberTradeDiviHistory.getTradeTrmo());
+			gjfBenefitInfoDao.save(detail1);
+			gjfBenefitInfoDao.save(detail2);
+
+			// 修改资金池流水和资金池金额
+			Map<String, Object> attrsPool = new HashMap<String, Object>();
+			GjfBenefitPool benefitPool = gjfBenefitInfoDao.query(GjfBenefitPool.class, attrsPool);
+			if (ObjValid.isNotValid(benefitPool)) {
+				throw new MyException(400, "资金池数据异常", null);
+			}
+
+			// 修改商家让利表记录的分红权额
+			Map<String, Object> attrsBenefit = new HashMap<String, Object>();
+			Map<String, Object> propsBenefit = new HashMap<String, Object>();
+			attrsBenefit.put("tradeNo", tradeNo);
+			if (memberType.equals("0")) {
+				propsBenefit.put("directMemberMoney", totalBenefit);
+				propsBenefit.put("directMember.id", superMember.getId());
+
+				benefitPool.setDirectMemberSysPoolCur(benefitPool.getDirectMemberSysPoolCur().subtract(totalBenefit));
+				// 5.直推会员池
+				GjfBenefitHistory benefitHistory4 = new GjfBenefitHistory(null, totalBenefit,
+						benefitPool.getDirectMemberSysPoolCur(),
+						benefitPool.getDirectMemberSysPoolCur().subtract(totalBenefit), new BigDecimal(0.00), curDate,
+						"3", null, curDate, "1");
+
+				gjfBenefitInfoDao.update(benefitPool);
+				gjfBenefitInfoDao.save(benefitHistory4);
+			} else {
+				propsBenefit.put("directMerchantsMoney", totalBenefit);
+				propsBenefit.put("directMerchants.id", superMember.getId());
+
+				benefitPool.setDirectMerchantsSysPoolCur(
+						benefitPool.getDirectMerchantsSysPoolCur().subtract(totalBenefit));
+				// 5.直推商家池
+				GjfBenefitHistory benefitHistory5 = new GjfBenefitHistory(null, totalBenefit,
+						benefitPool.getDirectMerchantsSysPoolCur(),
+						benefitPool.getDirectMerchantsSysPoolCur().subtract(totalBenefit), new BigDecimal(0.00),
+						curDate, "4", null, curDate, "1");
+
+				gjfBenefitInfoDao.update(benefitPool);
+				gjfBenefitInfoDao.save(benefitHistory5);
+			}
+			gjfBenefitInfoDao.update(GjfMemberTradeBenefit.class, propsBenefit, attrsBenefit);
+
+		}
+		return null;
+	}
+
+	/**
+	 * @描述 修改资金池金额
+	 * @author Karhs
+	 * @date 2017年2月15日
+	 */
+	public BigDecimal[] updateBenefitPool(String memberType, double totalBenefit, BigDecimal subPlaSys) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		GjfBenefitPool benefitPool = gjfBenefitInfoDao.query(GjfBenefitPool.class, attrs);
+		if (ObjValid.isNotValid(benefitPool)) {
+			throw new MyException(400, "资金池数据异常", null);
+		}
+		GjfBenefitInfo gjfBenefitInfo = findByType(memberType);
+		if (ObjValid.isNotValid(gjfBenefitInfo)) {
+			throw new MyException(400, "配置数据异常", null);
+		}
+		Date curDate = new Date();
+		BigDecimal benefit = new BigDecimal(totalBenefit);
+		BigDecimal sysBenefit = new BigDecimal(benefit.doubleValue() * gjfBenefitInfo.getSysRatio())
+				.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN); // 系统占比
+		BigDecimal poolBenefit = new BigDecimal(sysBenefit.doubleValue() * gjfBenefitInfo.getDiviPoolsRatio())
+				.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN); // 分红池占比
+
+		BigDecimal[] directBenefit = new BigDecimal[] { new BigDecimal(0.00), new BigDecimal(0.00),
+				new BigDecimal(0.00) }; // 直推会员或商家的让利金额
+
+		if (memberType.equals("0")) {
+			BigDecimal directMembersBenefit = new BigDecimal(
+					sysBenefit.doubleValue() * gjfBenefitInfo.getDirectMembersRatio()).divide(new BigDecimal(100), 2,
+							BigDecimal.ROUND_DOWN); // 直推用户占比
+			BigDecimal directMerchantsBenefit = new BigDecimal(
+					benefit.divide(new BigDecimal(0.12), 2, BigDecimal.ROUND_DOWN).doubleValue()
+							* gjfBenefitInfo.getDirectMerchantsRatio()).divide(new BigDecimal(1000), 2,
+									BigDecimal.ROUND_DOWN); // 直推商家占比
+
+			/*
+			 * BigDecimal directMerchantsBenefit = new BigDecimal(
+			 * sysBenefit.doubleValue()*
+			 * gjfBenefitInfo.getDirectMerchantsRatio()).divide(new
+			 * BigDecimal(1000), 2, BigDecimal.ROUND_DOWN);
+			 */ // 直推商家占比
+			BigDecimal agentBenefit = new BigDecimal(sysBenefit.doubleValue() * gjfBenefitInfo.getAgentRatio())
+					.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN); // 代理商占比
+
+			directBenefit[0] = directMembersBenefit;
+			directBenefit[1] = directMerchantsBenefit;
+
+			// 1.会员池
+			GjfBenefitHistory benefitHistory1 = new GjfBenefitHistory(null, poolBenefit,
+					benefitPool.getMemberSysPoolCur(), benefitPool.getMemberSysPoolCur().add(poolBenefit),
+					new BigDecimal(0.00), curDate, "8", null, curDate, "1");
+
+			benefitPool.setMemberSysPoolCur(benefitPool.getMemberSysPoolCur().add(poolBenefit));
+			benefitPool.setMemberSysPoolTotal(benefitPool.getMemberSysPoolTotal().add(poolBenefit));
+
+			// 4.直推会员池
+			GjfBenefitHistory benefitHistory4 = new GjfBenefitHistory(null, directMembersBenefit,
+					benefitPool.getDirectMemberSysPoolCur(),
+					benefitPool.getDirectMemberSysPoolCur().add(directMembersBenefit), new BigDecimal(0.00), curDate,
+					"11", null, curDate, "1");
+
+			// 5.直推商家池
+			GjfBenefitHistory benefitHistory5 = new GjfBenefitHistory(null, directMerchantsBenefit,
+					benefitPool.getDirectMerchantsSysPoolCur(),
+					benefitPool.getDirectMerchantsSysPoolCur().add(directMerchantsBenefit), new BigDecimal(0.00),
+					curDate, "12", null, curDate, "1");
+
+			benefitPool.setDirectMemberSysPoolCur(benefitPool.getDirectMemberSysPoolCur().add(directMembersBenefit));
+			benefitPool
+					.setDirectMemberSysPoolTotal(benefitPool.getDirectMemberSysPoolTotal().add(directMembersBenefit));
+			benefitPool.setDirectMerchantsSysPoolCur(
+					benefitPool.getDirectMerchantsSysPoolCur().add(directMerchantsBenefit));
+			benefitPool.setDirectMerchantsSysPoolTotal(
+					benefitPool.getDirectMerchantsSysPoolTotal().add(directMerchantsBenefit));
+			benefitPool.setAgentSysPoolCur(benefitPool.getAgentSysPoolCur().add(agentBenefit));
+			benefitPool.setAgentSysPoolTotal(benefitPool.getAgentSysPoolTotal().add(agentBenefit));
+
+			BigDecimal agenCity = new BigDecimal(sysBenefit.doubleValue() * gjfBenefitInfo.getAgentCityRatio())
+					.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN);
+			BigDecimal agenArea = new BigDecimal(sysBenefit.doubleValue() * gjfBenefitInfo.getAgentAreaRatio())
+					.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN);
+			BigDecimal agenIndi = new BigDecimal(sysBenefit.doubleValue() * gjfBenefitInfo.getAgentIndiRatio())
+					.divide(new BigDecimal(100), 2, BigDecimal.ROUND_DOWN);
+
+			// 6.市代分红池
+			GjfBenefitHistory benefitHistory6 = new GjfBenefitHistory(null, agenCity,
+					benefitPool.getAgentSysCityPoolCur(), benefitPool.getAgentSysCityPoolCur().add(agenCity),
+					new BigDecimal(0.00), curDate, "13", null, curDate, "1");
+
+			// 7.区代分红池
+			GjfBenefitHistory benefitHistory7 = new GjfBenefitHistory(null, agenArea,
+					benefitPool.getAgentSysAreaPoolCur(), benefitPool.getAgentSysAreaPoolCur().add(agenArea),
+					new BigDecimal(0.00), curDate, "14", null, curDate, "1");
+
+			// 8.个代分红池
+			GjfBenefitHistory benefitHistory8 = new GjfBenefitHistory(null, agenIndi,
+					benefitPool.getAgentSysIndiPoolCur(), benefitPool.getAgentSysIndiPoolCur().add(agenIndi),
+					new BigDecimal(0.00), curDate, "15", null, curDate, "1");
+
+			// 1.2判断代理+平台+直推会员+直推商家+会员分红池=会员系统让利差
+			subPlaSys = benefit.subtract(poolBenefit).subtract(directMembersBenefit).subtract(directMerchantsBenefit)
+					.subtract(agenCity).subtract(agenArea).subtract(agenIndi);
+
+			benefitPool.setAgentSysCityPoolCur(benefitPool.getAgentSysCityPoolCur().add(agenCity));
+			benefitPool.setAgentSysCityPoolTotal(benefitPool.getAgentSysCityPoolTotal().add(agenCity));
+			benefitPool.setAgentSysAreaPoolCur(benefitPool.getAgentSysAreaPoolCur().add(agenArea));
+			benefitPool.setAgentSysAreaPoolTotal(benefitPool.getAgentSysAreaPoolTotal().add(agenArea));
+			benefitPool.setAgentSysIndiPoolCur(benefitPool.getAgentSysIndiPoolCur().add(agenIndi));
+			benefitPool.setAgentSysIndiPoolTotal(benefitPool.getAgentSysIndiPoolTotal().add(agenIndi));
+
+			gjfBenefitInfoDao.save(benefitHistory1);
+			gjfBenefitInfoDao.save(benefitHistory4);
+			gjfBenefitInfoDao.save(benefitHistory5);
+			gjfBenefitInfoDao.save(benefitHistory6);
+			gjfBenefitInfoDao.save(benefitHistory7);
+			gjfBenefitInfoDao.save(benefitHistory8);
+
+		} else {
+			// 2.商家池
+			GjfBenefitHistory benefitHistory2 = new GjfBenefitHistory(null, poolBenefit,
+					benefitPool.getMerchantSysPoolCur(), benefitPool.getMerchantSysPoolCur().add(poolBenefit),
+					new BigDecimal(0.00), curDate, "9", null, curDate, "1");
+
+			// 1.3判断客户平台+客户分红池=客户系统让利差
+			subPlaSys = subPlaSys.subtract(poolBenefit);
+			// 3.平台池
+			GjfBenefitHistory benefitHistory3 = new GjfBenefitHistory(null, subPlaSys,
+					benefitPool.getPlatformSysPoolCur(), benefitPool.getPlatformSysPoolCur().add(subPlaSys),
+					new BigDecimal(0.00), curDate, "10", null, curDate, "1");
+
+			benefitPool.setMerchantSysPoolCur(benefitPool.getMerchantSysPoolCur().add(poolBenefit));
+			benefitPool.setMerchantSysPoolTotal(benefitPool.getMerchantSysPoolTotal().add(poolBenefit));
+
+			benefitPool.setPlatformSysPoolCur(benefitPool.getPlatformSysPoolCur().add(subPlaSys));
+			benefitPool.setPlatformSysPoolTotal(benefitPool.getPlatformSysPoolTotal().add(subPlaSys));
+
+			gjfBenefitInfoDao.save(benefitHistory2);
+			gjfBenefitInfoDao.save(benefitHistory3);
+		}
+		directBenefit[2] = subPlaSys;
+		// 添加资金池流水
+		gjfBenefitInfoDao.update(benefitPool);
+		return directBenefit;
+	}
+
+	/**
+	 * @描述 根据类型查询让利配置信息
+	 * @author Karhs
+	 * @date 2017年3月7日
+	 * @param findType
+	 * @return
+	 */
+	public GjfBenefitInfo findByType(String findType) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("ratioType", findType);
+		return gjfBenefitInfoDao.query(GjfBenefitInfo.class, attrs);
+	}
+
+	/**
+	 * @描述 添加让利给个代记录
+	 * @author Karhs
+	 * @throws ParseException
+	 * @date 2017年3月7日
+	 */
+	public void addIndiBenefit(String merchantsMobile, String tradeNo, double buyMoney, double benefitMoney) {
+		// 1.查询所有的用户信息
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", merchantsMobile);
+		GjfMemberInfo gjfMemberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+		List<String> listArr = gjfBenefitInfoDao.findAllMemberType();
+		if (null != listArr && listArr.size() > 0) {
+			Map<String, String[]> dataMap = new HashMap<String, String[]>();
+			for (String str : listArr) {
+				if (StringUtil.isNotBlank(str)) {
+					String[] strArr = str.split(",");
+					String memberId = strArr[0];
+					dataMap.put(memberId, strArr);
+				}
+			}
+			List<String> personal = findPersonalIds(gjfMemberInfo.getId().toString(), dataMap);
+			if (null != personal && personal.size() > 0) {
+				for (String personalId : personal) {
+					GjfMemberInfo memberInfo = (GjfMemberInfo) gjfBenefitInfoDao.get(Long.parseLong(personalId),
+							GjfMemberInfo.class.getName());
+					GjfMemberTradeIndi memberTradeIndi = new GjfMemberTradeIndi(null, tradeNo, memberInfo,
+							gjfMemberInfo, new BigDecimal(buyMoney).setScale(2, BigDecimal.ROUND_DOWN),
+							new BigDecimal(benefitMoney).setScale(2, BigDecimal.ROUND_DOWN), new Date());
+					gjfBenefitInfoDao.save(memberTradeIndi);
+				}
+			}
+		}
+	}
+
+	/**
+	 * 返回个代们的id list，如果为空则找不到个代们
+	 * 
+	 * @param memberId
+	 * @param map
+	 * @return
+	 * @throws ParseException
+	 */
+	public static List<String> findPersonalIds(String memberId, Map<String, String[]> map) {
+
+		// 会员不存在
+		if (memberId == null || memberId.length() == 0) {
+			return null;
+		}
+
+		// 列表为空，没得聊了
+		if (map == null || map.isEmpty()) {
+			return null;
+		}
+
+		// 该会员找不到则返回
+		String[] theMember = map.get(memberId);
+		if (theMember == null) {
+			return null;
+		}
+
+		// 默认加入已加载队列
+		Map<String, String[]> foundMap = new HashMap<String, String[]>();
+		foundMap.put(memberId, theMember);
+
+		// 该会员上级id
+		String fatherId = theMember[1];
+		if (fatherId.equals("0")) {
+			return null;
+		}
+		List<String> personal = findPersonalIds(fatherId, map, foundMap, null);
+		return personal;
+	}
+
+	/**
+	 * 
+	 * @param memberId
+	 * @param map
+	 * @param foundMap
+	 * @param personal
+	 * @return
+	 * @throws ParseException
+	 */
+	private static List<String> findPersonalIds(String memberId, Map<String, String[]> map,
+			Map<String, String[]> foundMap, List<String> personal) {
+
+		// 该会员找不到则返回
+		String[] theMember = map.get(memberId);
+		if (theMember == null) {
+			return personal;
+		}
+
+		// 已经找到个代们了
+		if (personal != null && personal.size() == 2) {
+			return personal;
+		}
+
+		// 如果已加载队列里已经有这个会员了，说明已经循环了
+		if (foundMap.containsKey(memberId)) {
+			return personal;
+		}
+
+		// 默认加入已加载队列
+		foundMap.put(memberId, theMember);
+
+		// 如果是个贷，1代表个贷
+		String isPersonal = theMember[2];
+
+		if ("1".equals(isPersonal) && !theMember[3].equals("0") && !theMember[4].equals("0")) {
+			// 判断代理是否过期
+			int day1 = -1;
+			int day2 = 1;
+			String startDate = theMember[3];
+			String endDate = theMember[4];
+			String status = theMember[5];
+			String isDel = theMember[6];
+			if (status.equals("1") && isDel.equals("1")) {
+				try {
+					String curDate = DateHelper.dataToString(new Date(), "yyyy-MM-dd");
+					day1 = DateHelper.daysBetween(startDate, curDate);
+					day2 = DateHelper.daysBetween(endDate, curDate);
+				} catch (ParseException e) {
+					e.printStackTrace();
+				}
+				if (day1 >= 0 && day2 <= 0) {
+					if (personal == null) {
+						personal = new ArrayList<String>();
+					}
+					personal.add(memberId);
+				}
+			}
+		}
+		// 该会员上级id
+		String fatherId = theMember[1];
+		if (fatherId != null && fatherId.length() > 0 && !fatherId.equals("0")) {
+			personal = findPersonalIds(fatherId, map, foundMap, personal);
+		}
+		return personal;
+	}
+
+	/*
+	 * 用户每消费一笔，就会计算一次其所获得的分红权（可在后台设置）
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#
+	 * updateMemberBenefitNotify(java.lang.String, java.lang.String,
+	 * java.lang.Double, java.lang.Double)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public BigDecimal[] updateMemberBenefitNumCanSetInBack(String membersMobile, String memberType,
+			Double consumptionMoney, Double totalBenefit, String tradeNo, BigDecimal subSysPla) {
+		BigDecimal diviNum = new BigDecimal(0.000000);
+
+		if (memberType.equals("0")) {
+			double cumulativeMoney = 0.00;
+			// 1.求目前剩余的用户(商家)计算分红权的额度，并加上当次消费额度
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("mobile", membersMobile);
+			GjfMemberInfo gjfMemberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+
+			// 2.求用户累计消费额度
+			Double bfCumulativeMoney = gjfMemberInfo.getCumulativeMoney().doubleValue();
+			BigDecimal benefitMoney = new BigDecimal(totalBenefit).setScale(2, BigDecimal.ROUND_UP);
+
+			gjfMemberInfo.setCumulativeMoney(gjfMemberInfo.getCumulativeMoney().add(new BigDecimal(consumptionMoney)));
+			gjfMemberInfo
+					.setConsumptionMoney(gjfMemberInfo.getConsumptionMoney().add(new BigDecimal(consumptionMoney)));
+			cumulativeMoney = gjfMemberInfo.getCumulativeMoney().doubleValue();
+
+			// 根据用户累计消费金额获取分分红权设置信息
+			List<GjfSetDividends> diviList = gjfBenefitInfoDao.findDividendsDate(bfCumulativeMoney);
+			// 判断是否存在数据
+			if (diviList.size() > 0) {
+				GjfSetDividends dividends = diviList.get(0);
+				// 当用户消费总额小于等于设置的最大消费总额时
+				if (cumulativeMoney <= dividends.getConsumptionMax().doubleValue()) {
+					BigDecimal a = new BigDecimal(consumptionMoney).divide(dividends.getConsumption(), 6,
+							BigDecimal.ROUND_DOWN);
+					diviNum = a;
+					// 添加记录
+					GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+							diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(),
+							null, null, "0", "1", "0", "");
+					diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+							CommonStatus.SIGN_KEY_NUM));
+					gjfBenefitInfoDao.save(diviHistory);
+
+				} else {// 当用户消费总额大于设置的最大消费总额时
+						// 查看设置的区间的最大消费金额小于消费金额的数据个数
+					List<GjfSetDividends> divDateSize = gjfBenefitInfoDao
+							.findDividendiByCumulativeMoney(cumulativeMoney, "1");
+					if (divDateSize.size() > 0) {
+						for (int i = 0; i < divDateSize.size(); i++) {
+							if (i == 0) {
+								if (bfCumulativeMoney < divDateSize.get(i).getConsumptionMax().doubleValue()) {
+									BigDecimal b = new BigDecimal(
+											divDateSize.get(i).getConsumptionMax().doubleValue() - bfCumulativeMoney)
+													.divide(divDateSize.get(i).getConsumption(), 6,
+															BigDecimal.ROUND_DOWN);
+									diviNum = diviNum.add(b);
+								}
+							} else if (i != 0 && i != divDateSize.size() - 1) {
+								if (bfCumulativeMoney < divDateSize.get(i - 1).getConsumptionMax().doubleValue()) {
+									BigDecimal b = new BigDecimal(divDateSize.get(i).getConsumptionMax().doubleValue()
+											- divDateSize.get(i - 1).getConsumptionMax().doubleValue()).divide(
+													divDateSize.get(i).getConsumption(), 6, BigDecimal.ROUND_DOWN);
+									diviNum = diviNum.add(b);
+								}
+								if (bfCumulativeMoney > divDateSize.get(i - 1).getConsumptionMax().doubleValue()) {
+									BigDecimal b = new BigDecimal(
+											divDateSize.get(i).getConsumptionMax().doubleValue() - bfCumulativeMoney)
+													.divide(divDateSize.get(i).getConsumption(), 6,
+															BigDecimal.ROUND_DOWN);
+									diviNum = diviNum.add(b);
+								}
+
+							} else {
+								BigDecimal b = new BigDecimal(
+										cumulativeMoney - divDateSize.get(i).getConsumptionMin().doubleValue())
+												.divide(divDateSize.get(i).getConsumption(), 6, BigDecimal.ROUND_DOWN);
+								diviNum = diviNum.add(b);
+							}
+						}
+
+						// 添加记录
+						GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfMemberInfo, tradeNo + "-1",
+								diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney),
+								new Date(), null, null, "0", "1", "0", "");
+						diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+								CommonStatus.SIGN_KEY_NUM));
+						gjfBenefitInfoDao.save(diviHistory);
+					}
+				}
+			}
+
+			
+			//升级活跃区
+			//获取订单信息
+			Map<String, Object> neMap=new HashMap<>();
+			neMap.put("tradeNo", tradeNo);
+			GjfMemberTradeBenefit benefit = countInfoDao.query(GjfMemberTradeBenefit.class, neMap);
+			benefit.setChangeAcivityStatus("0");
+			benefit.setConsumptionMoney(new BigDecimal(0.00));
+			
+			if("0".equals(gjfMemberInfo.getIsActiveMember())){
+				
+				//获取用户本周让利金额
+				BigDecimal meBeMoey=countInfoDao.findCountCousumMoney("0",gjfMemberInfo.getId());
+				if("0".equals(benefit.getPayType())||"1".equals(benefit.getPayType())){
+					meBeMoey=meBeMoey.add(new BigDecimal(totalBenefit));
+				}				
+			    //取整				
+				Double meBeMoney=Math.floor(meBeMoey.doubleValue());
+				//BigDecimal totalUnit=getUnitAveragePrice("0");
+				BigDecimal argUnit=new BigDecimal("1");
+				Map<String,Object>  setAttrs=new HashMap<String,Object>();
+				setAttrs.put("key", "MEMBER_UNIT_PRICE_");
+				setAttrs.put("status", "1");
+				GjfSetBaseInfo baseInfo=gjfBenefitInfoDao.query(GjfSetBaseInfo.class, setAttrs);
+				if(BeanUtil.isValid(baseInfo)){
+					argUnit=new BigDecimal(baseInfo.getValue());
+				}
+				if("1".equals(gjfMemberInfo.getType())){
+					Map<String, Object> storeAttrs=new HashMap<String,Object>();
+					storeAttrs.put("memberId.id", gjfMemberInfo.getId());
+					GjfStoreInfo storeInfo=gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+					//如果用户存在并且店铺为不活跃
+					if(BeanUtil.isValid(storeInfo)&&"0".equals(storeInfo.getIsActivityStore())){
+						BigDecimal totalDivi=gjfMemberInfo.getDividendsNum().add(storeInfo.getStoreDividendsNum());
+						//分红权取整
+						Double intTotalDivi=Math.floor(totalDivi.doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intTotalDivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoney>=niceBeMoney.doubleValue()){
+							gjfMemberInfo.setIsActiveMember("1");
+							storeInfo.setIsActivityStore("1");
+							//查询用户升级金额
+						    BigDecimal upgradeMoney=countInfoDao.findMemberBenefitUpgradeMoney(gjfMemberInfo.getId());
+							benefit.setConsumptionMoney(niceBeMoney.subtract(upgradeMoney));
+							benefit.setChangeAcivityStatus("1");
+							gjfBenefitInfoDao.update(storeInfo);
+						}else{
+							if(gjfMemberInfo.getDividendsNum().doubleValue()>=storeInfo.getStoreDividendsNum().doubleValue()){
+								//分红权取整
+								if("0".equals(storeInfo.getIsActivityStore())){
+									Double intStoredivi=Math.floor(storeInfo.getStoreDividendsNum().doubleValue());
+									BigDecimal sniceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intStoredivi)).setScale(2, BigDecimal.ROUND_DOWN);
+									if(meBeMoney>=sniceBeMoney.doubleValue()){
+										storeInfo.setIsActivityStore("1");
+										benefit.setConsumptionMoney(sniceBeMoney);
+										benefit.setChangeAcivityStatus("1");
+										gjfBenefitInfoDao.update(storeInfo);
+									}
+								}
+								
+							}else{
+								Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+								BigDecimal miceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+								if(meBeMoney>=miceBeMoney.doubleValue()){
+									benefit.setConsumptionMoney(miceBeMoney);
+									benefit.setChangeAcivityStatus("1");
+									gjfMemberInfo.setIsActiveMember("1");
+								}
+							}
+						}
+					}else{//如果已经是活跃商家
+						Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoney>=niceBeMoney.doubleValue()){
+							benefit.setConsumptionMoney(niceBeMoney);
+							benefit.setChangeAcivityStatus("1");
+							gjfMemberInfo.setIsActiveMember("1");
+						}
+					}
+					
+				}else{
+					Double intMemdivi=Math.floor(gjfMemberInfo.getDividendsNum().doubleValue());
+					BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+					if(meBeMoney>=niceBeMoney.doubleValue()){
+						benefit.setConsumptionMoney(niceBeMoney);
+						benefit.setChangeAcivityStatus("1");
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+				}
+				
+				if(!BeanUtil.isValid(gjfMemberInfo.getFirstConsumptionTime())){
+					//查询用户是否第一次消费
+					Map<String, Object> comAttrs=new HashMap<>();
+					comAttrs.put("memberId.id", gjfMemberInfo.getId());
+					List<GjfMemberTradeBenefit> bList=gjfBenefitInfoDao.queryList(GjfMemberTradeBenefit.class, 0, 2, "addTime", "desc", comAttrs);
+					List<GjfOrderInfo> oList=gjfBenefitInfoDao.queryList(GjfOrderInfo.class, 0, 2, "addTime", "desc", comAttrs);
+					if(BeanUtil.isValid(bList)&&!BeanUtil.isValid(oList)&&bList.size()==1){
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+					if(!BeanUtil.isValid(bList)&&BeanUtil.isValid(oList)&&oList.size()==1){
+						gjfMemberInfo.setIsActiveMember("1");
+					}
+				}
+				
+			
+				
+			}else{
+										
+				if("1".equals(gjfMemberInfo.getType())){
+					//获取用户本周让利金额
+					BigDecimal meBeMoey=countInfoDao.findCountCousumMoney("0",gjfMemberInfo.getId());
+					//BigDecimal totalUnit=getUnitAveragePrice("0");
+					BigDecimal argUnit=new BigDecimal("1");
+					Map<String,Object>  setAttrs=new HashMap<String,Object>();
+					setAttrs.put("key", "MEMBER_UNIT_PRICE_");
+					setAttrs.put("status", "1");
+					GjfSetBaseInfo baseInfo=gjfBenefitInfoDao.query(GjfSetBaseInfo.class, setAttrs);
+					if(BeanUtil.isValid(baseInfo)){
+						argUnit=new BigDecimal(baseInfo.getValue());
+					}
+				
+					Map<String, Object> storeAttrs=new HashMap<String,Object>();
+					storeAttrs.put("memberId.id", gjfMemberInfo.getId());
+					GjfStoreInfo storeInfo=gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+					if("0".equals(storeInfo.getIsActivityStore())){
+						Double intMemdivi=Math.floor(storeInfo.getStoreDividendsNum().doubleValue());
+						BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7*0.5)).multiply(new BigDecimal(intMemdivi)).setScale(2, BigDecimal.ROUND_DOWN);
+						if(meBeMoey.doubleValue()>=niceBeMoney.doubleValue()){
+							benefit.setChangeAcivityStatus("1");
+							benefit.setConsumptionMoney(niceBeMoney);
+							storeInfo.setIsActivityStore("1");
+							gjfBenefitInfoDao.update(storeInfo);
+						}
+					}
+					
+				}
+			}
+			gjfMemberInfo
+			.setDividendsNum(gjfMemberInfo.getDividendsNum().add(diviNum).setScale(6, BigDecimal.ROUND_DOWN));			
+			// 4.增加分红权获取记录
+			gjfBenefitInfoDao.update(gjfMemberInfo);
+			gjfBenefitInfoDao.update(benefit);
+									
+		} else {
+			Map<String, Object> storeAttrs = new HashMap<String, Object>();
+			storeAttrs.put("memberId.mobile", membersMobile);
+			GjfStoreInfo gjfStoreInfo = gjfBenefitInfoDao.query(GjfStoreInfo.class, storeAttrs);
+
+			double bfTotalBenefitMoney = gjfStoreInfo.getStoreBenefitTotalMoney().doubleValue();
+			BigDecimal benefitMoney = new BigDecimal(totalBenefit).setScale(2, BigDecimal.ROUND_UP);
+
+			gjfStoreInfo.setStoreSaleTotalMoney(
+					gjfStoreInfo.getStoreSaleTotalMoney().add(new BigDecimal(consumptionMoney)));
+			gjfStoreInfo.setStoreBenefitTotalMoney(gjfStoreInfo.getStoreBenefitTotalMoney().add(benefitMoney));
+			gjfStoreInfo
+					.setStoreDividendsTotalMoneyBla(gjfStoreInfo.getStoreDividendsTotalMoneyBla().add(benefitMoney));
+			double totalBenefitMoney = gjfStoreInfo.getStoreBenefitTotalMoney().doubleValue();
+
+			// 根据用户累计消费金额获取分分红权设置信息
+			/*
+			 * List<GjfSetDividends> diviList =
+			 * gjfBenefitInfoDao.findDividendsDate(bfTotalBenefitMoney); //
+			 * 判断是否存在数据 if (diviList.size() > 0) { GjfSetDividends dividends =
+			 * diviList.get(0); // 当用户消费总额小于等于设置的最大消费总额时 if (totalBenefitMoney
+			 * <= dividends.getConsumptionMax().doubleValue()) { BigDecimal a =
+			 * new BigDecimal(benefitMoney.doubleValue()).divide(dividends.
+			 * getConsumption(), 6, BigDecimal.ROUND_DOWN); diviNum = a; // 添加记录
+			 * GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null,
+			 * gjfStoreInfo.getMemberId(), tradeNo + "-2", diviNum,
+			 * benefitMoney, new BigDecimal(0.00), new
+			 * BigDecimal(consumptionMoney), new Date(), null, null, "0", "3",
+			 * "1", "");
+			 * diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo()
+			 * , diviHistory.getDiviStatus(), CommonStatus.SIGN_KEY_NUM));
+			 * gjfBenefitInfoDao.save(diviHistory);
+			 * 
+			 * } else {// 当用户消费总额大于设置的最大消费总额时 // 查看设置的区间的最大消费金额小于消费金额的数据个数
+			 * List<GjfSetDividends> divDateSize = gjfBenefitInfoDao
+			 * .findDividendiByCumulativeMoney(totalBenefitMoney, "1"); if
+			 * (divDateSize.size() > 0) { for (int i = 0; i <
+			 * divDateSize.size(); i++) { if (i == 0) { if (bfTotalBenefitMoney
+			 * < divDateSize.get(i).getConsumptionMax().doubleValue()) {
+			 * BigDecimal b = new BigDecimal(
+			 * divDateSize.get(i).getConsumptionMax().doubleValue() -
+			 * bfTotalBenefitMoney) .divide(divDateSize.get(i).getConsumption(),
+			 * 6, BigDecimal.ROUND_DOWN); diviNum = diviNum.add(b); }
+			 * 
+			 * } else if (i != 0 && i != divDateSize.size() - 1) {
+			 * if(bfTotalBenefitMoney<divDateSize.get(i-1).getConsumptionMax().
+			 * doubleValue()){ BigDecimal b = new
+			 * BigDecimal(divDateSize.get(i).getConsumptionMax().doubleValue() -
+			 * divDateSize.get(i - 1).getConsumptionMax().doubleValue())
+			 * .divide(divDateSize.get(i).getConsumption(), 6,
+			 * BigDecimal.ROUND_DOWN); diviNum = diviNum.add(b); }
+			 * if(bfTotalBenefitMoney>divDateSize.get(i-1).getConsumptionMax().
+			 * doubleValue()){ BigDecimal b = new
+			 * BigDecimal(divDateSize.get(i).getConsumptionMax().doubleValue() -
+			 * bfTotalBenefitMoney) .divide(divDateSize.get(i).getConsumption(),
+			 * 6, BigDecimal.ROUND_DOWN); diviNum = diviNum.add(b); }
+			 * 
+			 * } else { BigDecimal b = new BigDecimal( totalBenefitMoney -
+			 * divDateSize.get(i).getConsumptionMin().doubleValue())
+			 * .divide(divDateSize.get(i).getConsumption(), 6,
+			 * BigDecimal.ROUND_DOWN); diviNum = diviNum.add(b); } }
+			 * 
+			 * 
+			 * } } }
+			 */
+
+			BigDecimal a = new BigDecimal(totalBenefitMoney - bfTotalBenefitMoney).divide(new BigDecimal(1000), 6,
+					BigDecimal.ROUND_DOWN);
+			diviNum = a;
+			// 添加记录
+			GjfMemberTradeDivi diviHistory = new GjfMemberTradeDivi(null, gjfStoreInfo.getMemberId(), tradeNo + "-2",
+					diviNum, benefitMoney, new BigDecimal(0.00), new BigDecimal(consumptionMoney), new Date(), null,
+					null, "0", "3", "1", "");
+			diviHistory.setToken(Sha256.getSha256Hash(diviHistory.getDiviNo(), diviHistory.getDiviStatus(),
+					CommonStatus.SIGN_KEY_NUM));
+			gjfBenefitInfoDao.save(diviHistory);
+
+			gjfStoreInfo.setStoreDividendsNum(
+					gjfStoreInfo.getStoreDividendsNum().add(diviNum).setScale(6, BigDecimal.ROUND_DOWN));
+            
+			//升级活跃区
+			/*if("0".equals(gjfStoreInfo.getIsActivityStore())){
+				//获取用户本周让利金额
+				BigDecimal meBeMoey=countInfoDao.findCountCousumMoney("1",gjfStoreInfo.getMemberId().getId());
+				//BigDecimal totalUnit=getUnitAveragePrice("1");
+				BigDecimal argUnit=new BigDecimal("1");
+				Map<String,Object>  setAttrs=new HashMap<String,Object>();
+				setAttrs.put("key", "MER_UNIT_PRICE_");
+				setAttrs.put("status", "1");
+				GjfSetBaseInfo baseInfo=gjfBenefitInfoDao.query(GjfSetBaseInfo.class, setAttrs);
+				if(BeanUtil.isValid(baseInfo)){
+					argUnit=new BigDecimal(baseInfo.getValue());
+				}
+				BigDecimal niceBeMoney=argUnit.multiply(new BigDecimal(7)).multiply(gjfStoreInfo.getDeductDiviNum()).setScale(2, BigDecimal.ROUND_DOWN);
+				if(meBeMoey.doubleValue()>=niceBeMoney.doubleValue()){
+					gjfStoreInfo.setIsActivityStore("1");
+				}
+				
+				//查询店铺是否第一次消费
+				Map<String, Object> couMap=new HashMap<>();
+				couMap.put("storeId.id", gjfStoreInfo.getId());
+				List<GjfMemberTradeBenefit> bList=gjfBenefitInfoDao.queryList(GjfMemberTradeBenefit.class, 0, 2, "addTime", "desc", couMap);
+				if(BeanUtil.isValid(bList)&&bList.size()==1){
+					gjfStoreInfo.setIsActivityStore("1");
+				}
+			}*/
+			
+			
+			gjfBenefitInfoDao.update(gjfStoreInfo);
+		}
+
+		// 修改商家让利表记录的分红权额
+		Map<String, Object> attrsBenefit = new HashMap<String, Object>();
+		Map<String, Object> propsBenefit = new HashMap<String, Object>();
+		attrsBenefit.put("tradeNo", tradeNo);
+		if (memberType.equals("0")) {
+			propsBenefit.put("memberDividendsNum", diviNum);
+		} else {
+			propsBenefit.put("merchantsDividendsNum", diviNum);
+		}
+		gjfBenefitInfoDao.update(GjfMemberTradeBenefit.class, propsBenefit, attrsBenefit);
+
+		// 修改资金池
+		BigDecimal[] directBenefit = updateBenefitPool(memberType, totalBenefit, subSysPla);
+		return directBenefit;
+	}
+
+	public BigDecimal updateMemberBenefit(Double couMoney) {
+
+		return null;
+	}
+	
+	/**
+	 * 获取上周分红单价平均值
+	 */
+	public BigDecimal getUnitAveragePrice(String type){
+		BigDecimal totalUnitPrice=new BigDecimal(0.00);
+		for(int i=1;i<=7;i++){
+			 Calendar calendar1 = Calendar.getInstance();
+			 int dayOfWeek=calendar1.get(Calendar.DAY_OF_WEEK)-1;
+			 int offset1=i-dayOfWeek;
+			 calendar1.add(Calendar.DATE, offset1-7);
+			 SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			 String lastTime=sdf.format(calendar1.getTime());
+			 BigDecimal unitPrice=gjfBenefitInfoDao.findUnitPriceByTime(type, lastTime);
+			 totalUnitPrice=totalUnitPrice.add(unitPrice);
+		}
+		return totalUnitPrice;
+	}
+
+	/**
+	 * 获取全部分红权设置信息
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllDividends(Integer pageNo, Integer pageSize) {
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("status", "1");
+		return new ResultVo(200, "查询成功", gjfBenefitInfoDao.queryList(GjfSetDividends.class, (pageNo - 1) * pageSize,
+				pageSize, "id", "asc", attr));
+	}
+
+	/**
+	 * 根据id获取分红权设置信息
+	 */
+	@Override
+	public ResultVo findDividendsById(Long divId) {
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("status", "1");
+		attr.put("id", divId);
+		return new ResultVo(200, "查询成功", gjfBenefitInfoDao.query(GjfSetDividends.class, attr));
+	}
+
+	/**
+	 * 添加分红权设置信息
+	 * 
+	 * @param setDiv
+	 * @return
+	 */
+	@Override
+	public ResultVo addDividensData(GjfSetDividends setDiv) {
+
+		gjfBenefitInfoDao.save(setDiv);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 删除分红权设置信息
+	 * 
+	 * @param divId
+	 * @return
+	 */
+	@Override
+	public ResultVo removeDividensData(Long divId) {
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("status", "1");
+		attr.put("id", divId);
+		GjfSetDividends gjfSetDividends = gjfBenefitInfoDao.query(GjfSetDividends.class, attr);
+		gjfBenefitInfoDao.delete(gjfSetDividends);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 修改分红权设置信息
+	 * 
+	 * @param setDiv
+	 * @return
+	 */
+	@Override
+	public ResultVo modifyDividensData(GjfSetDividends setDiv) {
+		gjfBenefitInfoDao.update(setDiv);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/**
+	 * 查询最近七天之内用户的让利数据
+	 * 
+	 * @param mobile
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@Override
+	public ResultVo findBenefitByTime(String mobile) {
+		List list = (List) gjfBenefitInfoDao.findBenefitByTime(mobile).getResult();
+		MemberTradeBenefitVo benefit = null;
+		if (list.size() > 0) {
+			benefit = (MemberTradeBenefitVo) list.get(0);
+		}
+		return new ResultVo(200, "查询成功", benefit);
+	}
+
+	/**
+	 * 用户确认让利提示信息
+	 * 
+	 * @param tradeNo
+	 * @return
+	 */
+	@Override
+	public ResultVo modifyBenefitConfirmStatus(String tradeNo) {
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("tradeNo", tradeNo);
+		GjfMemberTradeBenefit benefit = gjfBenefitInfoDao.query(GjfMemberTradeBenefit.class, attr);
+		benefit.setConfirmStatus("1");
+		gjfBenefitInfoDao.update(benefit);
+		GjfMemberInfo info = benefit.getMemberId();
+		info.setIsConfirm("1");
+		gjfBenefitInfoDao.update(info);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/**
+	 * 转移分红金额
+	 */
+	@Override
+	public ResultVo modifyTransferMoney(String account) {
+		// 查询用户信息
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("mobile", account);
+		GjfMemberInfo memberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+		if (!BeanUtil.isValid(memberInfo)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		// 计算用户可转移金额
+		BigDecimal totalTransferMoney = memberInfo.getDividendsRewardMoney().add(memberInfo.getIndiRewardMoney())
+				.add(memberInfo.getRecommendRewardMoney());
+		if (totalTransferMoney.doubleValue() == 0) {
+			return new ResultVo(400, "可转移金额为零", null);
+		}
+		// 创建历史记录
+		GjfTransferHistory tansferHistory = new GjfTransferHistory();
+		tansferHistory.setBalanceBf(memberInfo.getBalanceMoney());
+		tansferHistory.setIsDel("1");
+		tansferHistory.setMemberId(memberInfo);
+		tansferHistory.setAddTime(new Date());
+		tansferHistory.setTransferDividendsMoney(memberInfo.getDividendsRewardMoney());
+		tansferHistory.setTransferRecomMoney(memberInfo.getRecommendRewardMoney());
+		tansferHistory.setTransferIndiMoney(memberInfo.getIndiRewardMoney());
+		// 计算税费
+		BigDecimal pundageMoney = totalTransferMoney.multiply(new BigDecimal(0.1)).setScale(2, BigDecimal.ROUND_DOWN);
+
+		// 转移到余额的金额
+		BigDecimal fransferToBalanceMoney = totalTransferMoney.subtract(pundageMoney);
+		// 把钱转移到余额
+		memberInfo.setBalanceMoney(memberInfo.getBalanceMoney().add(fransferToBalanceMoney));
+		memberInfo.setWithdrawalMoney(memberInfo.getWithdrawalMoney().add(fransferToBalanceMoney));
+		memberInfo.setDividendsRewardMoney(new BigDecimal(0.00));
+		memberInfo.setRecommendRewardMoney(new BigDecimal(0.00));
+		memberInfo.setIndiRewardMoney(new BigDecimal(0.00));
+
+		// 记录转移后余额
+		tansferHistory.setPoundage(pundageMoney);
+		tansferHistory.setBalanceAf(memberInfo.getBalanceMoney());
+		tansferHistory.setTransferMoney(totalTransferMoney);
+		tansferHistory.setTransferAfterTax(fransferToBalanceMoney);
+		// 更新用户信息
+		gjfBenefitInfoDao.update(memberInfo);
+		gjfBenefitInfoDao.save(tansferHistory);
+		return new ResultVo(200, "转移成功", null);
+	}
+
+	/**
+	 * 调整用户每月是否参与分红
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings({ "unchecked" })
+	@Override
+	public ResultVo modifyMemberDiviByMonth() {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("status", "1");
+		List<GjfMemberInfo> memList = gjfBenefitInfoDao.queryList(GjfMemberInfo.class, "id", "asc", attrs);
+		if (memList.size() > 0) {
+			for (GjfMemberInfo member : memList) {
+				// 获取用户最早消费时间
+				Date firstConsumptionTime = member.getFirstConsumptionTime();
+				// 获取当前时间
+				Date dataTime = new Date();
+				if (BeanUtil.isValid(firstConsumptionTime)) {
+					// 计算两个时间差
+					long days = (dataTime.getTime() - firstConsumptionTime.getTime()) / (1000 * 60 * 60 * 24);
+					if (days > 60) {
+						// 获取用户消费次数
+						List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao.findMemberCousumptionNum(member.getId());
+						// 如果消费记录不为空
+						if (BeanUtil.isValid(list) && list.size() == 1) {
+							GjfMemberConsumptiomNum consumptionNum = list.get(0);
+							member.setIsDivi("0");
+							// 如果线上消费和线下消费都消费三笔
+							if (consumptionNum.getShopConsumptionNum() >= 3) {
+								member.setIsDivi("1");
+							}
+							// 如果线上消费小于3笔线下消费大于6笔
+							/*if (consumptionNum.getShopConsumptionNum() < 3 && consumptionNum.getBenefitNum() >= 6) {
+								// 统计用户当月的提现金额
+								BigDecimal wMoney = gjfBenefitInfoDao.sumMemberBenefitMoney("0", member.getId());
+								// 统计用户当月让利金额
+								BigDecimal bMoney = gjfBenefitInfoDao.sumMemberBenefitMoney("1", member.getId());
+								// 如果当月提现金额为零
+								if (wMoney.doubleValue() == 0) {
+									member.setIsDivi("1");
+								} else {
+									// 如果提现金额不为零并且当月让利金额大于提现金额的40%，则可参与分红
+									if (bMoney.doubleValue() > (wMoney.multiply(new BigDecimal(0.4))
+											.setScale(2,BigDecimal.ROUND_DOWN)).doubleValue()) {
+										member.setIsDivi("1");
+									}
+								}
+							}*/
+						} else {
+							// 获取线上消费记录
+							BigInteger orCoount = (BigInteger) gjfBenefitInfoDao
+									.findCountCousumtion("0", member.getId()).getResult();
+							// 获取线下消费笔数
+							//BigInteger beCount = (BigInteger) gjfBenefitInfoDao.findCountCousumtion("1", member.getId())
+							//		.getResult();
+
+							member.setIsDivi("0");
+							// 如果线上消费和线下消费都消费三笔
+							if (orCoount.intValue() >= 3) {
+								member.setIsDivi("1");
+							}
+							// 如果线上消费小于3笔线下消费大于6笔
+							/*if (orCoount.intValue() < 3 && beCount.intValue() >= 6) {
+								// 统计用户当月的提现金额
+								BigDecimal wMoney = gjfBenefitInfoDao.sumMemberBenefitMoney("0", member.getId());
+								// 统计用户当月让利金额
+								BigDecimal bMoney = gjfBenefitInfoDao.sumMemberBenefitMoney("1", member.getId());
+								// 如果当月提现金额为零
+								if (wMoney.doubleValue() == 0) {
+									member.setIsDivi("1");
+								} else {
+									// 如果提现金额不为零并且当月让利金额大于提现金额的40%，则可参与分红
+									if (bMoney.doubleValue() > (wMoney.multiply(new BigDecimal(0.4))
+											.setScale(2,BigDecimal.ROUND_DOWN)).doubleValue()) {
+										member.setIsDivi("1");
+									}
+								}
+							}*/
+						}
+						gjfBenefitInfoDao.update(member);
+					}
+				} else {
+					member.setIsDivi("0");
+					gjfBenefitInfoDao.update(member);
+				}
+			}
+		}
+		return new ResultVo(200, "统计成功", null);
+	}
+
+	/**
+	 * 领回20%分红权减半50%再减半不变
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo modifyMemberDeductDivi() {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("isDel", "1");
+		attrs.put("status", "1");
+		List<GjfMemberInfo> memList = gjfBenefitInfoDao.queryList(GjfMemberInfo.class, "id", "asc", attrs);
+		if (BeanUtil.isValid(memList)) {
+			for (GjfMemberInfo member : memList) {
+
+				BigDecimal syDivi = new BigDecimal(0.000000);
+				// 計算消費的20%金額
+				BigDecimal cousum = member.getCumulativeMoney().multiply(new BigDecimal(0.2))
+						.setScale(2, BigDecimal.ROUND_DOWN);
+				BigDecimal lastDiviMoney = member.getDividendsTotalMoney().subtract(member.getLastGetBackDiviMoney());
+				if(lastDiviMoney.doubleValue()!=0||cousum.doubleValue()!=0){
+					if (lastDiviMoney.doubleValue() >= cousum.doubleValue()) {
+						// 計算扣減后的分紅權
+						syDivi = (member.getDividendsNum().subtract(member.getLastDeductDiviNum()))
+								.divide(new BigDecimal(2),6,BigDecimal.ROUND_DOWN);
+					}
+					// 計算消費的50%金額
+					BigDecimal cousumMax = member.getCumulativeMoney().multiply(new BigDecimal(0.5))
+							.setScale(2, BigDecimal.ROUND_DOWN);
+					if (lastDiviMoney.doubleValue() >= cousumMax.doubleValue()) {
+						// 計算扣減后的分紅權
+						syDivi = syDivi.divide(new BigDecimal(2),6,BigDecimal.ROUND_DOWN);
+					}
+				}
+				
+
+				if (syDivi.doubleValue() != 0) {
+					BigDecimal diviMoney = member.getLastDeductDiviNum();
+					member.setLastDeductDiviNum(syDivi.add(diviMoney));
+					member.setReserveDiviNum(member.getReserveDiviNum().add(member.getDividendsNum().subtract(syDivi)).subtract(diviMoney));
+					member.setLastGetBackDiviMoney(member.getDividendsTotalMoney());
+					member.setDividendsNum(syDivi.add(diviMoney));
+					gjfBenefitInfoDao.update(member);
+				}
+
+			}
+		}
+		return new ResultVo(200, "統計成功");
+	}
+
+	/**
+	 * 添加让利给运营中心
+	 * @return
+	 */
+	@Override
+	public ResultVo addOperationCenterBenefit(String merchantsMobile, String tradeNo, double buyMoney,
+			double benefitMoney) {
+		// 1.查询所有的用户信息
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", merchantsMobile);
+		GjfMemberInfo gjfMemberInfo = gjfBenefitInfoDao.query(GjfMemberInfo.class, attrs);
+		List<String> listArr = gjfBenefitInfoDao.findAllMemberType();
+		if (null != listArr && listArr.size() > 0) {
+			Map<String, String[]> dataMap = new HashMap<String, String[]>();
+			for (String str : listArr) {
+				if (StringUtil.isNotBlank(str)) {
+					String[] strArr = str.split(",");
+					String memberId = strArr[0];
+					dataMap.put(memberId, strArr);
+				}
+			}
+			List<String> personal = findPersonalIdsOperationsCenter(gjfMemberInfo.getId().toString(), dataMap);
+			if (null != personal && personal.size() > 0) {
+				for (String personalId : personal) {
+					GjfMemberInfo memberInfo = (GjfMemberInfo) gjfBenefitInfoDao.get(Long.parseLong(personalId),
+							GjfMemberInfo.class.getName());
+					BigDecimal tradeMoney=new BigDecimal(buyMoney).multiply(new BigDecimal(0.005)).setScale(2,BigDecimal.ROUND_DOWN);
+					if(!BeanUtil.isValid(memberInfo.getOpcenterMoney())){
+						memberInfo.setOpcenterMoney(new BigDecimal(0));
+					}
+					if(!BeanUtil.isValid(memberInfo.getOpcenterTotalMoney())){
+						memberInfo.setOpcenterTotalMoney(new BigDecimal(0));
+					}
+					memberInfo.setOpcenterMoney(memberInfo.getOpcenterMoney().add(tradeMoney));
+					memberInfo.setOpcenterTotalMoney(memberInfo.getOpcenterTotalMoney().add(tradeMoney));
+					gjfBenefitInfoDao.update(memberInfo);
+					GjfMemberTradeOpcenter opcenter=new GjfMemberTradeOpcenter(memberInfo.getId(), gjfMemberInfo.getId(),new BigDecimal(buyMoney) ,new BigDecimal(benefitMoney) , tradeMoney, tradeNo, "1", "1", new Date());
+					gjfBenefitInfoDao.save(opcenter);
+				}
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * 返回运营们的id list，如果为空则找不到运营中心们
+	 * 
+	 * @param memberId
+	 * @param map
+	 * @return
+	 * @throws ParseException
+	 */
+	public static List<String> findPersonalIdsOperationsCenter(String memberId, Map<String, String[]> map) {
+
+		// 会员不存在
+		if (memberId == null || memberId.length() == 0) {
+			return null;
+		}
+
+		// 列表为空，没得聊了
+		if (map == null || map.isEmpty()) {
+			return null;
+		}
+
+		// 该会员找不到则返回
+		String[] theMember = map.get(memberId);
+		if (theMember == null) {
+			return null;
+		}
+
+		// 默认加入已加载队列
+		Map<String, String[]> foundMap = new HashMap<String, String[]>();
+		foundMap.put(memberId, theMember);
+
+		// 该会员上级id
+		String fatherId = theMember[1];
+		if (fatherId.equals("0")) {
+			return null;
+		}
+		List<String> personal = findPersonalOperationsCenter(fatherId, map, foundMap, null);
+		return personal;
+	}
+	
+	
+	/**
+	 * 获取用户运营中心数据（只取一层）
+	 * @param memberId
+	 * @param map
+	 * @param foundMap
+	 * @param personal
+	 * @return
+	 * @throws ParseException
+	 */
+	private static List<String> findPersonalOperationsCenter(String memberId, Map<String, String[]> map,
+			Map<String, String[]> foundMap, List<String> personal) {
+
+		// 该会员找不到则返回
+		String[] theMember = map.get(memberId);
+		if (theMember == null) {
+			return personal;
+		}
+
+		// 已经找到个代们了
+		if (personal != null && personal.size() == 1) {
+			return personal;
+		}
+
+		// 如果已加载队列里已经有这个会员了，说明已经循环了
+		if (foundMap.containsKey(memberId)) {
+			return personal;
+		}
+
+		// 默认加入已加载队列
+		foundMap.put(memberId, theMember);
+
+		// 如果是个贷，1代表个贷
+		String isPersonal = theMember[7];
+
+		if ("1".equals(isPersonal)) {						
+			String status = theMember[5];
+			String isDel = theMember[6];
+			if (status.equals("1") && isDel.equals("1")) {
+				  if (personal == null) {
+						personal = new ArrayList<String>();
+					}
+					personal.add(memberId);	
+			}
+		}
+		// 该会员上级id
+		String fatherId = theMember[1];
+		if (fatherId != null && fatherId.length() > 0 && !fatherId.equals("0")) {
+			personal = findPersonalOperationsCenter(fatherId, map, foundMap, personal);
+		}
+		return personal;
+	}
+
+	/**
+	 * 查看特殊发放人统计记录
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findSpecialTotalHistory(Integer pageNo, Integer pageSize) {
+		Map<String, Object> attrs=new HashMap<>();
+		List<GjfspecialMemberTradeDivi> list=gjfBenefitInfoDao.queryList(GjfspecialMemberTradeDivi.class, "addTime", "desc", attrs);
+		Pager pager=new Pager(pageSize, pageNo, (int)gjfBenefitInfoDao.queryTotalRecord(GjfspecialMemberTradeDivi.class, attrs), list);
+		return new ResultVo(200, "查询成", pager);
+	}
+
+	/**
+	 * 获取特殊发放人记录
+	 */
+	@Override
+	public ResultVo findSpecialTradeDiviHistory(Integer pageNo, Integer pageSize,String addTime,Long memId,String type) {
+		Pager pager=gjfBenefitInfoDao.findSpecialMemberTradeDiviHistory(pageNo, pageSize, addTime, memId,type);	
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+}

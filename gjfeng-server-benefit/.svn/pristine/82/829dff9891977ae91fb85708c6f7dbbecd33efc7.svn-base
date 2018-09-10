@@ -1,0 +1,678 @@
+package cc.messcat.gjfeng.entity;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+
+/**
+ * GjfMemberInfo entity. @author MyEclipse Persistence Tools
+ */
+@Entity
+@Table(name = "gjf_member_info")
+public class GjfMemberInfo implements java.io.Serializable {
+
+	private static final long serialVersionUID = 1L;
+	// Fields
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "ID_", length = 10)
+	private Long id;
+	
+	@Column(name = "UNION_ID_", length = 50)
+	private String unionId;
+	
+	@Column(name = "NAME_", length = 50)
+	private String name;
+	
+	@Column(name = "MOBILE_", length = 15)
+	private String mobile;
+	
+	@Column(name = "PASSWORD_", length = 100)
+	private String password;
+	
+	@Column(name = "PAY_PASSWORD_", length = 100)
+	private String payPassword;
+	
+	@Column(name = "NICK_NAME_", length = 255)
+	private String nickName;
+	
+	@Column(name = "SEX_", length = 1)
+	private String sex;
+	
+	@Column(name = "EMAIL_", length = 50)
+	private String email;
+	
+	@Column(name = "ID_CARD_", length = 20)
+	private String idCard;
+	
+	@Column(name = "IMG_ID_CARD_BEFORE_URL_", length = 200)
+	private String imgIdCardBeforeUrl;
+	
+	@Column(name = "IMG_ID_CARD_BEHIND_URL_", length = 200)
+	private String imgIdCardBehindUrl;
+	
+	@Column(name = "IMG_ID_CARD_HANDHELD_URL_", length = 200)
+	private String imgIdCardHandheldUrl;
+	
+	@Column(name = "IMG_HEAD_URL_", length = 500)
+	private String imgHeadUrl;
+	
+	@Column(name = "IMG_QR_URL_", length = 200)
+	private String imgQrUrl;
+	
+	@Column(name = "SUPER_ID_", length = 10)
+	private Long superId;
+	
+	@ManyToOne
+	@JoinColumn(name="PROVICE_ID_")
+	private GjfAddressProvince proviceId;
+	
+	@ManyToOne
+	@JoinColumn(name="CITY_ID_")
+	private GjfAddressCity cityId;
+	
+	@ManyToOne
+	@JoinColumn(name="AREA_ID_")
+	private GjfAddressArea areaId;
+	
+	@Column(name = "ADRRESS_", length = 100)
+	private String adrress;
+	
+	@Column(name = "REMARK_", length = 500)
+	private String remark;
+	
+	@Column(name = "BALANCE_MONEY_", precision=10, scale=2)
+	private BigDecimal balanceMoney;
+	
+	@Column(name = "CONSUMPTION_MONEY_", precision=10, scale=2)
+	private BigDecimal consumptionMoney;
+	
+	@Column(name = "CUMULATIVE_MONEY_", precision=10, scale=2)
+	private BigDecimal cumulativeMoney;
+	
+	@Column(name = "LOW_LEVEL_CUMULATIVE_MONEY_", precision=10, scale=2)
+	private BigDecimal lowLevelCumulativeMoney;
+	
+	@Column(name = "WITHDRAWAL_MONEY_", precision=10, scale=2)
+	private BigDecimal withdrawalMoney;
+	
+	@Column(name = "DIVIDENDS_MONEY_BLA_", precision=10, scale=2)
+	private BigDecimal dividendsMoneyBla;
+	
+	@Column(name = "DIVIDENDS_TOTAL_MONEY_", precision=10, scale=2)
+	private BigDecimal dividendsTotalMoney;
+	
+	@Column(name = "DIVIDENDS_NUM_", precision=10, scale=6)
+	private BigDecimal dividendsNum;
+	
+	@Column(name = "DIRECT_MEMBER_TOTAL_MONEY_", precision=10, scale=6)
+	private BigDecimal directMemberTotalMoney;
+	
+	@Column(name = "DIRECT_MERCHANTS_TOTAL_MONEY_", precision=10, scale=6)
+	private BigDecimal directMerchantsTotalMoney;
+	
+	@Column(name = "AGENT_MONEY_", precision=10, scale=2)
+	private BigDecimal agentMoney;
+	
+	@Column(name = "AGENT_TOTAL_MONEY_", precision=10, scale=2)
+	private BigDecimal agentTotalMoney;
+	
+	@Column(name = "INSURANCE_MONEY_", precision=10, scale=2)
+	private BigDecimal insuranceMoney;
+	
+	@Column(name = "ADD_TIME_")
+	private Date addTime;
+	
+	@Column(name = "EDIT_TIME_")
+	private Date editTime;
+	
+	@Column(name = "AGENT_START_DATE_")
+	private Date agentStartDate;
+	
+	@Column(name = "AGENT_END_DATE_")
+	private Date agentEndDate;
+	
+	@Column(name = "LAST_LOGIN_TIME_")
+	private Date lastLoginTime;
+	
+	@Column(name = "IS_READ_NAME_", length = 1)
+	private String isReadName;
+	
+	@Column(name = "TYPE_", length = 1)
+	private String type;
+	
+	@Column(name = "IDENTITY_", length = 1)
+	private String identity;
+	
+	@Column(name = "IS_REPORT_", length = 1)
+	private String isReport;
+	
+	@Column(name = "IS_BUY_", length = 1)
+	private String isBuy;
+	
+	@Column(name = "IS_MESSAGE_", length = 1)
+	private String isMessage;
+	
+	@Column(name = "IS_COMMENTS_", length = 1)
+	private String isComments;
+	
+	@Column(name = "IS_DIVI_", length = 1)
+	private String isDivi;
+	
+	@Column(name = "STATUS_", length = 1)
+	private String status;
+	
+	@Column(name = "IS_DEL_", length = 1)
+	private String isDel;
+	
+	@Column(name = "TOKEN_", length = 200)
+	private String token;
+	
+	@Column(name = "REAL_NAME_STATE_", length = 1)
+	private String realNameState;
+	
+	@Column(name = "LINE_OF_CREDIT_", precision=10, scale=2)
+	private BigDecimal lineOfCrade;
+	
+	@Column(name = "OPEN_ID", length = 100)
+	private String openId;
+	
+	@Column(name = "BIND_TIME")
+	private Date bindTime;
+	
+	@Column(name = "IS_CONFIRM_",length=1)
+	private String isConfirm;
+		
+	@Column(name = "IS_REGISTER_NET_",length=1)
+	private String isRegisterNet;
+	
+	@Column(name = "DIVIDENDS_REWARD_MONEY_", precision=20, scale=2)
+	private BigDecimal dividendsRewardMoney;
+	
+	@Column(name = "RECOMMEND_REWARD_MONEY_", precision=20, scale=2)
+	private BigDecimal recommendRewardMoney;
+	
+	@Column(name = "INDI_REWARD_MONEY_", precision=20, scale=2)
+	private BigDecimal indiRewardMoney;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getUnionId() {
+		return unionId;
+	}
+
+	public void setUnionId(String unionId) {
+		this.unionId = unionId;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getMobile() {
+		return mobile;
+	}
+
+	public void setMobile(String mobile) {
+		this.mobile = mobile;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getPayPassword() {
+		return payPassword;
+	}
+
+	public void setPayPassword(String payPassword) {
+		this.payPassword = payPassword;
+	}
+
+	public String getNickName() {
+		return nickName;
+	}
+
+	public void setNickName(String nickName) {
+		this.nickName = nickName;
+	}
+
+	public String getSex() {
+		return sex;
+	}
+
+	public void setSex(String sex) {
+		this.sex = sex;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public String getIdCard() {
+		return idCard;
+	}
+
+	public void setIdCard(String idCard) {
+		this.idCard = idCard;
+	}
+
+	public String getImgIdCardBeforeUrl() {
+		return imgIdCardBeforeUrl;
+	}
+
+	public void setImgIdCardBeforeUrl(String imgIdCardBeforeUrl) {
+		this.imgIdCardBeforeUrl = imgIdCardBeforeUrl;
+	}
+
+	public String getImgIdCardBehindUrl() {
+		return imgIdCardBehindUrl;
+	}
+
+	public void setImgIdCardBehindUrl(String imgIdCardBehindUrl) {
+		this.imgIdCardBehindUrl = imgIdCardBehindUrl;
+	}
+
+	public String getImgHeadUrl() {
+		return imgHeadUrl;
+	}
+
+	public void setImgHeadUrl(String imgHeadUrl) {
+		this.imgHeadUrl = imgHeadUrl;
+	}
+
+	public String getImgQrUrl() {
+		return imgQrUrl;
+	}
+
+	public void setImgQrUrl(String imgQrUrl) {
+		this.imgQrUrl = imgQrUrl;
+	}
+
+	public Long getSuperId() {
+		return superId;
+	}
+
+	public void setSuperId(Long superId) {
+		this.superId = superId;
+	}
+
+	public GjfAddressProvince getProviceId() {
+		return proviceId;
+	}
+
+	public void setProviceId(GjfAddressProvince proviceId) {
+		this.proviceId = proviceId;
+	}
+
+	public GjfAddressCity getCityId() {
+		return cityId;
+	}
+
+	public void setCityId(GjfAddressCity cityId) {
+		this.cityId = cityId;
+	}
+
+	public GjfAddressArea getAreaId() {
+		return areaId;
+	}
+
+	public void setAreaId(GjfAddressArea areaId) {
+		this.areaId = areaId;
+	}
+
+	public String getAdrress() {
+		return adrress;
+	}
+
+	public void setAdrress(String adrress) {
+		this.adrress = adrress;
+	}
+
+	public String getRemark() {
+		return remark;
+	}
+
+	public void setRemark(String remark) {
+		this.remark = remark;
+	}
+
+	public BigDecimal getBalanceMoney() {
+		return balanceMoney;
+	}
+
+	public void setBalanceMoney(BigDecimal balanceMoney) {
+		this.balanceMoney = balanceMoney;
+	}
+
+	public BigDecimal getConsumptionMoney() {
+		return consumptionMoney;
+	}
+
+	public void setConsumptionMoney(BigDecimal consumptionMoney) {
+		this.consumptionMoney = consumptionMoney;
+	}
+
+	public BigDecimal getCumulativeMoney() {
+		return cumulativeMoney;
+	}
+
+	public void setCumulativeMoney(BigDecimal cumulativeMoney) {
+		this.cumulativeMoney = cumulativeMoney;
+	}
+
+	public BigDecimal getWithdrawalMoney() {
+		return withdrawalMoney;
+	}
+
+	public void setWithdrawalMoney(BigDecimal withdrawalMoney) {
+		this.withdrawalMoney = withdrawalMoney;
+	}
+
+	public BigDecimal getDividendsMoneyBla() {
+		return dividendsMoneyBla;
+	}
+
+	public void setDividendsMoneyBla(BigDecimal dividendsMoneyBla) {
+		this.dividendsMoneyBla = dividendsMoneyBla;
+	}
+
+	public BigDecimal getDividendsTotalMoney() {
+		return dividendsTotalMoney;
+	}
+
+	public void setDividendsTotalMoney(BigDecimal dividendsTotalMoney) {
+		this.dividendsTotalMoney = dividendsTotalMoney;
+	}
+
+	public BigDecimal getDividendsNum() {
+		return dividendsNum;
+	}
+
+	public void setDividendsNum(BigDecimal dividendsNum) {
+		this.dividendsNum = dividendsNum;
+	}
+
+	public Date getAddTime() {
+		return addTime;
+	}
+
+	public void setAddTime(Date addTime) {
+		this.addTime = addTime;
+	}
+
+	public Date getEditTime() {
+		return editTime;
+	}
+
+	public void setEditTime(Date editTime) {
+		this.editTime = editTime;
+	}
+
+	public Date getLastLoginTime() {
+		return lastLoginTime;
+	}
+
+	public void setLastLoginTime(Date lastLoginTime) {
+		this.lastLoginTime = lastLoginTime;
+	}
+
+	public String getIsReadName() {
+		return isReadName;
+	}
+
+	public void setIsReadName(String isReadName) {
+		this.isReadName = isReadName;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getIdentity() {
+		return identity;
+	}
+
+	public void setIdentity(String identity) {
+		this.identity = identity;
+	}
+
+	public String getIsReport() {
+		return isReport;
+	}
+
+	public void setIsReport(String isReport) {
+		this.isReport = isReport;
+	}
+
+	public String getIsBuy() {
+		return isBuy;
+	}
+
+	public void setIsBuy(String isBuy) {
+		this.isBuy = isBuy;
+	}
+
+	public String getIsMessage() {
+		return isMessage;
+	}
+
+	public void setIsMessage(String isMessage) {
+		this.isMessage = isMessage;
+	}
+
+	public String getIsComments() {
+		return isComments;
+	}
+
+	public void setIsComments(String isComments) {
+		this.isComments = isComments;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public String getIsDel() {
+		return isDel;
+	}
+
+	public void setIsDel(String isDel) {
+		this.isDel = isDel;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public String getImgIdCardHandheldUrl() {
+		return imgIdCardHandheldUrl;
+	}
+
+	public void setImgIdCardHandheldUrl(String imgIdCardHandheldUrl) {
+		this.imgIdCardHandheldUrl = imgIdCardHandheldUrl;
+	}
+
+	public BigDecimal getLowLevelCumulativeMoney() {
+		return lowLevelCumulativeMoney;
+	}
+
+	public void setLowLevelCumulativeMoney(BigDecimal lowLevelCumulativeMoney) {
+		this.lowLevelCumulativeMoney = lowLevelCumulativeMoney;
+	}
+
+	public String getRealNameState() {
+		return realNameState;
+	}
+
+	public void setRealNameState(String realNameState) {
+		this.realNameState = realNameState;
+	}
+
+	public BigDecimal getAgentMoney() {
+		return agentMoney;
+	}
+
+	public void setAgentMoney(BigDecimal agentMoney) {
+		this.agentMoney = agentMoney;
+	}
+
+	public BigDecimal getAgentTotalMoney() {
+		return agentTotalMoney;
+	}
+
+	public void setAgentTotalMoney(BigDecimal agentTotalMoney) {
+		this.agentTotalMoney = agentTotalMoney;
+	}
+
+	public Date getAgentStartDate() {
+		return agentStartDate;
+	}
+
+	public void setAgentStartDate(Date agentStartDate) {
+		this.agentStartDate = agentStartDate;
+	}
+
+	public Date getAgentEndDate() {
+		return agentEndDate;
+	}
+
+	public void setAgentEndDate(Date agentEndDate) {
+		this.agentEndDate = agentEndDate;
+	}
+
+	public BigDecimal getLineOfCrade() {
+		return lineOfCrade;
+	}
+
+	public void setLineOfCrade(BigDecimal lineOfCrade) {
+		this.lineOfCrade = lineOfCrade;
+	}
+
+	public BigDecimal getInsuranceMoney() {
+		return insuranceMoney;
+	}
+
+	public void setInsuranceMoney(BigDecimal insuranceMoney) {
+		this.insuranceMoney = insuranceMoney;
+	}
+
+	public String getOpenId() {
+		return openId;
+	}
+
+	public void setOpenId(String openId) {
+		this.openId = openId;
+	}
+
+	public BigDecimal getDirectMemberTotalMoney() {
+		return directMemberTotalMoney;
+	}
+
+	public void setDirectMemberTotalMoney(BigDecimal directMemberTotalMoney) {
+		this.directMemberTotalMoney = directMemberTotalMoney;
+	}
+
+	public BigDecimal getDirectMerchantsTotalMoney() {
+		return directMerchantsTotalMoney;
+	}
+
+	public void setDirectMerchantsTotalMoney(BigDecimal directMerchantsTotalMoney) {
+		this.directMerchantsTotalMoney = directMerchantsTotalMoney;
+	}
+
+	public Date getBindTime() {
+		return bindTime;
+	}
+
+	public void setBindTime(Date bindTime) {
+		this.bindTime = bindTime;
+	}
+
+	public String getIsDivi() {
+		return isDivi;
+	}
+
+	public void setIsDivi(String isDivi) {
+		this.isDivi = isDivi;
+	}
+
+	public String getIsConfirm() {
+		return isConfirm;
+	}
+
+	public void setIsConfirm(String isConfirm) {
+		this.isConfirm = isConfirm;
+	}
+
+	public String getIsRegisterNet() {
+		return isRegisterNet;
+	}
+
+	public void setIsRegisterNet(String isRegisterNet) {
+		this.isRegisterNet = isRegisterNet;
+	}
+
+	public BigDecimal getDividendsRewardMoney() {
+		return dividendsRewardMoney;
+	}
+
+	public void setDividendsRewardMoney(BigDecimal dividendsRewardMoney) {
+		this.dividendsRewardMoney = dividendsRewardMoney;
+	}
+
+	public BigDecimal getRecommendRewardMoney() {
+		return recommendRewardMoney;
+	}
+
+	public void setRecommendRewardMoney(BigDecimal recommendRewardMoney) {
+		this.recommendRewardMoney = recommendRewardMoney;
+	}
+
+	public BigDecimal getIndiRewardMoney() {
+		return indiRewardMoney;
+	}
+
+	public void setIndiRewardMoney(BigDecimal indiRewardMoney) {
+		this.indiRewardMoney = indiRewardMoney;
+	}
+	
+}

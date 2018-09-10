@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jee="http://www.springframework.org/schema/jee" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-2.5.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd"
+	default-lazy-init="true">
+
+	<!-- dao配置 -->
+	<bean id="dataHandlerDao" class="cc.messcat.dao.data.DataHandlerDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+
+	<!-- mgr配置 -->
+	<bean id="dataHandlerManagerDao" class="cc.messcat.service.data.DataHandlerManagerDaoImpl">
+		<property name="dataHandlerDao" ref="dataHandlerDao"/>
+	</bean>
+
+	 <!-- action配置 -->
+    <bean id="dataHandlerAction" class="cc.messcat.web.data.DataHandlerAction" scope="prototype">
+		<property name="dataHandlerManagerDao" ref="dataHandlerManagerDao" />
+		<property name="jdbcHostIp" value="${jdbc.hostIp}" />
+		<property name="jdbcDatabaseName" value="${jdbc.databaseName}" />
+		<property name="jdbcUser" value="${jdbc.username}" />
+		<property name="jdbcPassword" value="${jdbc.password}" />
+		<property name="jdbcMysqlPath" value="${jdbc.mysqlPath}" />
+		<property name="jdbcBackupPath" value="${jdbc.backupPath}" />
+    </bean>
+    
+    <bean id="dataDownloadAction" class="cc.messcat.web.data.DownloadAction" scope="prototype">
+		<property name="jdbcBackupPath" value="${jdbc.backupPath}" />
+    </bean>
+    
+</beans>

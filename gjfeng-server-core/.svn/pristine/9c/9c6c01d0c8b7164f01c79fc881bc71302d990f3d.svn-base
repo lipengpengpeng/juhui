@@ -1,0 +1,204 @@
+package cc.messcat.gjfeng.dubbo;
+
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.vo.app.StoreInfoVo;
+import cc.messcat.gjfeng.common.vo.app.StoreJoinVo;
+import cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.service.store.GjfStoreInfoService;
+
+public class GjfStoreInfoDubboImpl implements GjfStoreInfoDubbo {
+
+	@Autowired
+	@Qualifier("gjfStoreInfoService")
+	private GjfStoreInfoService gjfStoreInfoService;
+
+	/*
+	 * 提交店铺申请
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#addStore(cc.messcat.gjfeng
+	 * .common.vo.app.StoreInfoVo, cc.messcat.gjfeng.common.vo.app.StoreJoinVo,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo addStore(StoreInfoVo storeInfoVo, StoreJoinVo storeJoinVo, String account) throws Exception {
+		return gjfStoreInfoService.addStore(storeInfoVo, storeJoinVo, account);
+	}
+
+	/*
+	 * 修改店铺信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#updateStore(cc.messcat.
+	 * gjfeng.entity.GjfStoreInfo)
+	 */
+	@Override
+	public ResultVo updateStore(GjfStoreInfo gjfStoreInfo) {
+		return gjfStoreInfoService.updateStore(gjfStoreInfo);
+	}
+
+	/*
+	 * 修改店铺的banner
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#updateStoreBanner(java.
+	 * lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateStoreBanner(Long storeId, String bannerImgUrl) {
+		return gjfStoreInfoService.updateStoreBanner(storeId, bannerImgUrl);
+	}
+
+	/*
+	 * 修改店铺的简介
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#updateStoreDescription(
+	 * java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateStoreDescription(Long storeId, String description) {
+		return gjfStoreInfoService.updateStoreDescription(storeId, description);
+	}
+
+	/*
+	 * 修改店铺审核状态
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#updateAduitStatus(java.
+	 * lang.Long, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateAduitStatus(Long id, String aduitStatus, String token,String auditStatusReason) {
+		return gjfStoreInfoService.updateAduitStatus(id, aduitStatus, token,auditStatusReason);
+	}
+
+	/*
+	 * 删除店铺
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#delStore(java.lang.Long,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo delStore(Long id, String token) {
+		return gjfStoreInfoService.modifyStoreStatus(id, token);
+	}
+
+	/*
+	 * 根据账户查询店铺
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#findStoreByAccount(java.
+	 * lang.String)
+	 */
+	@Override
+	public ResultVo findStoreByAccount(String account) {
+		return gjfStoreInfoService.findStoreByAccount(account);
+	}
+
+	/*
+	 * 根据id查询店铺
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#findStoreById(java.lang.
+	 * Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findStoreById(Long id, String token) {
+		return gjfStoreInfoService.findStoreById(id, token);
+	}
+	
+	/*
+	 *  根据商家Id查询店铺
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#findStoreByMemberId(java.lang.Long)
+	 */
+	@Override
+	public ResultVo findStoreByMemberId(Long id) {
+		return gjfStoreInfoService.findStoreByMemberId(id);
+	}
+
+	/*
+	 * 分页查询店铺
+	 * 
+	 * @see cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo#findStoreByPager(int,
+	 * int, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo findStoreByPager(int pageNo, int pageSize, String likeValue, String storePro, String storeType,
+		String storeStatus,String isActivityStore) {
+		return gjfStoreInfoService.findStoreByPager(pageNo, pageSize, likeValue, storePro, storeType, storeStatus,isActivityStore);
+	}
+
+	/*
+	 * 根据地区查找店铺
+	 */
+	@Override
+	public ResultVo findStoreByCondition(int pageNo, int pageSize, Long provinceId, Long cityId, Long areaId) {
+		return gjfStoreInfoService.findStoreByCondition(pageNo,pageSize,provinceId,cityId,areaId);
+	}
+
+	@Override
+	public ResultVo modifyStoreAddress(Long storeId,String sellerMobile, String cityValue, String addressDetail) {
+		return gjfStoreInfoService.modifyStoreAddress(storeId, sellerMobile, cityValue, addressDetail);
+	}
+
+	@Override
+	public ResultVo updateLineOfCreadit(Long id, String token, String account, Double tradeMoney, String type) {
+		return gjfStoreInfoService.updateLineOfCreadit(id, token, account, tradeMoney, type);
+	}
+
+	@Override
+	public ResultVo findStoreJoin(Long id, String token) {
+		return gjfStoreInfoService.findStoreJoin(id, token);
+	}
+
+	@Override
+	public ResultVo findRechargeLineCreditByPage(int pageNo,int pageSize,String tradeNo,String name,String addTime,String endTime,String payType,String tradeStatus,String ste) {
+		return gjfStoreInfoService.findRechargeLineCreditByPage(pageNo,pageSize,tradeNo,name,addTime,endTime,payType,tradeStatus,ste);
+	}
+	
+	@Override
+	public ResultVo findRechargeLineCredit(String tradeNo,String  name,String addTime,String endTime,String payType,String tradeStatus) {
+		return gjfStoreInfoService.findRechargeLineCredit(tradeNo,name,addTime,endTime,payType,tradeStatus);
+	}
+
+	@Override
+	public ResultVo updateLocation(Long id, String token) {
+		return gjfStoreInfoService.updateLocation(id,token);
+	}
+
+	@Override
+	public ResultVo findStoreByAgent(int pageNo,int pageSize,Long id, String token, String identity) {
+		return gjfStoreInfoService.findStoreByAgent(pageNo,pageSize,id, token, identity);
+	}
+
+	@Override
+	public ResultVo findStoreBenefitByAgent(int pageNo, int pageSize, Long id, String token, String identity) {
+		return gjfStoreInfoService.findStoreBenefitByAgent(pageNo,pageSize,id,token,identity);
+	}
+
+	@Override
+	public ResultVo findStoreByStoreId(Long storeId) {
+		
+		return gjfStoreInfoService.findStoreByStoreId(storeId);
+	}
+
+	@Override
+	public ResultVo findStoreByColumn(Long columnId, Map<String, Object> param) {
+		return gjfStoreInfoService.findStoreByColumn(columnId, param);
+	}
+
+	@Override
+	public ResultVo findStores(Map<String, Object> param) {
+		return gjfStoreInfoService.findStores(param);
+	}
+	
+}

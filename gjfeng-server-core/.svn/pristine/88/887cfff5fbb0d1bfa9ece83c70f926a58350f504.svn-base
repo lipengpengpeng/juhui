@@ -1,0 +1,1852 @@
+package cc.messcat.gjfeng.service.member;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.Session;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.BeanUtilsEx;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.util.Sha256;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberBankVo;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeBenefitVo;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeDiviVo;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.config.WaixiConfig;
+import cc.messcat.gjfeng.dao.member.GjfMemberInfoDao;
+import cc.messcat.gjfeng.dao.trade.GjfTradeDao;
+import cc.messcat.gjfeng.entity.GjfAddressCity;
+import cc.messcat.gjfeng.entity.GjfAddressProvince;
+import cc.messcat.gjfeng.entity.GjfBankInfo;
+import cc.messcat.gjfeng.entity.GjfBenefitHistory;
+import cc.messcat.gjfeng.entity.GjfBenefitInfo;
+import cc.messcat.gjfeng.entity.GjfBenefitPool;
+import cc.messcat.gjfeng.entity.GjfMemberBank;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfMemberTrade;
+import cc.messcat.gjfeng.entity.GjfMemberTradeBenefit;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDetail;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDivi;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDiviHistory;
+import cc.messcat.gjfeng.entity.GjfMemberTradeLog;
+import cc.messcat.gjfeng.entity.GjfOrderInfo;
+import cc.messcat.gjfeng.entity.GjfRechargePaid;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.entity.GjfWeiXinPayInfo;
+import cc.messcat.gjfeng.service.benefit.GjfBenefitInfoService;
+import net.sf.json.JSONObject;
+
+@Service("gjfTradeService")
+public class GjfTradeServiceImpl implements GjfTradeService {
+
+	@Autowired
+	@Qualifier("gjfMemberInfoDao")
+	private GjfMemberInfoDao gjfMemberInfoDao;
+
+	@Autowired
+	@Qualifier("gjfTradeDao")
+	private GjfTradeDao gjfTradeDao;
+
+	@Autowired
+	@Qualifier("gjfMemberInfoService")
+	private GjfMemberInfoService gjfMemberInfoService;
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoService")
+	private GjfBenefitInfoService gjfBenefitInfoService;
+
+	@Autowired
+	@Qualifier("notifyJmsTemplate")
+	private JmsTemplate notifyJmsTemplate;
+
+	/*
+	 * 跳转到提现
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#toDrawCash(java.lang.
+	 * String)
+	 */
+	@Override
+	public ResultVo toDrawCash(String account) {
+		Map<String, Object> data = new HashMap<String, Object>();
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (StringUtil.isBlank(account) || ObjValid.isNotValid(gjfMemberInfo)) {
+			data.put("withdrawalMoney", 0.00);
+			data.put("bank", null);
+			return new ResultVo(400, "用户不存在", data);
+		}
+		// 1.查询用户的可提现余额
+		data.put("withdrawalMoney", gjfMemberInfo.getWithdrawalMoney().doubleValue());
+		// 2.查询第一张绑定的银行卡
+		List<MemberBankVo> banks = gjfMemberInfoDao.findMyBankCard(gjfMemberInfo.getId(), 1);
+		data.put("bank", banks.size() == 0 ? null : banks.get(0));
+		return new ResultVo(200, "查询成功", data);
+	}
+
+	/*
+	 * 添加提现
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#addDrawCash(java.lang.
+	 * String, java.lang.String, java.lang.Long, java.lang.Double)
+	 */
+	@Override
+	public synchronized ResultVo addDrawCash(String account, String remark, Long myBankId, Double money) {
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (ObjValid.isNotValid(myBankId)) {
+			throw new MyException(400, "请选择银行卡", null);
+		}
+		if (ObjValid.isNotValid(money)) {
+			throw new MyException(400, "输入金额有误", null);
+		}
+		if (money.doubleValue() < 200) {
+			throw new MyException(400, "提现金额不能小于200元", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", myBankId);
+		attrs.put("memberId.mobile", account);
+		GjfMemberBank gjfMemberBank = gjfMemberInfoDao.query(GjfMemberBank.class, attrs);
+		if (ObjValid.isNotValid(gjfMemberBank)) {
+			throw new MyException(400, "请选择正确的银行卡", null);
+		}
+
+		// 获取用户信息
+		Map<String, Object> memMap = new HashMap<String, Object>();
+		memMap.put("mobile", account);
+		GjfMemberInfo mem = gjfMemberInfoDao.query(GjfMemberInfo.class, memMap);
+		if (ObjValid.isNotValid(mem)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+
+		// 查询用户是否已经有一笔再提现中
+		int num = gjfTradeDao.findDrawByStatus(gjfMemberBank.getMemberId().getId());
+		if (num > 0) {
+			throw new MyException(400, "已经有一笔提现正在审核中，请等待审核通过", null);
+		}
+
+		// 判断同一个身份证同一天只能提现一次
+		if (StringUtil.isBlank(gjfMemberBank.getMemberId().getIdCard())) {
+			throw new MyException(400, "实名认证身份证为空，不能提现", null);
+		}
+		int count = gjfTradeDao.findDrawByIdCard(gjfMemberBank.getMemberId().getIdCard());
+		if (count > 0) {
+			throw new MyException(400, "同一身份证用户一天只能提现一次", null);
+		}
+
+		// 1.查询当前用户的可提现金额，判断提现的金额是否大于可提现金额
+		if (gjfMemberBank.getMemberId().getWithdrawalMoney().doubleValue() < money.doubleValue()) {
+			throw new MyException(400, "提现金额不能大于可提现金额", null);
+		}
+		// 2.进行提现申请
+		Map<String, Object> attrs1 = new HashMap<String, Object>();
+		attrs.put("id", myBankId);
+		GjfBenefitInfo benefitInfo = gjfMemberInfoDao.query(GjfBenefitInfo.class, attrs1);
+		BigDecimal tradeMoney = new BigDecimal(money * (benefitInfo.getWithdrawalRatio() / 100)).setScale(1,
+				BigDecimal.ROUND_DOWN); // 交易金额
+		BigDecimal insuranceMoney = new BigDecimal(money * (benefitInfo.getInsuranceRatio() / 100)).setScale(2,
+				BigDecimal.ROUND_DOWN);
+		BigDecimal taxMoney = new BigDecimal(money).subtract(tradeMoney).subtract(insuranceMoney);		
+
+		GjfMemberTrade gjfMemberTrade = new GjfMemberTrade(null,
+				DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)),
+				gjfMemberBank.getMemberId(), gjfMemberBank, new BigDecimal(money), tradeMoney, taxMoney, insuranceMoney,
+				new Date(), null, null, "1", "0", null, null);
+
+		// 查询用户最新提现记录
+		Map<String, Object> tradeMap = new HashMap<String, Object>();
+		tradeMap.put("memberId.mobile", account);
+		tradeMap.put("tradeType", "1");
+		tradeMap.put("tradeStatus", "1");
+		List<GjfMemberTrade> list = gjfMemberInfoDao.queryList(GjfMemberTrade.class, 0, 10000, "addTime", "desc", tradeMap);
+		if (list.size() > 0) {
+			// 消费增长值
+			BigDecimal conGrowth = mem.getCumulativeMoney().subtract(list.get(0).getConGrowth());
+			// 如果用户是商家
+			/*if ("1".equals(mem.getType())) {
+				// 查询店铺信息
+				Map<String, Object> storeMap = new HashMap<>();
+				storeMap.put("memberId.mobile", account);
+				GjfStoreInfo store = gjfMemberInfoDao.query(GjfStoreInfo.class, storeMap);
+				// 计算销售增长值
+				BigDecimal salesGrowth = store.getStoreSaleTotalMoney().subtract(list.get(0).getSalesGrowth());
+				// 上次提现交易金额*2.5与消费增长值or销售增长值做比较
+				BigDecimal tradeMon = list.get(0).getApplyMoney().multiply(new BigDecimal(2.5)).setScale(2,
+						BigDecimal.ROUND_DOWN);
+				if (conGrowth.doubleValue() < tradeMon.doubleValue()
+						&& salesGrowth.doubleValue() < tradeMon.doubleValue()) {
+					BigDecimal memChae = tradeMon.subtract(conGrowth).setScale(2, BigDecimal.ROUND_DOWN);
+					BigDecimal mchChae = tradeMon.subtract(salesGrowth).setScale(2, BigDecimal.ROUND_DOWN);					
+					return new ResultVo(400, "亲，您贡献值还未达到，继续努力，再消费"+memChae+"或店铺销售"+mchChae+"，达到即可提取福利。",
+							null);
+				} else {// 记录信息
+					gjfMemberTrade.setConGrowth(mem.getCumulativeMoney());
+					gjfMemberTrade.setSalesGrowth(store.getStoreSaleTotalMoney());
+				}
+
+			} else {*/// 如果为普通会员
+					// 上次提现交易金额*2.5与消费增长值or销售增长值做比较
+				BigDecimal tradeMon = list.get(0).getApplyMoney().multiply(new BigDecimal(2.5)).setScale(2,
+						BigDecimal.ROUND_DOWN);
+				if (conGrowth.doubleValue() < tradeMon.doubleValue()) {
+					BigDecimal memChae = tradeMon.subtract(conGrowth).setScale(2, BigDecimal.ROUND_DOWN);
+					return new ResultVo(400, "亲！您在平台商户再消费"+memChae+"，即可立即提取福利。", null);
+				} else {
+					gjfMemberTrade.setConGrowth(mem.getCumulativeMoney());
+					gjfMemberTrade.setSalesGrowth(new BigDecimal(0.00));
+				}
+			/*}*/
+
+		} else {// 如果为第一次提现
+
+			/*if ("1".equals(mem.getType())) {// 如果用户是商家
+				// 查询店铺信息
+				Map<String, Object> storeMap = new HashMap<>();
+				storeMap.put("memberId.mobile", account);
+				GjfStoreInfo store = gjfMemberInfoDao.query(GjfStoreInfo.class, storeMap);
+				// 计算销售增长值
+				gjfMemberTrade.setConGrowth(mem.getCumulativeMoney());
+				gjfMemberTrade.setSalesGrowth(store.getStoreSaleTotalMoney());
+
+			} else {*/// 如果为普通会员
+
+				gjfMemberTrade.setConGrowth(mem.getCumulativeMoney());
+				gjfMemberTrade.setSalesGrowth(new BigDecimal(0.00));
+
+			/*}*/
+
+		}
+
+		gjfMemberTrade.setToken(Sha256.getSha256Hash(gjfMemberTrade.getTradeNo(), gjfMemberTrade.getTradeStatus(),
+				CommonStatus.SIGN_KEY_NUM));
+		gjfMemberInfoDao.save(gjfMemberTrade);
+
+		// 用户资金修改
+		GjfMemberInfo gjfMemberInfo = gjfMemberBank.getMemberId();
+		gjfMemberInfo.setWithdrawalMoney(gjfMemberInfo.getWithdrawalMoney().subtract(new BigDecimal(money)));
+		gjfMemberInfo.setBalanceMoney(gjfMemberInfo.getBalanceMoney().subtract(new BigDecimal(money)));
+
+		gjfMemberInfoDao.update(gjfMemberInfo);
+
+		return new ResultVo(200, "提交成功,请等待审核", gjfMemberTrade);
+	}
+
+	/*
+	 * 审核提现记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#updateDrawCashStatus(
+	 * java.lang.Long, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateDrawCashStatus(Long id, String token, String tradeStatus, String userName) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(tradeStatus)
+				|| (!"1".equals(tradeStatus) && !"2".equals(tradeStatus))) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		GjfMemberTrade gjfMemberTrade = gjfMemberInfoDao.query(GjfMemberTrade.class, attrs);
+		if (ObjValid.isNotValid(gjfMemberTrade)) {
+			throw new MyException(400, "对象不存在", null);
+		}
+		// 增加审核的操作人员
+
+		gjfMemberTrade.setCheckUser(userName);
+
+		/* GjfMemberTrade gjfMemberTrade = (GjfMemberTrade) o; */
+		gjfMemberTrade.setTradeStatus(tradeStatus);
+		gjfMemberTrade.setDealTime(new Date());
+
+		gjfMemberTrade.setToken(Sha256.getSha256Hash(gjfMemberTrade.getTradeNo(), gjfMemberTrade.getTradeStatus(),
+				CommonStatus.SIGN_KEY_NUM));
+
+		if (ObjValid.isNotValid(gjfMemberTrade.getMemberId())) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (gjfMemberTrade.getTradeType().equals("1") && "1".equals(tradeStatus)) {
+			gjfMemberTrade.setTradeTime(new Date());
+			GjfMemberInfo info = gjfMemberTrade.getMemberId();
+			info.setInsuranceMoney(info.getInsuranceMoney().add(gjfMemberTrade.getInsuranceMoney()));
+			gjfMemberInfoDao.update(info);
+
+			// 修改资金池金额
+			Map<String, Object> attrsPool = new HashMap<>();
+			GjfBenefitPool gjfBenefitPool = gjfMemberInfoDao.query(GjfBenefitPool.class, attrsPool);
+
+			// 添加资金流水
+			GjfBenefitHistory benefitHistory = new GjfBenefitHistory(null, gjfMemberTrade.getTaxMoney(),
+					gjfBenefitPool.getPlatformSysPoolCur(),
+					gjfBenefitPool.getPlatformSysPoolCur().add(gjfMemberTrade.getTaxMoney()), new BigDecimal(0.00),
+					new Date(), "16", null, new Date(), "1");
+
+			gjfBenefitPool
+					.setPlatformSysPoolCur(gjfBenefitPool.getPlatformSysPoolCur().add(gjfMemberTrade.getTaxMoney()));
+			gjfBenefitPool.setPlatformSysPoolTotal(
+					gjfBenefitPool.getPlatformSysPoolTotal().add(gjfMemberTrade.getTaxMoney()));
+
+			gjfMemberInfoDao.update(gjfBenefitPool);
+			gjfMemberInfoDao.save(benefitHistory);
+
+			// 添加余额、提现金额、责任险余额变更记录
+			GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, gjfMemberTrade.getMemberId(),
+					gjfMemberTrade.getTradeNo() + "-1", gjfMemberTrade.getApplyMoney(), new Date(), new Date(), "0",
+					"0", "提现-余额");
+			GjfMemberTradeDetail detail2 = new GjfMemberTradeDetail(null, gjfMemberTrade.getMemberId(),
+					gjfMemberTrade.getTradeNo() + "-2", gjfMemberTrade.getApplyMoney(), new Date(), new Date(), "1",
+					"0", "提现-提现金额");
+			gjfMemberInfoDao.save(detail1);
+			gjfMemberInfoDao.save(detail2);
+			if (gjfMemberTrade.getInsuranceMoney().doubleValue() > 0) {
+				GjfMemberTradeDetail detail3 = new GjfMemberTradeDetail(null, gjfMemberTrade.getMemberId(),
+						gjfMemberTrade.getTradeNo() + "-3", gjfMemberTrade.getInsuranceMoney(), new Date(), new Date(),
+						"2", "1", "提现-责任消费金额");
+				gjfMemberInfoDao.save(detail3);
+			}
+		} else if (gjfMemberTrade.getTradeType().equals("1") && "2".equals(tradeStatus)) {
+			// 审核不通过，用户资金还原
+			GjfMemberInfo gjfMemberInfo = gjfMemberTrade.getMemberId();
+			gjfMemberInfo.setWithdrawalMoney(gjfMemberInfo.getWithdrawalMoney().add(gjfMemberTrade.getApplyMoney()));
+			gjfMemberInfo.setBalanceMoney(gjfMemberInfo.getBalanceMoney().add(gjfMemberTrade.getApplyMoney()));
+
+			gjfMemberInfoDao.update(gjfMemberInfo);
+		}
+		gjfMemberInfoDao.update(gjfMemberTrade);
+
+		if (gjfMemberTrade.getTradeType().equals("1") && "1".equals(tradeStatus)) {
+			sendMessage(gjfMemberTrade);
+		}
+		return new ResultVo(200, "操作成功", null);
+	}
+
+	/**
+	 * 退回待审核状态
+	 * 
+	 * @param id
+	 * @param token
+	 * @param userName
+	 * @return
+	 */
+	@Override
+	public ResultVo preDrawCashStatus(Long id, String token, String userName) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(token) || StringUtil.isBlank(userName)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		GjfMemberTrade gjfMemberTrade = queryById(id, token);
+		if (ObjValid.isNotValid(gjfMemberTrade)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if ("1".equals(gjfMemberTrade.getTradeStatus()) && "1".equals(gjfMemberTrade.getTradeType())) {
+			GjfMemberInfo info = gjfMemberTrade.getMemberId();
+			// 责任险可为负数
+			info.setInsuranceMoney(info.getInsuranceMoney().subtract(gjfMemberTrade.getInsuranceMoney()));
+			gjfMemberInfoDao.update(info);
+
+			// 修改资金池金额
+			Map<String, Object> attrsPool = new HashMap<>();
+			GjfBenefitPool gjfBenefitPool = gjfMemberInfoDao.query(GjfBenefitPool.class, attrsPool);
+
+			gjfBenefitPool.setPlatformSysPoolCur(
+					gjfBenefitPool.getPlatformSysPoolCur().subtract(gjfMemberTrade.getTaxMoney()));
+			gjfBenefitPool.setPlatformSysPoolTotal(
+					gjfBenefitPool.getPlatformSysPoolTotal().subtract(gjfMemberTrade.getTaxMoney()));
+
+			gjfMemberInfoDao.update(gjfBenefitPool);
+
+			// 添加余额、提现金额、责任险余额变更记录
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("memberId", gjfMemberTrade.getMemberId());
+			attrs.put("tradeNo", gjfMemberTrade.getTradeNo() + "-1");
+			gjfMemberInfoDao.delete(GjfMemberTradeDetail.class, attrs);
+			attrs.put("tradeNo", gjfMemberTrade.getTradeNo() + "-2");
+			gjfMemberInfoDao.delete(GjfMemberTradeDetail.class, attrs);
+		} else if (gjfMemberTrade.getTradeType().equals("1") && "2".equals(gjfMemberTrade.getTradeStatus())) {
+			// 审核不通过，退回审核状态 金额可为负数
+			GjfMemberInfo gjfMemberInfo = gjfMemberTrade.getMemberId();
+			gjfMemberInfo
+					.setWithdrawalMoney(gjfMemberInfo.getWithdrawalMoney().subtract(gjfMemberTrade.getApplyMoney()));
+			gjfMemberInfo.setBalanceMoney(gjfMemberInfo.getBalanceMoney().subtract(gjfMemberTrade.getApplyMoney()));
+
+			gjfMemberInfoDao.update(gjfMemberInfo);
+		}
+		gjfMemberTrade.setTradeStatus("0");
+		gjfMemberTrade.setCheckUser(userName);
+		gjfMemberTrade.setToken(Sha256.getSha256Hash(gjfMemberTrade.getTradeNo(), gjfMemberTrade.getTradeStatus(),
+				CommonStatus.SIGN_KEY_NUM));
+		gjfMemberTrade.setDealTime(new Date());
+
+		// gjfTradeDao.update(gjfMemberTrade);
+		return new ResultVo(200, "操作成功", null);
+	}
+
+	/*
+	 * 查询提现记录信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findDrawCashHistory(java
+	 * .lang.Long, java.lang.String)
+	 */
+	public ResultVo findDrawCashHistory(Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		return new ResultVo(200, "查询成功", gjfTradeDao.findDrawCashHistoryDetail(id, null, token, "0"));
+	}
+
+	/*
+	 * 根据用户Id查询提现记录
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findDrawCashHistoryById(Long id) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", id);
+		attrs.put("tradeType", "1");
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfMemberTrade.class, "addTime", "desc", attrs));
+	}
+
+	/*
+	 * 查询我的提现历史记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findDrawCashHistory(int,
+	 * int, java.lang.String)
+	 */
+	@Override
+	public ResultVo findDrawCashHistory(int pageNo, int pageSize, String account) {
+		List<MemberTradeVo> gjfMemberTrades = gjfTradeDao.findDrawCashHistory(pageNo, pageSize, account);
+		return new ResultVo(200, "查询成功", gjfMemberTrades);
+	}
+
+	/*
+	 * 查询提现流水详情
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * findDrawCashHistoryDetail(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findDrawCashHistoryDetail(String tradeNo, String account) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findDrawCashHistoryDetail(null, tradeNo, account, "1"));
+	}
+
+	/*
+	 * 绑定银行卡
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#bindMyBankCard(java.lang
+	 * .String, java.lang.Long, java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo addMyBankCard(String account, Long bankId, String bankSub, String bankCard, String holder,
+			String cityValue) {
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "用户账号不存在", null);
+		}
+		if (StringUtil.isBlank(bankSub)) {
+			throw new MyException(400, "请输入支行名称", null);
+		}
+		if (StringUtil.isBlank(bankCard)) {
+			throw new MyException(400, "参请输入卡号", null);
+		}
+		if (StringUtil.isBlank(holder)) {
+			throw new MyException(400, "请输入开户人", null);
+		}
+		if (ObjValid.isNotValid(bankId)) {
+			throw new MyException(400, "请选择需要绑定的银行卡", null);
+		}
+		if (StringUtil.isBlank(cityValue)) {
+			throw new MyException(400, "请选择银行卡开户省市", null);
+		}
+		Object o = gjfMemberInfoDao.get(bankId, GjfBankInfo.class.getName());
+		if (ObjValid.isNotValid(o)) {
+			throw new MyException(400, "银行信息不存在", null);
+		}
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		String[] addressId = cityValue.split(",");
+		Map<String, Object> proAttrs = new HashMap<String, Object>();
+		Map<String, Object> cityAttrs = new HashMap<String, Object>();
+		Object proObj = null;
+		Object cityObj = null;
+		if (addressId.length > 0) {
+			proAttrs.put("provinceId", Long.valueOf(addressId[0]));
+			proObj = gjfMemberInfoDao.query(GjfAddressProvince.class, proAttrs);
+			if (ObjValid.isNotValid(proObj)) {
+				throw new MyException(400, "省份不能为空", null);
+			}
+		}
+		if (addressId.length > 1) {
+			cityAttrs.put("cityId", Long.valueOf(addressId[1]));
+			cityObj = gjfMemberInfoDao.query(GjfAddressCity.class, cityAttrs);
+			if (ObjValid.isNotValid(cityObj)) {
+				throw new MyException(400, "城市不能为空", null);
+			}
+		}
+		GjfMemberBank gjfMemberBank = new GjfMemberBank();
+		gjfMemberBank.setAddTime(new Date());
+		gjfMemberBank.setBankCard(bankCard);
+		gjfMemberBank.setBankId((GjfBankInfo) o);
+		gjfMemberBank.setBankSub(bankSub);
+		gjfMemberBank.setHolder(holder);
+		gjfMemberBank.setBankProvinceId((GjfAddressProvince) proObj);
+		gjfMemberBank.setBankCityId((GjfAddressCity) cityObj);
+		gjfMemberBank.setMemberId(gjfMemberInfo);
+		gjfMemberBank.setStatus("1");
+		gjfMemberInfoDao.save(gjfMemberBank);
+		return new ResultVo(200, "绑定成功", null);
+	}
+
+	/*
+	 * 删除我的银行卡
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#delMyBank(java.lang.
+	 * String, java.lang.Long)
+	 */
+	public ResultVo delMyBank(String account, Long bankId) {
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "用户账号不存在", null);
+		}
+		if (ObjValid.isNotValid(bankId)) {
+			throw new MyException(400, "请选择需要删除的银行卡", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		attrs.put("id", bankId);
+		GjfMemberBank bank = gjfMemberInfoDao.query(GjfMemberBank.class, attrs);
+		if (ObjValid.isNotValid(bank)) {
+			throw new MyException(400, "删除的银行卡不存在", null);
+		}
+		bank.setStatus("0");
+		gjfMemberInfoDao.update(bank);
+		return new ResultVo(200, "删除成功", null);
+	}
+
+	/*
+	 * 查找我的银行卡
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findMyBankCard(java.lang
+	 * .String)
+	 */
+	@Override
+	public ResultVo findMyBankCard(String account) {
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (StringUtil.isBlank(account) || ObjValid.isNotValid(gjfMemberInfo)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		List<MemberBankVo> banks = gjfMemberInfoDao.findMyBankCard(gjfMemberInfo.getId(), 0);
+		return new ResultVo(200, "查询成功", banks);
+	}
+
+	/*
+	 * 查询所有的银行
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#findAllBank()
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllBank() {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("status", "1");
+		List<GjfBankInfo> banks = gjfMemberInfoDao.queryList(GjfBankInfo.class, "id", "asc", attrs);
+		return new ResultVo(200, "查询成功", banks);
+	}
+
+	/*
+	 * 购买分红权
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#addDivi(java.lang.
+	 * String, java.lang.Double)
+	 */
+	@Override
+	public ResultVo addDivi(String account, Double diviNum, String payType, String reqStatus) {
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "账号不存在", 0.00);
+		}
+		if (null == diviNum || 0 == diviNum.doubleValue()) {
+			throw new MyException(400, "购买数量有误", 0.00);
+		}
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "用户不存在", 0.00);
+		}
+		if (!gjfMemberInfo.getType().equals("1")) {
+			throw new MyException(400, "只有商家才能购买分红权", 0.00);
+		}
+		// 3.根据目前的分红权额度以及相对应的累积消费额度计算分红权个数
+		double diviMoney = 0;
+		if (gjfMemberInfo.getCumulativeMoney().longValue() < 10000) {
+			// 3.1 小于1万 500一个分红权
+			diviMoney = diviNum * 500;
+		} else if (10000 < gjfMemberInfo.getCumulativeMoney().longValue()
+				&& gjfMemberInfo.getCumulativeMoney().longValue() < 10000 * 100) {
+			// 3.2 1万-100万 1000一个分红权
+			diviMoney = diviNum * 1000;
+		} else if (gjfMemberInfo.getCumulativeMoney().longValue() > 1000) {
+			// 3.3 100万以上 3000一个分红权
+			diviMoney = diviNum * 3000;
+		}
+		if (StringUtil.isNotBlank(reqStatus) && "1".equals(reqStatus)) {
+			GjfMemberTradeDivi memberTradeDivi = new GjfMemberTradeDivi(null, gjfMemberInfo,
+					String.valueOf(System.currentTimeMillis()), new BigDecimal(diviNum),
+					new BigDecimal(diviMoney).setScale(2, BigDecimal.ROUND_UP), null, null, new Date(), payType, "0",
+					"1", "1", "1", "");
+			memberTradeDivi.setToken(Sha256.getSha256Hash(memberTradeDivi.getDiviNo(), memberTradeDivi.getDiviStatus(),
+					CommonStatus.SIGN_KEY_NUM));
+			gjfMemberInfoDao.save(memberTradeDivi);
+		}
+		return new ResultVo(200, "提交成功", new BigDecimal(diviMoney).setScale(2, BigDecimal.ROUND_UP));
+	}
+
+	/*
+	 * 修改支付状态
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#updateDiviPayStatus(java
+	 * .lang.String, java.lang.String)
+	 */
+	public ResultVo updateDiviPayStatus(String diviNo, String payStatus) {
+		GjfMemberTradeDivi gjfMemberTradeDivi = (GjfMemberTradeDivi) findDivi(diviNo).getResult();
+		gjfMemberTradeDivi.setPayStatus(payStatus);
+		gjfMemberTradeDivi.setToken(Sha256.getSha256Hash(gjfMemberTradeDivi.getDiviNo(),
+				gjfMemberTradeDivi.getDiviStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfMemberInfoDao.update(gjfMemberTradeDivi);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 根据流水号查询分红权信息
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#findDivi(java.lang.
+	 * String)
+	 */
+	public ResultVo findDivi(String diviNo) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("diviNo", diviNo);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberTradeDivi.class, attrs));
+	}
+
+	/*
+	 * 根据流水号和token查询分红权信息
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#findDivi(java.lang.
+	 * String, java.lang.String)
+	 */
+	public ResultVo findDivi(String diviNo, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("diviNo", diviNo);
+		attrs.put("token", token);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberTradeDivi.class, attrs));
+	}
+
+	/*
+	 * 查询我的分红权购买历史记录--前端
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findDiviHistory(int,
+	 * int, java.lang.String, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findTradeDivi(int pageNo, int pageSize, String account, String status) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		attrs.put("diviStatus", status);
+		List<GjfMemberTradeDivi> diviHistories = gjfMemberInfoDao.queryList(GjfMemberTradeDivi.class,
+				(pageNo - 1) * pageSize, pageSize, "addTime", "desc", attrs);
+		return new ResultVo(200, "查询成功", BeanUtilsEx.copyBean(MemberTradeDiviVo.class, diviHistories));
+	}
+
+	/*
+	 * 查找所有分红权购买记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAllTradeDivi(int,
+	 * int)
+	 */
+	@Override
+	public ResultVo findAllTradeDivi(int pageNo, int pageSize, String name, String payStatus, String diviStatus,
+			String startDate, String endDate) {
+		return new ResultVo(200, "查询成功",
+				gjfTradeDao.findAllTradeDivi(pageNo, pageSize, name, payStatus, diviStatus, startDate, endDate));
+	}
+
+	/*
+	 * 统计分红权购买记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findCountTradeDivi(java.
+	 * lang.String, java.lang.String, java.lang.String)
+	 */
+	public ResultVo findCountTradeDivi(String name, String payStatus, String diviStatus) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findCountTradeDivi(name, payStatus, diviStatus));
+	}
+
+	/*
+	 * 查询我的分红历史记录--前端
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#findTradeDivi(int,
+	 * int, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findTradeDiviHistory(int pageNo, int pageSize, String account, String tradeStatus) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findTradeDiviHistory(pageNo, pageSize, account, tradeStatus));
+	}
+
+	/*
+	 * 查询会员所有分红记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAllTradeDiviHistory(
+	 * int, int)
+	 */
+	@Override
+	public ResultVo findMemberTradeDiviHistoryByPage(int pageNo, int pageSize, String name, String addTime,
+			String endTime, String tradeNo, String tradeType, String tradeStatus) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findMemberTradeDiviHistoryByPage(pageNo, pageSize, name, addTime,
+				endTime, tradeNo, tradeType, tradeStatus));
+	}
+
+	/*
+	 * 当前条件统计分红记录
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * findCountTradeDiviHistory(java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 */
+	public ResultVo findCountTradeDiviHistory(String name, String addTime, String endTime, String tradeNo,
+			String tradeType, String tradeStatus) {
+		return new ResultVo(200, "查询成功",
+				gjfTradeDao.findCountTradeDiviHistory(name, addTime, endTime, tradeNo, tradeType, tradeStatus));
+	}
+
+	/*
+	 * 查询所有发放成功分红记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAllTradeDiviHistory(
+	 * int, int)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllTradeDiviHistory(int pageNo, int pageSize) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("tradeStatus", "1");
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(
+						String.valueOf(gjfMemberInfoDao.queryTotalRecord(GjfMemberTradeDiviHistory.class, attrs))),
+				gjfMemberInfoDao.queryList(GjfMemberTradeDiviHistory.class, (pageNo - 1) * pageSize, pageSize,
+						"addTime", "desc", attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 添加商家让利
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#addStoreBenefit(java.
+	 * lang.Long, java.lang.String, java.lang.Double)
+	 */
+	@Override
+	public ResultVo addStoreBenefit(String account, Long storeId, String mobile, Double amount, String payType) {
+		if (ObjValid.isNotValid(storeId)) {
+			return new ResultVo(400, "商家不存在", null);
+		}
+		if (StringUtil.isBlank(mobile)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		if (ObjValid.isNotValid(amount)) {
+			return new ResultVo(400, "金额不能为空并要大于0", null);
+		}
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(mobile);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		if ("0".equals(gjfMemberInfo.getStatus())) {
+			return new ResultVo(400, "消费会员已停用", null);
+		}
+
+		Object o = gjfMemberInfoDao.get(storeId, GjfStoreInfo.class.getName());
+		if (ObjValid.isNotValid(o)) {
+			return new ResultVo(400, "商家不存在", null);
+		}
+
+		GjfMemberInfo gjfMemberInfo0 = gjfMemberInfoService.findMember(account);
+		if ("0".equals(gjfMemberInfo0.getStatus())) {
+			return new ResultVo(400, "用户已停用", null);
+		}
+
+		if (payType.equals("4")) {
+			// 判断用户授信金额是否足够
+			if (gjfMemberInfo0.getLineOfCrade().doubleValue() < amount) {
+				return new ResultVo(400, "授信金额不足请选择其他支付方式或充值授信金额", null);
+			}
+		}
+
+		if (payType.equals("5")) {
+			// 判断用户授信金额是否足够
+			if (gjfMemberInfo0.getBalanceMoney().doubleValue() < (new BigDecimal(amount).multiply(new BigDecimal(0.12)))
+					.doubleValue()) {
+				return new ResultVo(400, "余额不足请选择其他支付方式", null);
+			}
+		}
+
+		GjfStoreInfo gjfStoreInfo = (GjfStoreInfo) o;
+		GjfMemberTradeBenefit benefit = new GjfMemberTradeBenefit();
+		benefit.setAddTime(new Date());
+		benefit.setBenefitMoney(new BigDecimal(amount * 0.12));
+		benefit.setTradeMoney(new BigDecimal(amount));
+		benefit.setMemberId(gjfMemberInfo);
+		benefit.setStoreId(gjfStoreInfo);
+		benefit.setConfirmStatus("0");
+		benefit.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		benefit.setPayType(payType);
+		benefit.setTradeStatus("0");
+		benefit.setToken(
+				Sha256.getSha256Hash(benefit.getTradeNo(), benefit.getTradeStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfMemberInfoDao.save(benefit);
+
+		// 如果支付方式为授信额度就修改用户的授信额度
+		if (payType.equals("4")) {
+			gjfMemberInfo0.setLineOfCrade(gjfMemberInfo0.getLineOfCrade().subtract(new BigDecimal(amount)));
+			benefit.setTradeStatus("1");
+			gjfMemberInfoDao.update(gjfMemberInfo0);
+		}
+
+		// 余额支付
+		if (payType.equals("5")) {
+			// 更新用户授信金额
+			gjfMemberInfo0.setBalanceMoney(
+					gjfMemberInfo0.getBalanceMoney().subtract(new BigDecimal(amount).multiply(new BigDecimal(0.12))));
+			gjfMemberInfo0.setWithdrawalMoney(gjfMemberInfo0.getWithdrawalMoney()
+					.subtract(new BigDecimal(amount).multiply(new BigDecimal(0.12))));
+			benefit.setTradeStatus("1");
+			gjfMemberInfoDao.update(gjfMemberInfo0);
+		}
+
+		// 添加支付明细日志
+		GjfMemberTradeLog gjfMemberTradeLog = new GjfMemberTradeLog();
+		gjfMemberTradeLog.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfMemberTradeLog.setLinkTradeNo(benefit.getTradeNo());
+		gjfMemberTradeLog.setTradeMoney(benefit.getBenefitMoney());
+		gjfMemberTradeLog.setMemberId(gjfMemberInfo);
+		gjfMemberTradeLog.setStoreId(gjfStoreInfo);
+		if ("0".equals(payType)) {
+			gjfMemberTradeLog.setTradeType("3");
+			gjfMemberTradeLog.setTradeStatus("0");
+			gjfMemberTradeLog.setTradeTrmo("微信支付--销售录入");
+		} else if ("1".equals(payType)) {
+			gjfMemberTradeLog.setTradeType("4");
+			gjfMemberTradeLog.setTradeStatus("0");
+			gjfMemberTradeLog.setTradeTrmo("支付宝支付--销售录入");
+		} else if ("2".equals(payType)) {
+			gjfMemberTradeLog.setTradeType("5");
+			gjfMemberTradeLog.setTradeStatus("0");
+			gjfMemberTradeLog.setTradeTrmo("银联支付--销售录入");
+		} else if ("4".equals(payType)) {
+			gjfMemberTradeLog.setTradeMoney(benefit.getTradeMoney());
+			gjfMemberTradeLog.setTradeType("6");
+			gjfMemberTradeLog.setTradeStatus("1");
+			gjfMemberTradeLog.setTradeTime(new Date());
+			gjfMemberTradeLog.setTradeMoney(benefit.getTradeMoney());
+			gjfMemberTradeLog.setTradeTrmo("授信额度支付--销售录入");
+		} else if ("5".equals(payType)) {
+			gjfMemberTradeLog.setTradeMoney(benefit.getTradeMoney());
+			gjfMemberTradeLog.setTradeType("0");
+			gjfMemberTradeLog.setTradeStatus("1");
+			gjfMemberTradeLog.setTradeTime(new Date());
+			gjfMemberTradeLog.setTradeMoney(benefit.getTradeMoney());
+			gjfMemberTradeLog.setTradeTrmo("余额支付--销售录入");
+		}
+		gjfMemberTradeLog.setAddTime(new Date());
+		gjfMemberTradeLog.setToken(Sha256.getSha256Hash(gjfMemberTradeLog.getTradeNo(),
+				gjfMemberTradeLog.getTradeType(), CommonStatus.SIGN_KEY_NUM));
+
+		gjfMemberInfoDao.save(gjfMemberTradeLog);
+
+		// 1.计算分红权和资金池
+		if (benefit.getTradeStatus().equals("1")) {
+			gjfBenefitInfoService.updateMemberDividendsNumNotify(benefit.getMemberId().getMobile(),
+					benefit.getStoreId().getMemberId().getMobile(), benefit.getTradeMoney().doubleValue(),
+					benefit.getTradeNo());
+		}
+
+		// 保存记录之后跳到支付页面
+		return new ResultVo(200, "录入成功", BeanUtilsEx.copyBean(MemberTradeBenefitVo.class, benefit));
+	}
+
+	/*
+	 * 修改商家让利支付状态
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * updateStoreBenefitPayStatus(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateStoreBenefitPayStatus(String tradeNo, String payTradeNo, String payStatus) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("tradeNo", tradeNo);
+		GjfMemberTradeBenefit benefit = gjfMemberInfoDao.query(GjfMemberTradeBenefit.class, attrs);
+		if (ObjValid.isNotValid(benefit)) {
+			throw new MyException(400, "订单不存在", null);
+		}
+		if ("0".equals(benefit.getTradeStatus())) {
+			benefit.setTradeStatus(payStatus);
+			benefit.setToken(
+					Sha256.getSha256Hash(benefit.getTradeNo(), benefit.getTradeStatus(), CommonStatus.SIGN_KEY_NUM));
+			gjfMemberInfoDao.update(benefit);
+
+			Map<String, Object> attrsTradeLog = new HashMap<String, Object>();
+			Map<String, Object> propsTradeLog = new HashMap<String, Object>();
+			attrsTradeLog.put("linkTradeNo", tradeNo);
+			propsTradeLog.put("payTradeNo", payTradeNo);
+			propsTradeLog.put("tradeTime", new Date());
+			propsTradeLog.put("tradeStatus", "1".equals(payStatus) ? "1" : "0");
+			gjfMemberInfoDao.update(GjfMemberTradeLog.class, propsTradeLog, attrsTradeLog);
+
+			// 1.计算分红权和资金池
+			if (payStatus.equals("1")) {
+				gjfBenefitInfoService.updateMemberDividendsNumNotify(benefit.getMemberId().getMobile(),
+						benefit.getStoreId().getMemberId().getMobile(), benefit.getTradeMoney().doubleValue(),
+						benefit.getTradeNo());
+			}
+		}
+		return new ResultVo(200, payStatus.equals("1") ? "支付成功" : "支付失败",
+				BeanUtilsEx.copyBean(MemberTradeBenefitVo.class, benefit));
+	}
+
+	/*
+	 * 查找前端商家查询自己的让利流水记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findStoreBenefit(int,
+	 * int, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findStoreBenefit(int pageNo, int pageSize, Long storeId) {
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.findStoreBenefit(pageNo, pageSize, storeId));
+	}
+
+	/*
+	 * 查询用户的商家给他的让利记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findMemberBenefit(int,
+	 * int, java.lang.String)
+	 */
+	public ResultVo findMemberBenefit(int pageNo, int pageSize, String account) {
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.findMemberBenefit(pageNo, pageSize, account));
+	}
+
+	/*
+	 * 查询后台商家让利记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findStoreBenefitPager(
+	 * int, int, java.lang.Long)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findStoreBenefitPager(int pageNo, int pageSize, Long storeId) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("storeId", storeId);
+		List<GjfMemberTradeBenefit> gjfMemberTradeBenefits = gjfMemberInfoDao.queryList(GjfMemberTradeBenefit.class,
+				(pageNo - 1) * pageSize, pageSize, "addTime", "desc", attrs);
+		return new ResultVo(200, "查询成功",
+				new Pager(pageSize, pageNo,
+						Integer.parseInt(
+								String.valueOf(gjfMemberInfoDao.queryTotalRecord(GjfMemberTradeBenefit.class, attrs))),
+				gjfMemberTradeBenefits));
+	}
+
+	/*
+	 * 查询所有提现记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAllTradeInBack(java.
+	 * lang.Integer, java.lang.Integer, java.lang.Long, java.lang.String,
+	 * java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findAllTradeInBack(Integer pageNo, Integer pageSize, Long memberId, String holder, String bankCard,
+			String mobile, String addTime, String endTime, String tradeStatus, String ste, Long id) throws Exception {
+		return new ResultVo(200, "查询成功", gjfTradeDao.getGjfTrade(pageNo, pageSize, memberId, holder, bankCard, mobile,
+				addTime, endTime, tradeStatus, ste, id));
+	}
+
+	/*
+	 * 查询让利，导出记录，分页，模糊查询
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#findAllBenefit(int,
+	 * int, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAllBenefit(int pageNo, int pageSize, String name, String storeName, String payType,
+			String tradeStatus, String addTime, String endTime, String ste, String directMemberName,
+			String directMerchantsName) throws Exception {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findAllBenefit(pageNo, pageSize, name, storeName, payType,
+				tradeStatus, addTime, endTime, ste, directMemberName, directMerchantsName));
+
+	}
+
+	/*
+	 * 查询银行卡
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#finMemberBankById(java.
+	 * lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo finMemberBankById(Long bankId, String moblie) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", bankId);
+		attrs.put("memberId.mobile", moblie);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberBank.class, attrs));
+	}
+
+	/*
+	 * 根据时间段查询商家让利记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findBenefitByTime(int,
+	 * int, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findBenefitByTime(int pageNo, int pageSize, Long id, String startTime, String endTime) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findBenefitByTime(pageNo, pageSize, id, startTime, endTime));
+	}
+
+	/*
+	 * 查询支付明细
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findTradeLogByPage(int,
+	 * int, java.lang.String)
+	 */
+	@Override
+
+	public ResultVo findTradeLogByPage(int pageNo, int pageSize, String ste, String name, String storeName,
+			String addTime, String endTime, String tradeNo, String payTradeNo, String tradeType, String tradeStatus)
+					throws ParseException {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findTradeLogByPage(pageNo, pageSize, ste, name, storeName, addTime,
+				endTime, tradeNo, payTradeNo, tradeType, tradeStatus));
+
+	}
+
+	/*
+	 * 统计当前条件支付明细
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findCountTradeLog(java.
+	 * lang.String, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findCountTradeLog(String name, String storeName, String addTime, String endTime, String tradeNo,
+			String payTradeNo, String tradeType, String tradeStatus) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findCountTradeLog(name, storeName, addTime, endTime, tradeNo,
+				payTradeNo, tradeType, tradeStatus));
+	}
+
+	/*
+	 * 充值授信额度
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#addShouXin(java.lang.
+	 * String, java.lang.Double)
+	 */
+	@Override
+	public ResultVo addShouXin(String type, String account, Double tradeMoney) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("mobile", account);
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (!BeanUtil.isValid(gjfMemberInfo)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		if (tradeMoney == 0.00) {
+			return new ResultVo(400, "充值金额不能为零", null);
+		}
+		// 根据用户查询店铺
+		Map<String, Object> attrsStore = new HashMap<String, Object>();
+		attrsStore.put("memberId.id", gjfMemberInfo.getId());
+		attrsStore.put("storeStatus", "1");
+		attrsStore.put("isDel", "1");
+		GjfStoreInfo gjfStoreInfo = gjfMemberInfoDao.query(GjfStoreInfo.class, attrsStore);
+		if (ObjValid.isNotValid(gjfStoreInfo)) {
+			return new ResultVo(400, "你没有充值授信额度权限", null);
+		}
+
+		GjfMemberTrade trade = new GjfMemberTrade();
+		trade.setAddTime(new Date());
+		trade.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		trade.setMemberId(gjfMemberInfo);
+		trade.setApplyMoney(new BigDecimal(tradeMoney));
+		trade.setTradeMoney(new BigDecimal(tradeMoney).multiply(new BigDecimal(0.12)));
+		trade.setTradeStatus("0");
+		trade.setTradeType("0");
+		// 余额支付
+		if (Integer.parseInt(type) == 0) {
+			trade.setPayType("0");
+			trade.setTradeStatus("1");
+			// 更新用户授信金额
+			GjfMemberInfo info = trade.getMemberId();
+			if (info.getBalanceMoney().doubleValue() < (new BigDecimal(tradeMoney).multiply(new BigDecimal(0.12)))
+					.doubleValue()) {
+				return new ResultVo(400, "余额不足，请选择其他支付方式", null);
+			}
+			info.setLineOfCrade(info.getLineOfCrade().add(trade.getApplyMoney()));
+			info.setBalanceMoney(
+					info.getBalanceMoney().subtract(new BigDecimal(tradeMoney).multiply(new BigDecimal(0.12))));
+			info.setWithdrawalMoney(
+					info.getWithdrawalMoney().subtract(new BigDecimal(tradeMoney).multiply(new BigDecimal(0.12))));
+			gjfMemberInfoDao.update(info);
+		}
+		// 微信支付
+		if (Integer.parseInt(type) == 1) {
+			trade.setPayType("1");
+		}
+
+		// 支付宝支付
+		if (Integer.parseInt(type) == 2) {
+			trade.setPayType("2");
+		}
+
+		// 银联支付
+		if (Integer.parseInt(type) == 3) {
+			trade.setPayType("3");
+		}
+		// 后台充值
+		if (Integer.parseInt(type) == 5) {
+			trade.setPayType("5");
+			trade.setTradeStatus("1");
+		}
+		trade.setToken(Sha256.getSha256Hash(trade.getTradeNo(), trade.getTradeStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfMemberInfoDao.save(trade);
+
+		// 添加支付明细日志
+		GjfMemberTradeLog gjfMemberTradeLog = new GjfMemberTradeLog();
+		gjfMemberTradeLog.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfMemberTradeLog.setLinkTradeNo(trade.getTradeNo());
+		gjfMemberTradeLog.setTradeMoney(trade.getTradeMoney());
+		gjfMemberTradeLog.setMemberId(gjfMemberInfo);
+		gjfMemberTradeLog.setStoreId(gjfStoreInfo);
+		gjfMemberTradeLog.setTradeStatus("0");
+		if (Integer.parseInt(type) == 1) {
+			gjfMemberTradeLog.setTradeType("3");
+			gjfMemberTradeLog.setTradeTrmo("微信支付--充值授信额度");
+		} else if (Integer.parseInt(type) == 2) {
+			gjfMemberTradeLog.setTradeType("4");
+			gjfMemberTradeLog.setTradeTrmo("支付宝支付--充值授信额度");
+		} else if (Integer.parseInt(type) == 3) {
+			gjfMemberTradeLog.setTradeType("5");
+			gjfMemberTradeLog.setTradeTrmo("银联支付--充值授信额度");
+		} else if (Integer.parseInt(type) == 5) {
+			gjfMemberTradeLog.setTradeStatus("1");
+			gjfMemberTradeLog.setTradeType("7");
+			gjfMemberTradeLog.setTradeTrmo("后台授信充值消费--充值授信额度");
+		} else if (Integer.parseInt(type) == 0) {
+			gjfMemberTradeLog.setTradeStatus("1");
+			gjfMemberTradeLog.setTradeType("0");
+			gjfMemberTradeLog.setTradeTrmo("余额--充值授信额度");
+			gjfMemberTradeLog.setTradeTime(new Date());
+		}
+		gjfMemberTradeLog.setAddTime(new Date());
+		gjfMemberTradeLog.setToken(Sha256.getSha256Hash(gjfMemberTradeLog.getTradeNo(),
+				gjfMemberTradeLog.getTradeType(), CommonStatus.SIGN_KEY_NUM));
+		gjfMemberInfoDao.save(gjfMemberTradeLog);
+
+		return new ResultVo(200, "充值成功", trade);
+	}
+
+	/*
+	 * 修改充值授信额度的支付状态
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#updateShouXinPayStatus(
+	 * java.lang.String, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateShouXinPayStatus(String tradeNo, String payTradeNo, String payStatus) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("tradeNo", tradeNo);
+		GjfMemberTrade trade = gjfMemberInfoDao.query(GjfMemberTrade.class, attrs);
+		if (ObjValid.isNotValid(trade)) {
+			return new ResultVo(400, "记录不存在", null);
+		}
+		if ("0".equals(trade.getTradeStatus())) {
+			trade.setTradeStatus(payStatus);
+			trade.setToken(Sha256.getSha256Hash(trade.getTradeNo(), trade.getTradeStatus(), CommonStatus.SIGN_KEY_NUM));
+			gjfMemberInfoDao.update(trade);
+
+			GjfMemberInfo info = trade.getMemberId();
+			info.setLineOfCrade(info.getLineOfCrade().add(trade.getApplyMoney()));
+			gjfMemberInfoDao.update(info);
+
+			Map<String, Object> attrsTradeLog = new HashMap<String, Object>();
+			Map<String, Object> propsTradeLog = new HashMap<String, Object>();
+			attrsTradeLog.put("linkTradeNo", tradeNo);
+			propsTradeLog.put("payTradeNo", payTradeNo);
+			propsTradeLog.put("tradeTime", new Date());
+			propsTradeLog.put("tradeStatus", "1".equals(payStatus) ? "1" : "0");
+			gjfMemberInfoDao.update(GjfMemberTradeLog.class, propsTradeLog, attrsTradeLog);
+		}
+
+		return new ResultVo(200, "支付成功", null);
+	}
+
+	/*
+	 * 获取授信额度记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#getShouXinRc(java.lang.
+	 * Integer, java.lang.Integer)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo getShouXinRc(Integer pageNo, Integer pageSize, String account) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		attrs.put("tradeType", "0");
+		return new ResultVo(200, "查询成功",
+				new Pager(pageSize, pageNo,
+						Integer.parseInt(
+								String.valueOf(gjfMemberInfoDao.queryTotalRecord(GjfMemberTrade.class, attrs))),
+				gjfMemberInfoDao.queryList(GjfMemberTrade.class, (pageNo - 1) * pageSize, pageSize, "addTime", "desc",
+						attrs)));
+	}
+
+	/*
+	 * 查询用户代理信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAgentInfo(java.lang.
+	 * String)
+	 */
+	@Override
+	public ResultVo findAgentInfo(String account) {
+		// 1.查询用户信息，获取代理累计领取金额和待结算金额
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo memberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+
+		Map<String, Object> dataMap = new HashMap<String, Object>();
+		dataMap.put("agentMoney", 0.00);
+		dataMap.put("agentTotalMoney", 0.00);
+		dataMap.put("noStoreTotalBenefit", 0.00);
+		dataMap.put("storeTotalBenefit", 0.00);
+
+		if (ObjValid.isNotValid(memberInfo)) {
+			return new ResultVo(400, "用户不存在", dataMap);
+		}
+		String identity = memberInfo.getIdentity();
+		if (!identity.equals("1") && !identity.equals("2") && !identity.equals("3")) {
+			return new ResultVo(400, "用户不是代理", dataMap);
+		}
+
+		dataMap.put("agentMoney", memberInfo.getAgentMoney());
+		dataMap.put("agentTotalMoney", memberInfo.getAgentTotalMoney());
+
+		// 2.统计历史以来代理所代的商家的总让利金额和还未结算让利金额
+
+		/*
+		 * (1)查询出当前用户结算的最后一条流水记录的时间 (2)根据时间查询大于当前时间的所有商家让利金额
+		 * 
+		 */
+		Long addressId = null;
+		String agentType = null;
+		if (identity.equals("1")) {
+			agentType = "6";
+		} else if (identity.equals("2")) {
+			addressId = memberInfo.getAreaId().getId();
+			agentType = "5";
+		} else if (identity.equals("3")) {
+			addressId = memberInfo.getCityId().getId();
+			agentType = "4";
+		}
+		// 求未统计
+		Double noStoreTotalBenefit = gjfTradeDao.findAgentInfo(memberInfo.getId(), addressId, agentType, "0");
+		// 求全部
+		Double storeTotalBenefit = gjfTradeDao.findAgentInfo(memberInfo.getId(), addressId, agentType, "1");
+
+		dataMap.put("noStoreTotalBenefit", noStoreTotalBenefit);
+		dataMap.put("storeTotalBenefit", storeTotalBenefit);
+
+		return new ResultVo(200, "查询成功", dataMap);
+	}
+
+	/*
+	 * 查询用户代理分红历史记录
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAgentHistory(java.
+	 * lang.Integer, java.lang.Integer, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAgentHistory(Integer pageNo, Integer pageSize, String account) {
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		String agentType = "0";
+		if (gjfMemberInfo.getIdentity().equals("1")) {
+			agentType = "6";
+		} else if (gjfMemberInfo.getIdentity().equals("2")) {
+			agentType = "5";
+		} else if (gjfMemberInfo.getIdentity().equals("3")) {
+			agentType = "4";
+		} else {
+			return new ResultVo(400, "用户不是代理", null);
+		}
+		return gjfTradeDao.findAgentHistory(pageNo, pageSize, account, agentType);
+	}
+
+	/*
+	 * 获取提现详细信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findMemberTradeDetail(
+	 * java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberTradeDetail(Long id, String token) {
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("id", id);
+		map.put("token", token);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberTrade.class, map));
+	}
+
+	// 发送mq消息
+	public void sendMessage(GjfMemberTrade gjfMemberTrade) {
+		// 发送短信消息通知
+		try {
+			Map<String, Object> dataMap = new HashMap<String, Object>();
+			dataMap.put("mobile", gjfMemberTrade.getMemberId().getMobile());
+			dataMap.put("variable0", gjfMemberTrade.getMemberId().getName());
+			if (gjfMemberTrade.getTradeType().equals("1") && gjfMemberTrade.getTradeStatus().equals("1")) {
+				// 成功
+				dataMap.put("variable1", gjfMemberTrade.getTradeMoney().setScale(2, BigDecimal.ROUND_DOWN));
+				dataMap.put("templateCode", CommonProperties.MNS_TEMPLATE_DRAWCASH_SUCC);
+			} else if (gjfMemberTrade.getTradeType().equals("1") && gjfMemberTrade.getTradeStatus().equals("2")) {
+				// 失败
+				dataMap.put("variable1", CommonProperties.MNS_TEMPLATE_CUSTOMER_SERVICE);
+				dataMap.put("templateCode", CommonProperties.MNS_TEMPLATE_DRAWCASH_FAIL);
+			}
+			Object toJSON = JSONObject.fromObject(dataMap);
+			final String str = toJSON.toString();
+			notifyJmsTemplate.send("SmsSendNotify", new MessageCreator() {
+				public Message createMessage(Session session) throws JMSException {
+					Message obj = session.createTextMessage(str);
+					return obj;
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	/*
+	 * 查询我的下级代理
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findNextAgent(java.lang.
+	 * String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findNextAgent(String account, Integer pageNo, Integer pageSize) {
+		String agentType = "";
+		if (StringUtil.isBlank(account)) {
+			return new ResultVo(400, "查询失败，用户不存在", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			return new ResultVo(400, "查询失败，用户不存在", null);
+		}
+		if (gjfMemberInfo.getIdentity().equals("1")) {
+			agentType = "6";
+		} else if (gjfMemberInfo.getIdentity().equals("2")) {
+			agentType = "5";
+		} else if (gjfMemberInfo.getIdentity().equals("3")) {
+			agentType = "4";
+		} else {
+			return new ResultVo(400, "用户不是代理", null);
+		}
+		Map<String, Object> dataMap = new HashMap<String, Object>();
+		Object o = gjfTradeDao.findNextAgent(account, agentType, pageNo, pageSize, "0");
+		Object o1 = gjfTradeDao.findNextAgent(account, agentType, pageNo, pageSize, "1");
+		dataMap.put("agentList", o);
+		dataMap.put("totalCount", o1);
+		dataMap.put("agentType", agentType);
+		return new ResultVo(200, "查询成功", dataMap);
+	}
+
+	/**
+	 * 我的钱包--销售福利
+	 * 
+	 * @param account
+	 * @return
+	 */
+	@Override
+	public ResultVo findMemberSalesWelfare(String account, String tradeType) {
+		List<GjfMemberTradeDiviHistory> list = gjfTradeDao.findMemberTradeDiviHis(account, tradeType);
+		return new ResultVo(200, "查询成功", list);
+	}
+
+	/**
+	 * 我的钱包---福利权益
+	 * 
+	 * @param account
+	 * @return
+	 */
+	@Override
+	public ResultVo findMemberParticipate(String account, String type) {
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("diviStatus", "0");
+		map.put("diviMemberType", type);
+		map.put("memberId.mobile", account);
+		List<GjfMemberTradeDivi> list = gjfMemberInfoDao.queryList(GjfMemberTradeDivi.class, "addTime", "desc", map);
+		return new ResultVo(200, "查询成功", list);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findMemberInterests(String account, String type) {
+		List list = new ArrayList<>();
+		Map<String, Object> attr = new HashMap<String, Object>();
+		attr.put("tradeStatus", "1");
+		if (Integer.parseInt(type) == 0) {
+			attr.put("memberId.mobile", account);
+		} else {
+			attr.put("storeId.memberId.mobile", account);
+		}
+
+		List<GjfMemberTradeBenefit> list0 = gjfMemberInfoDao.queryList(GjfMemberTradeBenefit.class, "addTime", "desc",
+				attr);
+		if (list0.size() > 0) {
+			for (int i = 0; i < list0.size(); i++) {
+				Map map0 = new HashMap<>();
+				GjfMemberTradeBenefit bene = list0.get(i);
+				map0.put("nickName", bene.getMemberId().getNickName());
+				if (Integer.parseInt(type) == 0) {
+					map0.put("tradeMoney", bene.getTradeMoney());
+				} else {
+					map0.put("tradeMoney", bene.getBenefitMoney());
+				}
+				map0.put("payType", bene.getPayType());
+				map0.put("addTime", bene.getAddTime());
+				list.add(map0);
+			}
+
+		}
+
+		List<GjfOrderInfo> list1 = gjfTradeDao.findMemberInterests(account, type);
+		if (list1.size() > 0) {
+			for (int i = 0; i < list1.size(); i++) {
+				Map map0 = new HashMap<>();
+				GjfOrderInfo bene = list1.get(i);
+				map0.put("nickName", bene.getMemberId().getNickName());
+				map0.put("tradeMoney", bene.getOrderTotalAmount());
+				map0.put("addTime", bene.getAddTime());
+				map0.put("payType", bene.getPayTime());
+				list.add(map0);
+			}
+
+		}
+
+		// 对list进行排序
+		Collections.sort(list, new Comparator<Map>() {
+
+			@Override
+			public int compare(Map map1, Map map2) {
+				// TODO Auto-generated method stub
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				ParsePosition p = new ParsePosition(0);
+				Date time1 = sdf.parse(map1.get("addTime").toString(), p);
+				ParsePosition p1 = new ParsePosition(0);
+				Date time2 = sdf.parse(map2.get("addTime").toString(), p1);
+				int i = time1.compareTo(time2);
+				if (i > 0) {
+					return -1;
+				}
+				if (i == 0) {
+					return 0;
+				}
+				return 1;
+			}
+
+		});
+		return new ResultVo(200, "查询成功", list);
+	}
+
+	@Override
+	public ResultVo findTradeAmountInBack(String holder, String bankCard, String mobile, String addTime, String endTime,
+			String tradeStatus, Long id) throws Exception {
+		return new ResultVo(200, "查询成功",
+				gjfTradeDao.findTradeAmountInBack(holder, bankCard, mobile, addTime, endTime, tradeStatus, id));
+	}
+
+	/*
+	 * 根据Id查询商家让利明细
+	 */
+	@Override
+	public ResultVo findMemberTradeBenefitById(Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		return new ResultVo(200, "查询成功", gjfTradeDao.query(GjfMemberTradeBenefit.class, attrs));
+	}
+
+	/*
+	 * 查询用户O2O订单
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findMemberO2OHistory(int pageNo, int pageSize, Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", id);
+		attrs.put("memberId.token", token);
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfTradeDao.queryTotalRecord(GjfMemberTradeBenefit.class, attrs))),
+				gjfTradeDao.queryList(GjfMemberTradeBenefit.class, (pageNo - 1) * pageSize, pageSize, "addTime", "desc",
+						attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 查询用户历史提现总额
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * findMemberWithdrawHistoryMoney(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberWithdrawHistoryMoney(Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		GjfMemberInfo memberInfo = gjfTradeDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(memberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		return new ResultVo(200, "查询成功", gjfTradeDao.findMemberWithdrawHistoryMoney(id));
+	}
+
+	/*
+	 * 查询用户流水记录
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * findBalanceMoneyHistoryByMemberId(java.lang.Integer, java.lang.Integer,
+	 * java.lang.Long, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findBalanceMoneyHistoryByMemberId(int pageNo, int pageSize, Long id, String token,
+			String tradeType) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", id);
+		attrs.put("memberId.token", token);
+		attrs.put("tradeType", tradeType);
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfTradeDao.queryTotalRecord(GjfMemberTradeDetail.class, attrs))),
+				gjfTradeDao.queryList(GjfMemberTradeDetail.class, (pageNo - 1) * pageSize, pageSize, "tradeTime",
+						"desc", attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 统计当前条件的商家让利汇总
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findBenefitAmountInBack(
+	 * java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findBenefitAmountInBack(String name, String storeName, String addTime, String endTime,
+			String directMemberName, String directMerchantsName, String tradeStatus, String payType) {
+		return new ResultVo(200, "查询成功", gjfTradeDao.findBenefitAmountInBack(name, storeName, addTime, endTime,
+				directMemberName, directMerchantsName, tradeStatus, payType));
+	}
+
+	/*
+	 * 查询用户分红权、分红金额流水
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfTradeService#
+	 * findDiviHistoryByMemberId(int, int, java.lang.Long)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findDiviHistoryByMemberId(int pageNo, int pageSize, Long id) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", id);
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfTradeDao.queryTotalRecord(GjfMemberTradeDivi.class, attrs))),
+				gjfTradeDao.queryList(GjfMemberTradeDivi.class, (pageNo - 1) * pageSize, pageSize, "addTime", "desc",
+						attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 查询代理未结算分红
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfTradeService#findAgentDiviByMemberId(
+	 * int, int, java.lang.Long, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAgentDiviByMemberId(int pageNo, int pageSize, Long id, String identity) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(identity)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", id);
+		if ("1".equals(identity)) {
+			attrs.put("tradeType", "6");
+		} else if ("2".equals(identity)) {
+			attrs.put("tradeType", "5");
+		} else if ("3".equals(identity)) {
+			attrs.put("tradeType", "4");
+		}
+		attrs.put("tradeStatus", "0");
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfTradeDao.queryTotalRecord(GjfMemberTradeDiviHistory.class, attrs))),
+				gjfTradeDao.queryList(GjfMemberTradeDiviHistory.class, (pageNo - 1) * pageSize, pageSize, "addTime",
+						"desc", attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/**
+	 * 获取微信信息
+	 * 
+	 * @return
+	 */
+	@Override
+	public ResultVo findWeiXinPayBaseInfo(String type) {
+
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("status", "1");
+		attr.put("type", type);
+		return new ResultVo(200, "查询成功", gjfTradeDao.query(GjfWeiXinPayInfo.class, attr));
+	}
+
+	/**
+	 * 获取全部微信配置信息
+	 */
+	@Override
+	public ResultVo findAllWeiXinInfo(Integer pageNo, Integer pageSize) {
+
+		Map<String, Object> attrs = new HashMap<>();
+		return new ResultVo(200, "查询成功",
+				gjfTradeDao.queryList(GjfWeiXinPayInfo.class, (pageNo - 1) * pageSize, pageSize, "id", "asc", attrs));
+	}
+
+	/**
+	 * 添加微信信息
+	 */
+	@Override
+	public ResultVo addWeiXinInfo(GjfWeiXinPayInfo weiXinInfo) {
+
+		gjfTradeDao.save(weiXinInfo);
+		return new ResultVo(200, "添加成功", null);
+
+	}
+
+	/**
+	 * 修改微信配置信息
+	 */
+	@Override
+	public ResultVo updateWeiXinInfo(GjfWeiXinPayInfo weiXinInfo) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", weiXinInfo.getId());
+		GjfWeiXinPayInfo weixin = gjfTradeDao.query(GjfWeiXinPayInfo.class, attrs);
+		if (!BeanUtil.isValid(weixin)) {
+			throw new MyException(400, "微信配置信息不存在", null);
+		}
+		String originType = weixin.getType();
+		try {
+			weixin = BeanUtil.setBeanByOtherBeanWithoutNull(weixin, weiXinInfo);
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage(), e);
+		}
+		if (!originType.equals(weiXinInfo.getType())) {
+			// 如果类型改变了，需要判断一下将要变成的那种类型有没有启用状态的，如果有的话，这条记录变成禁用，防止同一种类型有多个启用
+			weixin.setStatus("0");
+		}
+		gjfTradeDao.update(weixin);
+		if (weiXinInfo.getType().equals("1") || weiXinInfo.getType().equals("2")) {// type=1
+																					// 微信公众号
+																					// type=2
+																					// h5
+			WaixiConfig.reload();// 重读配置信息
+		}
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/**
+	 * 启用微信信息
+	 * 
+	 * @param id
+	 * @return
+	 */
+	@Override
+	public ResultVo updateWeiInfos(Long id) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", id);
+		GjfWeiXinPayInfo weixin = gjfTradeDao.query(GjfWeiXinPayInfo.class, attrs);
+
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("status", "1");
+		attr.put("type", weixin.getType());
+		List<GjfWeiXinPayInfo> list = gjfTradeDao.queryList(GjfWeiXinPayInfo.class, "id", "asc", attr);
+		if (list.size() > 0) {
+			for (int i = 0; i < list.size(); i++) {
+				GjfWeiXinPayInfo payInfo = list.get(i);
+				payInfo.setStatus("0");
+				gjfTradeDao.update(payInfo);
+			}
+		}
+		weixin.setStatus("1");
+		gjfTradeDao.update(weixin);
+		if (weixin.getType().equals("1") || weixin.getType().equals("2")) {// type=1
+																			// 微信公众号
+																			// type=2
+																			// h5
+			WaixiConfig.reload();// 重读配置信息
+		}
+		return new ResultVo(200, "启用成功", null);
+	}
+
+	/**
+	 * 根据id获取微信信息
+	 */
+	@Override
+	public ResultVo findWeiXinInfoById(Long id) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", id);
+		GjfWeiXinPayInfo weixin = gjfTradeDao.query(GjfWeiXinPayInfo.class, attrs);
+		return new ResultVo(200, "启用成功", weixin);
+	}
+
+	/**
+	 * 更新审核人员
+	 * 
+	 * @param name
+	 */
+	public void updateCheckUser(Long id, String token, String name) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		GjfMemberTrade gjfMemberTrade = gjfMemberInfoDao.query(GjfMemberTrade.class, attrs);
+	}
+
+	/**
+	 * 根据订单号获取提现信息
+	 */
+	@Override
+	public ResultVo findMemberTradeByOrderSn(String orderSn) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("tradeNo", orderSn);
+		attrs.put("tradeType", "1");
+		GjfMemberTrade gjfMemberTrade = gjfMemberInfoDao.query(GjfMemberTrade.class, attrs);
+		return new ResultVo(200, "查询成功", gjfMemberTrade);
+	}
+
+	public GjfMemberTrade queryById(Long id, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		return gjfTradeDao.query(GjfMemberTrade.class, attrs);
+	}
+
+	/**
+	 * 获取代付列表
+	 */
+	@Override
+	public ResultVo findRechargePaid(int pageNo, int pageSize) {
+		Map<String, Object> attrs = new HashMap<>();
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfTradeDao.queryTotalRecord(GjfRechargePaid.class, attrs))),
+				gjfMemberInfoDao.queryList(GjfRechargePaid.class, (pageNo - 1) * pageSize, pageSize, "addTime", "desc",
+						attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/**
+	 * 添加代付充值记录
+	 */
+	@Override
+	public ResultVo addRechargeRecod(GjfRechargePaid rechargePaid) {
+		rechargePaid.setAddTime(new Date());
+		gjfMemberInfoDao.save(rechargePaid);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+}

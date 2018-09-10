@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<!-- 大家不要在这里添加bean,而是自己多建立一个xml文件,然后添加进来
+		<constant name="struts.action.extension" value="do" />
+	 -->
+	<package name="front-ep" extends="struts-default" namespace="/">
+		
+		<default-interceptor-ref name="defaultStack"></default-interceptor-ref>
+		<global-results>  
+		    <result name="exceptionError">/common/404.html</result>  
+		</global-results>  
+		<global-exception-mappings>  
+		    <exception-mapping result="exceptionError" exception="java.lang.Exception" />  
+		</global-exception-mappings>  
+		
+		<!-- 分发器  -->
+		<action name="navigation" class="cc.messcat.web.front.NavigationAction">
+		
+			<!-- 带参数的例子： XXX.action?para1=${para1}&amp;para2=${para2}&amp;para3=${para3} -->
+			<result name="index" type="redirect">epIndexAction.htm</result>
+			<result name="news_list_more" type="redirect">
+				epNewsListMoreAction.htm?columnId=${columnId}&amp;pageType=${pageType}
+			</result>
+			<result name="news_more" type="redirect">
+				epNewsMoreAction.htm?columnId=${columnId}&amp;pageType=${pageType}
+			</result>
+			<result name="content" type="redirect">
+				epFrontNewsAction.htm?columnId=${columnId}&amp;pageType=${pageType}
+			</result>
+			<result name="news" type="redirect">
+				epFrontNewsAction.htm?newsId=${newsId}&amp;pageType=${pageType}
+			</result>
+			<result name="product_list" type="redirect">
+				epProductAction.htm?columnId=${columnId}&amp;pageType=${pageType}
+			</result>
+			<result name="product" type="redirect">
+				epProductAction.htm?columnId=${columnId}&amp;newsId=${newsId}&amp;pageType=${pageType}
+			</result>
+			
+		</action>
+				
+		<!-- 主页  -->
+		<action name="epIndexAction" class="epIndexAction">
+			<result name="input">/jsps/index.jsp</result>
+			<result name="index">/jsps/index.jsp</result>
+		</action>
+		
+		<!-- 模块列表  -->
+		<action name="epNewsListMoreAction" class="epNewsListMoreAction">
+			<result name="showcol" type="redirect">${colLink}</result>
+			<result name="col_list">/jsps/col_list.jsp</result>
+			<result name="car_bbs">/jsps/car_bbs.jsp</result>
+			<result name="news_list">/jsps/news-list.jsp</result>
+		</action>
+		
+		<!-- 新闻列表  -->
+		<action name="epNewsMoreAction" class="epNewsMoreAction">
+			<result name="news_more">/jsps/news-more.jsp</result>
+			<result name="picture">/jsps/picture.jsp</result>
+		</action>
+		
+		<!-- 单条新闻  -->
+		<action name="epFrontNewsAction" class="epFrontNewsAction">
+			<result name="news">/jsps/news.jsp</result>
+			<result name="linkUrl" type="redirect">${linkUrl}</result>
+			<result name="pro_news">/jsps/pro_news.jsp</result>
+			<result name="login">/jsps/login.jsp</result>
+			<result name="register">/jsps/register.jsp</result>
+			<result name="iwantsell">/jsps/basic_infomation.jsp</result>
+			<result name="basicInfo">/jsps/services_center_basicInfo.jsp</result>
+			<result name="service_center">/jsps/service_center.jsp</result>
+		</action>
+		
+		<!-- 登陆 -->
+		<action name="loginAction" class="loginAction">
+			<result name="input">/WEB-INF/jsp/index.jsp</result>
+			<result name="success_enterprise">/WEB-INF/jsp/mainframe_enterprise.jsp</result>
+			<result>/WEB-INF/jsp/mainframe.jsp</result>
+			<result name="failure">/WEB-INF/jsp/index.jsp</result>
+		</action>
+		
+		<!-- 检测验证码 -->
+		<action name="checkCodeAction" class="cc.messcat.web.system.CheckCodeAction">
+		</action>
+</package>
+</struts>

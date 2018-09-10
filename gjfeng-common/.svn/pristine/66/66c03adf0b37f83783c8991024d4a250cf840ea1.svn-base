@@ -1,0 +1,57 @@
+package cc.messcat.gjfeng.common.netFriends;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
+
+import net.sf.json.JSONObject;
+
+public class NetFriendUtil {
+	
+	//获取友集网单个商品信息
+	public static JSONObject getNetFriendProductInfo(String gId,String page,String pageSize){
+		Map<String, String> map = new HashMap<String, String>();
+		map.put("appKey", "FnHbJsK6yFFuihUSef");
+		map.put("page",page);
+		map.put("amount", pageSize);	
+		map.put("gid", gId);
+		Map<String, String> params = SignUtils.paraFilter(map);
+		StringBuilder buf = new StringBuilder((params.size() + 1) * 10);
+		SignUtils.buildPayParams(buf, params, false);
+		String preStr = buf.toString();
+		//生成签名
+		//String sign=DigestUtils.md5Hex(MD5.getContentBytes(preStr+"xk87UZUY1sdSD1SDSA3sOmKNSk2Kxa9s", "utf-8"));
+		String sign = MD5.sign("keyValue=".toUpperCase() + "xk87UZUY1sdSD1SDSA3sOmKNSk2Kxa9s".toUpperCase()+"&",preStr.toUpperCase(), "utf-8");
+        //请求域名
+		String host = "http://m.upinkji.com";
+		//请求后缀
+		String path = "/wap/Phoenix/product_list";
+		//请求类型
+		String method = "GET";	
+		//设置请求头
+		Map<String, String> headers = new HashMap<String, String>();
+		headers.put("Content-Type", "text/xml;charset=utf-8");
+		//请求参数
+		Map<String, String> querys = new HashMap<String, String>();
+		querys.put("appKey", "FnHbJsK6yFFuihUSef");
+		querys.put("page", page);
+		querys.put("amount", pageSize);
+		querys.put("gid", gId);
+		querys.put("sign", sign);
+		try {
+			HttpResponse response = HttpUtils.doGet(host, path, method, headers, querys);
+			
+			System.out.println(response.toString());
+			// 获取response的body	
+			String str=EntityUtils.toString(response.getEntity());
+			JSONObject json=JSONObject.fromObject(str);		
+			return json;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+}

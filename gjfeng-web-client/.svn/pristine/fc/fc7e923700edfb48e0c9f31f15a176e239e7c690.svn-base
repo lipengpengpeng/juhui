@@ -1,0 +1,882 @@
+package cc.messcat.gjfeng.web.wechat;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.xml.ws.Service.Mode;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.ModelAndView;
+
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.jd.JdNewUtil;
+import cc.messcat.gjfeng.common.jd.bean.FirstLevel;
+import cc.messcat.gjfeng.common.jd.bean.GoodDetail;
+import cc.messcat.gjfeng.common.netFriends.MD5;
+import cc.messcat.gjfeng.common.netFriends.NetFriendUtil;
+import cc.messcat.gjfeng.common.netFriends.SignUtils;
+import cc.messcat.gjfeng.common.tianmao.JdOtherUtil;
+import cc.messcat.gjfeng.common.tianmao.TianMaoUtil;
+import cc.messcat.gjfeng.common.tianmao.bean.CatDetail;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.ImageCompressUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.vo.app.ProductInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.vo.app.StoreInfoVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.dubbo.core.GjfEnterpriseColumnDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfIndexDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfProductAttrDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfProductInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import cc.messcat.gjfeng.upload.UploadFileUtil;
+import cc.messcat.gjfeng.util.SessionUtil;
+import net.sf.json.JSONObject;
+	
+@Controller
+@RequestMapping("wx/product/")
+public class ProductController extends BaseController {
+
+	@Value("${gjfeng.client.project.url}")
+	private String projectName;
+
+	@Value("${upload.product.path}")
+	private String uploadFilePath;
+
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("response")
+	private HttpServletResponse response;
+
+	@Autowired
+	@Qualifier("indexDubbo")
+	private GjfIndexDubbo indexDubbo;
+
+	@Autowired
+	@Qualifier("productAttrDubbo")
+	private GjfProductAttrDubbo productAttrDubbo;
+
+	@Autowired
+	@Qualifier("productInfoDubbo")
+	private GjfProductInfoDubbo productInfoDubbo;
+
+	@Autowired
+	@Qualifier("storeInfoDubbo")
+	private GjfStoreInfoDubbo storeInfoDubbo;
+
+	@Autowired
+	@Qualifier("enterpriseColumnDubbo")
+	private GjfEnterpriseColumnDubbo enterpriseColumnDubbo;
+	
+	@Autowired
+	@Qualifier("memberInfoDubbo")
+	private GjfMemberInfoDubbo memberInfoDubbo;
+
+	/**
+	 * @描述 O2O商城子栏目商品页
+	 * @author Karhs
+	 * @date 2017年1月18日
+	 * @param columnId
+	 * @return
+	 */
+	@RequestMapping(value = "o2o/subColumn/{columnId}", method = RequestMethod.GET)
+	public ModelAndView o2oSubColumn(@PathVariable("columnId") Long columnId) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			model.put("columnId", columnId);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, IndexController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/index-subcolumn-goods", model);
+	}
+
+	/**
+	 * @描述 o2o商城一级栏目或本栏目下的商品
+	 * @author Karhs
+	 * @date 2017年1月18日
+	 * @param pageNo
+	 * @param pageSize
+	 * @param reqType
+	 * @param columnId
+	 * @param type
+	 *            1:距离近 2:人气高 3:价格低 4: 最新
+	 * @param columnType
+	 *            栏目类型 1：一级栏目 2：二级栏目
+	 * @param likeValue
+	 *            模糊查询商品和店铺值
+	 * @return
+	 */
+	@RequestMapping(value = "o2o/products", method = RequestMethod.POST)
+	public ModelAndView o2oProductsByAllColumn(Integer pageNo, Integer pageSize, Long columnId,
+		@RequestParam("orderType") String orderType, String columnType, String likeValue) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			Double longitude = SessionUtil.getLatOrLong(request, "longitude");
+			Double latitude = SessionUtil.getLatOrLong(request, "latitude");
+			Long cityId = SessionUtil.getCityCode(request);
+			resultVo = indexDubbo.findO2OSubClassPro(ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+				ObjValid.isNotValid(pageSize) ? 10 : pageSize, columnId, columnType, orderType, likeValue, longitude, latitude,
+				cityId);
+			model.put("products", resultVo);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("products", resultVo);
+		}
+		return new ModelAndView(
+			columnType.equals("0") ? "wx/o2o-shop/index-subcolumn-goods-ajax" : "wx/o2o-shop/index-subcolumn-ajax", model);
+	}
+
+	/**
+	 * @描述 查询o2o商品信息
+	 * @author Karhs
+	 * @date 2017年1月19日
+	 * @param id
+	 * @return
+	 */
+	@RequestMapping(value = "o2o/product/{id}", method = RequestMethod.GET)
+	public ModelAndView o2oProduct(@PathVariable("id") Long id) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			Double longitude = SessionUtil.getLatOrLong(request, "longitude");
+			Double latitude = SessionUtil.getLatOrLong(request, "latitude");
+			final GjfMemberInfo gjfMemberInfo = SessionUtil.getMemberSession(request);
+			resultVo = productInfoDubbo.findO2OProductById(id, longitude, latitude);
+			final Long goodsId=id;
+			new Thread(new Thread() {
+				@Override
+				public void run() {
+					productInfoDubbo.addProductViewHistory(goodsId, gjfMemberInfo);
+				}
+			}).start();
+			
+			// 查询本店热销商品
+			model.put("resultVo", resultVo);
+			model.put("id", id);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/goods-detail", model);
+	}
+
+	/**
+	 * @描述 查询本店热销商品
+	 * @author Karhs
+	 * @date 2017年1月20日
+	 * @param id
+	 * @return
+	 */
+	@RequestMapping(value = "o2o/hotProduct", method = RequestMethod.POST)
+	public ModelAndView o2oHotProduct(@RequestParam("id") Long id, Integer pageNo, Integer pageSize) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			// 查询本店热销商品
+			model.put("resultVo", productInfoDubbo.findHotProByStoreId(id, ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+				ObjValid.isNotValid(pageSize) ? 10 : pageSize));
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/goods-detail-ajax", model);
+	}
+	
+	/**
+	 * @描述 查询本店热销商品
+	 * @author Karhs
+	 * @date 2017年1月20日
+	 * @param id
+	 * @return
+	 */
+	@RequestMapping(value = "o2o/hotProduct2", method = RequestMethod.POST)
+	public ModelAndView o2oHotProduct2(@RequestParam("id") Long storeId, Integer pageNo, Integer pageSize) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			// 查询本店热销商品
+			pageNo = ObjValid.isNotValid(pageNo) ? 1 : pageNo;
+			pageSize = ObjValid.isNotValid(pageSize) ? 10 : pageSize;
+			Map<String, Object> param = new HashMap<String, Object>();
+			param.put("pageNo", pageNo);
+			param.put("pageSize", pageSize);
+			model.put("resultVo", productInfoDubbo.findHotProductsByStoreId(storeId,param));
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/goods-detail-ajax", model);
+	}
+
+	/**
+	 * @描述 查询网上商城首页一级栏目或栏目下的商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "online/products/{type}/{columnId}", method = RequestMethod.GET)
+	public ModelAndView onlineProductsByAllColumn(Integer pageNo, Integer pageSize, Integer reqType,
+		@PathVariable("columnId") Long columnId, @PathVariable("type") String type, String likeValue) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			Double longitude = SessionUtil.getLatOrLong(request, "longitude");
+			Double latitude = SessionUtil.getLatOrLong(request, "latitude");
+			if (type.equals("1")) {
+				//model.put("columns", enterpriseColumnDubbo.findColumnByFatherId(columnId));
+				model.put("products", productInfoDubbo.findProByColumnId(columnId, ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, likeValue, longitude, latitude));
+			} else if (type.equals("0")) {
+				//model.put("columns", enterpriseColumnDubbo.findColumnByFatherId(columnId));
+				model.put("products", productInfoDubbo.findProByFatherColumnId(columnId, ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, likeValue, longitude, latitude));
+			} else {
+				//model.put("columns", null);
+				model.put("products", null);
+			}
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView(ObjValid.isNotValid(reqType) ? "wx/online-shop/goods-list" : "wx/online-shop/goods-list-ajax",
+			model);
+	}
+
+	/**
+	 * @描述 查询网上商城商品详情
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "online/product/{id}", method = RequestMethod.GET)
+	public ModelAndView onlineProductsDetailInfo(@PathVariable("id") Long id,String type) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			// 查询商品信息
+			// model.put("resultVo", productInfoDubbo.findProductById(id, 0L));
+			resultVo = productAttrDubbo.findProAttrByProId(id);
+			Object o = resultVo.getResult();
+			if (ObjValid.isValid(o)) {
+				LinkedHashMap<String, Object> data = new LinkedHashMap<String, Object>();
+				data = (LinkedHashMap<String, Object>) o;				
+				model.put("productInfo", data.get("productInfo"));
+				GjfProductInfo productInfo=(GjfProductInfo) data.get("productInfo");
+				if("1".equals(productInfo.getSuorceGoods())){
+					String account = SessionUtil.getAccountSession(request);
+					model.put("memberInfo",memberInfoDubbo.findMember(account));
+				}
+				model.put("productAttrStock", data.get("productAttrStock"));
+				data.remove("productInfo");
+				data.remove("productAttrStock");
+				model.put("productAttrs", data);
+			}
+
+			// 2.查询商品评论次数
+			model.put("commentsNum", 0);
+			model.put("type", type);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/online-shop/goods-detail-info", model);
+	}
+
+	/**
+	 * @描述 查询网上商城商品详情详细
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "online/product/stock", method = RequestMethod.POST)
+	@ResponseBody
+	public Object findProStock(@RequestParam("proId") Long proId, @RequestParam("attrIds") String attrIds) {
+		try {
+			resultVo = productAttrDubbo.findProAttrStockByAttrId(proId, attrIds);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 查询网上商城商品详情详细
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "online/product/detail/{id}", method = RequestMethod.GET)
+	public ModelAndView onlineProductsDetail(@PathVariable("id") Long id) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			model.put("resultVo", productInfoDubbo.findProductById(id, 0L));
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/online-shop/goods-detail", model);
+	}
+
+	/**
+	 * @描述 查询商家商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "my", method = RequestMethod.GET)
+	public ModelAndView myProduct(Integer pageNo, Integer pageSize, Integer reqType) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account=SessionUtil.getAccountSession(request);
+			Object o = storeInfoDubbo.findStoreByAccount(account).getResult();
+			if (ObjValid.isValid(o)) {
+				StoreInfoVo store = (StoreInfoVo) o;
+				model.put("resultVo", productInfoDubbo.findProByStore(store.getId(), ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize));
+			}else{
+				model.put("resultVo", new ResultVo(400, "店铺不存在", null));
+			}
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView(ObjValid.isNotValid(reqType) ? "wx/o2o-shop/goods-manage" : "wx/o2o-shop/goods-manage-ajax", model);
+	}
+
+	/**
+	 * @描述 跳转到发布商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "toAdd", method = RequestMethod.GET)
+	public ModelAndView toAddPro() {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			// 查询商品栏目
+			model.put("resultVo", indexDubbo.findO2OIndexColumn());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/goods-add", model);
+	}
+
+	/**
+	 * @描述 发布商品--发布成功跳到审核页面
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "add", method = RequestMethod.POST)
+	public ModelAndView addProduct(ProductInfoVo productInfoVo, @RequestParam("columnId") Long columnId,
+		MultipartFile uploadRelease) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			if (ObjValid.isNotValid(productInfoVo)) {
+				resultVo = new ResultVo(400, "提交失败，参数不全", null);
+				model.put("resultVo", resultVo);
+				return new ModelAndView("wx/o2o-shop/goods-add-waiting", model);
+			}
+			if (!uploadRelease.isEmpty()) {
+				//String umgUrlFileName = UploadFileUtil.createThumbPic(uploadRelease, request, uploadFilePath);
+				
+				String fileName = UploadFileUtil.upload(uploadRelease, request, uploadFilePath);
+				String syspath = request.getSession().getServletContext().getRealPath(uploadFilePath);
+				String path=syspath+"\\"+fileName;
+				String[] fileNames=fileName.split("\\.");
+				String path1=syspath + "\\" +fileNames[0]+"_1."+fileNames[1];
+				ImageCompressUtil.saveMinPhoto(path, path1, 139,1d);
+				String ziPath=projectName + uploadFilePath + "/" +fileNames[0]+"_1."+fileNames[1];
+				productInfoVo.setImgUrl(ziPath);
+				productInfoVo.setImgUrl1(projectName + uploadFilePath + "/" + fileName);
+			} else {
+				resultVo = new ResultVo(400, "文件上传失败", null);
+				model.put("resultVo", resultVo);
+				return new ModelAndView("wx/o2o-shop/goods-add-waiting", model);
+			}
+			Object o = storeInfoDubbo.findStoreByAccount(account).getResult();
+			if (ObjValid.isNotValid(o)) {
+				resultVo = new ResultVo(400, "店铺不存在", null);
+			}
+			StoreInfoVo store = (StoreInfoVo) o;
+			resultVo = productInfoDubbo.addO2OProduct(productInfoVo, store.getId(), columnId, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+		}
+		model.put("resultVo", resultVo);
+		return new ModelAndView("wx/o2o-shop/goods-add-waiting", model);
+	}
+
+	/**
+	 * @描述 跳转到编辑商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "toUpdate/{id}", method = RequestMethod.GET)
+	public ModelAndView toUpdatePro(@PathVariable("id") Long id) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			StoreInfoVo store = (StoreInfoVo) storeInfoDubbo.findStoreByAccount(account).getResult();
+			model.put("product", productInfoDubbo.findProductById(id, store.getId()));
+			// 查询商品栏目
+			model.put("column", indexDubbo.findO2OIndexColumn());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/o2o-shop/goods-update", model);
+	}
+
+	/**
+	 * @描述 编辑商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "update", method = RequestMethod.POST)
+	public ModelAndView updateProduct(ProductInfoVo productInfoVo, @RequestParam("columnId") Long columnId,
+		MultipartFile uploadRelease) {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			if (ObjValid.isNotValid(productInfoVo)) {
+				resultVo = new ResultVo(400, "提交失败，参数不全", null);
+				model.put("resultVo", resultVo);
+				return new ModelAndView("wx/o2o-shop/goods-add-waiting", model);
+			}
+			if (!uploadRelease.isEmpty()) {
+				String fileName = UploadFileUtil.upload(uploadRelease, request, uploadFilePath);
+				productInfoVo.setImgUrl(projectName + uploadFilePath + "/" + fileName);
+			}
+			StoreInfoVo store = (StoreInfoVo) storeInfoDubbo.findStoreByAccount(account).getResult();
+			resultVo = productInfoDubbo.updateO2OProduct(productInfoVo, store.getId(), columnId);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+		}
+		model.put("resultVo", resultVo);
+		return new ModelAndView("wx/o2o-shop/goods-add-waiting", model);
+	}
+
+	/**
+	 * @描述 删除商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "del", method = RequestMethod.POST)
+	@ResponseBody
+	public Object delProduct(@RequestParam("ids[]") Long[] ids) {
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			StoreInfoVo store = (StoreInfoVo) storeInfoDubbo.findStoreByAccount(account).getResult();
+			resultVo = productInfoDubbo.delProduct(ids, store.getId());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, ProductController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 注册友品集签名
+	 * @param phoenix_id
+	 * @param phoenix_name
+	 * @param phoenix_mobile
+	 * @param phoenix_avatar
+	 * @return
+	 */
+	@RequestMapping(value = "registerNetFriend", method = RequestMethod.POST)
+	@ResponseBody
+	public Object registerNetFriend(String phoenix_id,String phoenix_name,String phoenix_mobile,String phoenix_avatar){
+		Map<String, String> map = new HashMap<String, String>();
+		map.put("weid", "2");
+		map.put("domain", "baf46d31fff31a7587df12dea5bfe");
+		map.put("share_id", "b1d41MSSuxRYJH_YfA05z5JZbpya2q4XZn5d5-6VUiGaF7zVdjw");
+		map.put("appKey", "FnHbJsK6yFFuihUSef");
+		map.put("phoenix_id", phoenix_id);
+		map.put("phoenix_name", phoenix_name);
+		map.put("phoenix_mobile", phoenix_mobile);
+		map.put("phoenix_avatar", phoenix_avatar);
+		
+
+		Map<String, String> params = SignUtils.paraFilter(map);
+		StringBuilder buf = new StringBuilder((params.size() + 1) * 10);
+		SignUtils.buildPayParams(buf, params, false);
+		String preStr = buf.toString();
+		// 生成签名
+
+		String sign = MD5.sign("keyValue=".toUpperCase() + "xk87UZUY1sdSD1SDSA3sOmKNSk2Kxa9s".toUpperCase() + "&",
+				preStr.toUpperCase(), "utf-8");
+		map.put("sign", sign);
+		return new ResultVo(200, "签名成功", map);
+	}
+	
+	/**
+	 * 有品集支付
+	 * @param oid
+	 * @param osn
+	 * @param pay_type
+	 * @return
+	 */
+	@RequestMapping(value = "payNetFriend", method = RequestMethod.GET)
+	public Object payNetFriend(String osn,String pay_type){
+		
+		try{
+			String account = SessionUtil.getAccountSession(request);
+			GjfMemberInfo memberInfo=memberInfoDubbo.findMember(account);
+			String sign=NetFriendUtil.payNetFriendOrder(memberInfo.getToken().substring(0, 50), osn, pay_type);
+			request.setAttribute("html", sign);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "wx/o2o-shop/alipayapi";
+	}
+	
+	/**
+	 * 更新商品库存
+	 * @param proId
+	 * @return
+	 */
+	@RequestMapping(value="updataJdProStock",method=RequestMethod.POST)
+	@ResponseBody
+	public Object updataJdProStock(Long proId){
+		try{
+			resultVo=productInfoDubbo.updateJdProInfo(proId);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 获取天猫商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="goTianMaoProductListPage",method=RequestMethod.GET)
+	public ModelAndView goTianMaoProductListPage(String type,String page){
+		Map<String, Object> model=new HashMap<>();
+		try{
+			List<CatDetail> list=TianMaoUtil.getTianMaoProCart();
+			List proList=TianMaoUtil.getProductList(list.get(0).getId(), page);
+			model.put("cat", list);
+			model.put("product", proList);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return new ModelAndView("wx/online-shop/tianmaoIndex", model);
+	}
+	
+	/**
+	 * 获取商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@RequestMapping(value="findProdutCat",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findProdutCat(){
+		List<CatDetail> list=null;
+		try{
+			 list=TianMaoUtil.getTianMaoProCart();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	
+	/**
+	 * 获取商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="findProductList",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findProductList(String type,String page){
+		List list=null;
+		try{
+			 list=TianMaoUtil.getProductList(type, page);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	/**
+	 * 搜索获取商品列表信息
+	 * @param keyWord
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="findProductListBySerch",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findProductListBySerch(String keyWord,String page){
+		List list=null;
+		try{
+			 list=TianMaoUtil.getSerchProductList(keyWord, page);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	/**
+	       获取商品详情
+	 * @param proId
+	 * @return
+	 */
+	@RequestMapping(value="findProductDetail",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findProductDetail(String proId){
+		CatDetail catDetail=null;
+		try{
+			 catDetail=TianMaoUtil.getProductDetail(proId);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return catDetail;
+	}
+	
+	
+	/**
+	 * 获取京东商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="goJDProductListPage",method=RequestMethod.GET)
+	public ModelAndView goJDProductListPage(String type,String page){
+		Map<String, Object> model=new HashMap<>();
+		try{
+			List<CatDetail> list=TianMaoUtil.getTianMaoProCart();
+			List proList=JdOtherUtil.getProductList(list.get(0).getId(), page);
+			model.put("cat", list);
+			model.put("product", proList);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return new ModelAndView("wx/online-shop/jdIndex", model);
+	}
+	
+	/**
+	 * 获取链接板京东商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@RequestMapping(value="findJdProdutCat",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findJdProdutCat(){
+		List<CatDetail> list=null;
+		try{
+			 list=JdOtherUtil.getTianMaoProCart();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	
+	/**
+	 * 获取链接板京东商品信息
+	 * @param type
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="findJdProductList",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findJdProductList(String type,String page){
+		List list=null;
+		try{
+			 list=JdOtherUtil.getProductList(type, page);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	/**
+	 * 搜索获取链接板京东商品列表信息
+	 * @param keyWord
+	 * @param page
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value="findJdProductListBySerch",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findJdProductListBySerch(String keyWord,String page){
+		List list=null;
+		try{
+			 list=JdOtherUtil.getSerchProductList(keyWord, page);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return list;
+	}
+	
+	/**
+	       获取链接板京东商品详情
+	 * @param proId
+	 * @return
+	 */
+	@RequestMapping(value="findJdProductDetail",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findJdProductDetail(String proId){
+		CatDetail catDetail=null;
+		try{
+			 catDetail=JdOtherUtil.getProductDetail(proId);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return catDetail;
+	}
+	
+	/**
+	 * 获取京东自营商城分类
+	 * @return
+	 */
+	@RequestMapping(value="findProprietaryJdCategory",method=RequestMethod.GET)
+	public ModelAndView findProprietaryJdCategory(){
+		Map<String, Object> model=new HashMap<>();
+		try{
+			cc.messcat.gjfeng.common.jd.bean.CatDetail c=JdNewUtil.addTestJdProductInfo();
+			if(BeanUtil.isValid(c)){
+				//获取第一个类别商品
+				resultVo=productInfoDubbo.findJdProprietaryProduct(c.getFirstLevel().get(0).getCatId(), "1", "", "");
+				
+			}
+			model.put("cat", c);
+			model.put("resultVo", resultVo);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return new ModelAndView("wx/online-shop/JdProprieta/jdIndex", model);
+	}
+	
+	/**
+	 * 根据分类获取京东自营产品
+	 * @param catId
+	 * @return
+	 */
+	@RequestMapping(value="findJdProprietaryProByCatId",method=RequestMethod.GET)
+	@ResponseBody
+	public Object findJdProprietaryProByCatId(String catId,String page,String sup,String rateBegin){
+		Map<String, Object> map=new HashMap<>();
+		try{
+			resultVo=productInfoDubbo.findJdProprietaryProduct(catId, page, sup, rateBegin);
+			map.put("product", resultVo.getResult());
+			/*cc.messcat.gjfeng.common.jd.bean.CatDetail c=JdNewUtil.addTestJdProductInfo();
+			if(BeanUtil.isValid(c)&&BeanUtil.isValid(c.getSecondLevel())){
+				List<FirstLevel> list=new ArrayList<>();
+				for(int i=0;i<c.getSecondLevel().size();i++){
+					if(c.getSecondLevel().get(i).getParentId().equals(catId)){
+						list.add(c.getSecondLevel().get(i));
+					}
+				}
+				map.put("secondLevel", list);
+			}*/
+			resultVo.setResult(map);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 获取京东自营商品详细信息
+	 * @return
+	 */
+	@RequestMapping(value="findJdProprietaryProDetail",method=RequestMethod.GET)
+	public ModelAndView findJdProprietaryProDetail(String goodsId){
+		Map<String, Object> model=new HashMap<>();
+		try{
+			GoodDetail goodDetail=JdNewUtil.getJdGoodDetail(goodsId);			
+			model.put("goodDetail", goodDetail);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return new ModelAndView("wx/online-shop/JdProprieta/goods-detail-info", model);
+	}
+	
+	/**
+	 * 获取京东自营商品详细信息
+	 * @return
+	 */
+	@RequestMapping(value="findJdProprietaryGraphicDetail",method=RequestMethod.GET)
+	public ModelAndView findJdProprietaryGraphicDetail(String goodsId){
+		Map<String, Object> model=new HashMap<>();
+		try{
+			GoodDetail goodDetail=JdNewUtil.getJdGoodDetail(goodsId);			
+			model.put("goodDetail", goodDetail);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return new ModelAndView("wx/online-shop/JdProprieta/goods-detail", model);
+	}
+	
+	/**
+	 * 添加京东自营产品
+	 * @param proId
+	 * @return
+	 */
+	@RequestMapping(value="addJdProprietaryProduct",method=RequestMethod.POST)
+	@ResponseBody
+	public Object addJdProprietaryProduct(Long proId){
+		try{
+			resultVo=productInfoDubbo.addJdProprietaryProduct(proId);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 点击天天易购
+	 * @return
+	 */
+	@RequestMapping(value="goTianTianYiGo",method=RequestMethod.GET)
+	public ModelAndView goTianTianYiGo(){
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {		
+			//model.put("indexColumns", indexDubbo.findShopIndexCloumn());
+			model.put("indexProducts", indexDubbo.findShopIndexPro());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, IndexController.class);			
+			//model.put("indexColumns",null);
+			model.put("indexProducts",null);
+		}
+		return new ModelAndView("wx/online-shop/ttyg/index", model);
+	}
+	
+
+}

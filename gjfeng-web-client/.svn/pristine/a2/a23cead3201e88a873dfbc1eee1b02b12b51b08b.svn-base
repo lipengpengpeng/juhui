@@ -1,0 +1,806 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-shop-top.jsp" %>
+<script type="text/javascript" src="https://res.wx.qq.com/open/js/jweixin-1.1.0.js"></script>
+<body style="background: #fff;">
+	<section class="pay-affirm">
+		<ul class="pay-af-ul">
+			<li>
+				<a href="${ctx}/wx/address/toFind?type=0&goodSource=${goodSource}" class="clearfix pay-aff-arr ">
+					<c:if test="${not empty memberDefAddress.result}">
+					<div class="pay-add">
+						<p>
+							<span>收货人：</span>
+							<span class="pay-addname">${memberDefAddress.result.consigneeName}</span>
+							<i>${memberDefAddress.result.mobile}</i></p>
+						<p class="pay-af-add"><span>收货地址：</span><i>
+						${memberDefAddress.result.proviceId.province}${memberDefAddress.result.cityId.city}
+						<c:if test="${not empty memberDefAddress.result.areaId}">
+							${memberDefAddress.result.areaId.area}
+						</c:if>
+						${memberDefAddress.result.addressDetail}
+						</i></p>
+						<input type="hidden" class="orderAddressId" value="${memberDefAddress.result.id}">
+					</div>
+					</c:if>
+					<c:if test="${empty memberDefAddress.result}">
+					<p class="pay-addnone">
+						<i class='pay-addnonei'>添加收货人</i>
+					</p>
+					</c:if>
+					<i class="pay-arrows"></i>
+				</a>
+			</li>
+			<li class="pay-aff-Info"><span>订单信息</span></li>
+			<c:forEach var="bean" items="${goodsVos}" varStatus="status">
+			<li class="clearfix">
+				<div class="pay-affirmimg"><img src="${bean.goodsImg}"></div>
+				<div class="pay-aff-s">
+					<p class="pay-aff-sp">${bean.goodsName}</p>
+					<p class="pay-aff-tao">${bean.goodsAttr}</p>
+					<p class="pay-aff-money"><span>${bean.goodsAmount}元</span><i class="goodNum">${bean.goodsNum}</i></p>
+				</div>
+			</li>
+			</c:forEach>
+
+			<li class="pay-aff-com">
+				<span>配送方式</span>
+				<i class="partic-affcom-right">快递&nbsp;&nbsp;￥${pos}</i>
+			</li>
+			<c:if test="${isCanUseCou==1}">
+			  <li class="pay-aff-com">
+				<span>支付明细：</span>
+				<i class="partic-affcom-right">${totalAmount }积分+￥${pointNiceAmount}</i>
+			 </li>			
+			</c:if>
+			<c:if test="${isCanUseCou==2}">
+			  <li class="pay-aff-com">
+				<span>支付明细：</span>
+				<i class="partic-affcom-right">${totalAmount }责任金额+￥${pointNiceAmount}</i>
+			 </li>			
+			</c:if>
+			<c:if test="${isCanUseCou==0}">
+			  <li class="pay-aff-com">
+				<span>支付明细：</span>
+				<i class="partic-affcom-right">￥${totalAmount}</i>
+			 </li>			
+			</c:if>
+			
+			
+			<!-- <li class="pay-aff-com">
+				<a href="../member-discount.html">
+					<span>优惠劵</span>
+					<i class="partic-affcom-right partic-after">无卡劵使用</i>
+				</a>
+			</li> -->
+			<li class="pay-aff-com">
+				<a href="javascript:">
+					<span>卖家留言：</span>	
+					<input type="text" name="remark" placeholder="选填可告诉卖家您的特殊要求" class="pay-aff-text">
+				</a>
+			</li>
+		</ul>
+		<p class="pay-aff-p">总支付：<span class="pay-aff-smoney">${totalAmount+pointNiceAmount}</span></p>
+		<ul class="pay-topup-ul">
+			<li>选择支付方式</li>
+			
+			<c:if test="${isCanUseCou==1}">
+			  <li class="clearfix">
+				<span class="pay-topupweixin">积分支付</span>
+				<%-- <c:if test="${empty gjfMemberInfo.payPassword}">
+					<a href="${ctx}/wx/member/toSetPay" class="pay-set-password">设置支付密码</a>
+				</c:if> --%>
+				<div class="pay-topup-radiobox">
+					<input type="radio" name="pay-topup-pay"  status="7" id="pay-cou" >
+					<label class="pay-topup-radio" for="pay-cou"></label>
+				</div>
+			  </li>
+			</c:if>
+			
+			<c:if test="${isCanUseCou==2}">
+			
+		      <li class="clearfix">
+				<span class="pay-topupweixin">责任消费险余额</span>
+				<c:if test="${empty gjfMemberInfo.payPassword}">
+					<a href="${ctx}/wx/member/toSetPay" class="pay-set-password">设置支付密码</a>
+				</c:if>
+				<div class="pay-topup-radiobox">
+					<input type="radio" name="pay-topup-pay" status="8" id="pay-ins" class="payOnline" >
+					<label class="pay-topup-radio" for="pay-ins"></label>
+				</div>
+			   </li>
+	
+			</c:if>
+			
+		   <c:if test="${isCanUseCou==0}">
+			 <%-- <c:if test="${totalAmount <= gjfMemberInfo.balanceMoney}"> --%>
+			  <li class="clearfix" style="height:1.2rem;">
+				<span class="pay-topupweixin">会员余额</span>
+				<c:if test="${empty gjfMemberInfo.payPassword}">
+					<a href="${ctx}/wx/member/toSetPay" class="pay-set-password">设置支付密码</a>
+				</c:if>
+				<div class="pay-topup-radiobox">
+					<input type="radio" name="pay-topup-pay" status="0" id="pay-banl" class="payOnline" >
+					<label class="pay-topup-radio" for="pay-banl"></label>
+				</div>
+				<div style="float:left;width:100%;margin-bottom:.1rem;color: red">(余额支付需要额外支付10%税费)</div>
+			  </li>
+			<%-- </c:if> --%>
+			
+			
+			 <li class="clearfix" style="height:1.2rem;">
+				<span class="pay-topupweixin">凤凰宝</span>
+				<c:if test="${empty gjfMemberInfo.payPassword}">
+					<a href="${ctx}/wx/member/toSetPay" class="pay-set-password">设置支付密码</a>
+				</c:if>
+				<div class="pay-topup-radiobox">
+					<input type="radio" name="pay-topup-pay" status="9" id="pay-fh-treasure" class="payOnline" >
+					<label class="pay-topup-radio" for="pay-fh-treasure"></label>
+				</div>
+				
+			  </li>
+			
+		 
+			
+			<%-- <c:if test="${totalAmount > gjfMemberInfo.balanceMoney&&totalAmount >gjfMemberInfo.insuranceMoney}"> --%>
+			<li class="clearfix" style="display: block" id="weixPay">
+				<span class="pay-topupweixin pay-topupalipay" id="weixPay">微信钱包</span>
+				<div class="pay-topup-radiobox">
+					<input type="radio" name="pay-topup-pay" id="pay-alipay" status="1" >
+					<label class="pay-topup-radio" for="pay-alipay"></label>
+				</div>
+			</li>
+			 <%--<li class="clearfix" style="display: block" id="yilPay">
+				<span class="pay-topupaplip pay-topupalipay" >银联支付</span>
+				<div class="pay-topup-radiobox" >
+					<input type="radio" name="pay-topup-pay" id="pay-h5" status="3" >
+					<label class="pay-topup-radio" for="pay-h5"></label>
+				</div>
+			</li> --%>
+			
+			 <li class="clearfix" id="alyPay" style="display: none">
+				<span class="pay-topupaplip pay-topupalipay" style="">支付宝支付</span>
+				<div class="pay-topup-radiobox" >
+					<input type="radio" name="pay-topup-pay" id="pay-aply" status="4" >
+					<label class="pay-topup-radio" for="pay-aply"></label>
+				</div>
+			</li>  
+			<%-- </c:if> --%>
+		 </c:if> 
+			
+		</ul>
+	</section>
+	<div class="pay-dustbox">
+		<div class="pay-password">
+			<div class="pay-affpay-top">
+				<h5>请输入会员卡支付密码</h5>
+				<i class="pay-aff-de"></i>
+				</div>
+				<c:if test="${isCanUseCou==0}">
+				   <p class="pay-affmoney" id="mo"><fmt:formatNumber value="${(totalAmount+pos)*0.1+(totalAmount+pos)}" pattern="#.##" type="number"/></p>
+				</c:if>
+				<c:if test="${isCanUseCou==1||isCanUseCou==2}">
+				   <p class="pay-affmoney">${totalAmount+pos}</p>
+				</c:if>
+				
+				<c:if test="${isCanUseCou==0}">
+					<p class="pay-remaining" id="balance-money">
+						余额：<span>${gjfMemberInfo.balanceMoney}</span>元
+					</p>
+					<p class="pay-remaining" id="fh-treasure-money">
+						凤凰宝余额：<span>${fhTreasureInfo}</span>元
+					</p>
+					<%-- <p class="pay-remaining"  id="insurance-money">
+						责任消费额：<span>${gjfMemberInfo.insuranceMoney}</span>元
+					</p> --%>
+				</c:if>
+				<c:if test="${isCanUseCou==1}">
+				<p class="pay-remaining">
+					积分：<span>${gjfMemberInfo.consumptionMoney}</span>分
+				</p>
+				</c:if>
+				<c:if test="${isCanUseCou==2}">
+				    <p class="pay-remaining"  id="insurance-money">
+						责任消费额：<span>${gjfMemberInfo.insuranceMoney}</span>元
+					</p>
+				</c:if>
+												
+			<ul class="pay-inputPassword">
+		      <li></li>
+		      <li></li>
+		      <li></li>
+		      <li></li>
+		      <li></li>
+		      <li></li>
+		    </ul>
+		</div>
+		<div class="pay-pawError">
+			<p class="pay-errorRetry">支付密码错误，请重试</p>
+			<div class="pay-paw">
+				<a href="javascript:" class="pay-reg">重试</a>
+				<a href="${ctx}/wx/member/toSetPay">忘记密码</a>
+			</div>
+		</div>
+		 <div class="numb_box">
+		    <div class="xiaq_tb"> <img src="${imagePath}/wx/online-shop/jftc_14.jpg" height="10"> </div>
+		    <ul class="nub_ggg">
+		      <li><a href="javascript:void(0);">1</a></li>
+		      <li><a href="javascript:void(0);" class="zj_x">2</a></li>
+		      <li><a href="javascript:void(0);">3</a></li>
+		      <li><a href="javascript:void(0);">4</a></li>
+		      <li><a href="javascript:void(0);" class="zj_x">5</a></li>
+		      <li><a href="javascript:void(0);">6</a></li>
+		      <li><a href="javascript:void(0);">7</a></li>
+		      <li><a href="javascript:void(0);" class="zj_x">8</a></li>
+		      <li><a href="javascript:void(0);">9</a></li>
+		      <li><span></span></li>
+		      <li><a href="javascript:void(0);" class="zj_x">0</a></li>
+		      <li><span  class="del"> <img src="${imagePath}/wx/online-shop/jftc_18.jpg"   ></span></li>
+		    </ul>
+		  </div>
+		<div class="pay-dust">
+		</div>
+	</div>
+	<form  id="order-add-form" method="post">
+		<c:forEach var="bean" items="${orderAddVos}" varStatus="status">
+			<input type="hidden" name="orderAddVos[${status.count-1}].goodsId" value="${bean.goodsId}"/>
+			<input type="hidden" name="orderAddVos[${status.count-1}].goodsAttrStockId" value="${bean.goodsAttrStockId}"/>
+			<input type="hidden" name="orderAddVos[${status.count-1}].goodsAttrIds" value="${bean.goodsAttrIds}"/>
+			<input type="hidden" name="orderAddVos[${status.count-1}].goodsAttr" value="${bean.goodsAttr}"/>
+			<input type="hidden" name="orderAddVos[${status.count-1}].goodsNum" value="${bean.goodsNum}"/>
+		</c:forEach>
+		<input type="hidden" class="payType-add" name="payType" value=""/>
+		<input type="hidden" class="remark-add" name="remark" value=""/>
+		<input type="hidden" class="couponsId-add" name="couponsId" value="0"/>
+		<input type="hidden" class="orderAddressId-add" name="orderAddressId" value=""/>
+		<input type="hidden" class="payPassword" name="payPassword" value=""/>
+	</form>
+	
+	<footer class="pay-aff-footer">
+		<a href="javascript:" class="address-adda pay-affsub">确认支付</a>
+	</footer>
+	 <%-- <div class="loading-middle hidden">
+            <img src="${imagePath}/wx/o2o-shop/load.gif" class="loadImg">
+      </div> --%>
+	<script type="text/javascript">
+		document.title = "下单";				
+		
+		//判断在APP或者微信浏览器中
+		var nvatTpye="0"
+		if (/(iPhone|iPad|iPod|iOS)/i.test(navigator.userAgent)||/(Android)/i.test(navigator.userAgent)) {
+			nvatTpye="1"
+        } 
+		
+		if(/MicroMessenger/i.test(navigator.userAgent)){
+        	nvatTpye="0"
+        }
+		 if(nvatTpye=="1"&&"${isCanUseCou}"=="0"&&"${goodSource}"!="2"){
+			$("#alyPay")[0].style.display = 'block';
+			$("#weixPay")[0].style.display = 'none';
+			//$("#yilPay")[0].style.display = 'block'
+		} 
+		
+	    $(".pay-topup-ul .clearfix:first .pay-topup-radiobox input").attr("checked","checked")
+		$(function(){
+			// 会员卡支付
+			function paysunb(){
+				//出现浮动层
+				$(".pay-affsub").on("touchend",function(e){
+					e.stopPropagation();//阻止冒泡
+            		e.preventDefault();//取消冒泡
+            		var address=$(".orderAddressId").val();
+            		 if(address==null){
+            			 layer.open({
+                             content:"收货地址不能为空",
+                             btn:'我知道了'
+                         })
+ 		                return false;
+ 		            }
+            		 var payPassword=$(".pay-set-password").text()
+            		 var couVal=$('#pay-cou:checked').val();
+            		 if(payPassword&&couVal!="on"){
+            			 layer.open({
+                             content:"请先设置支付密码",
+                             btn:'我知道了'
+                         })
+ 		                return false;
+            		 }
+					 
+					 var balVal=$('#pay-banl:checked').val();
+					 var insVal=$('#pay-ins:checked').val();
+					 var fhVal=$('#pay-fh-treasure:checked').val()
+				
+		            if(couVal==null&&balVal==null&&insVal==null&&fhVal==null){
+		            	
+		            	//微信支付
+		            	var payAlipay=$("#pay-alipay:checked").val()
+		            	if(payAlipay){
+		            		 /*  layer.open({
+	                                content:'微信支付功能暂未开放，敬请期待',
+	                                btn:'我知道了'
+	                            })  */ 
+	                        if(nvatTpye=="1"){
+	                        	/*  layer.open({
+                                content:'微信支付功能暂未开放，敬请期待',
+                                btn:'我知道了'
+                               })  */
+	                        	ajaxAddOrderInApp("1");
+	                        }else{
+	                        	
+	                        	ajaxAddOrder("1");	
+	                        }
+	                        
+	                        		            		
+		            		return false;
+		            	}
+		            	//网银支付
+		            	var payH5=$("#pay-h5:checked").val()
+		            	if(payH5){
+		            		if($(".pay-aff-smoney").html()<0){
+		            			layer.open({
+			                           content:"网银支付金额不能少于600元",
+			                           btn:'我知道了'
+			                     })
+			                     return false;
+		            		}else{
+		            			addOrderByH5Pay("3");
+			            		return false;	
+		            		}
+		            	}
+		            	//支付宝支付
+		            	 var apy=$("#pay-aply:checked").val()
+		            	if(apy){
+		            		ajaxAddOrderInApp("2");
+		            		return false;
+		            	} 
+		            	
+		            	//支付宝支付
+		            	 var netapy=$("#net-pay-aply:checked").val()
+		            	if(netapy){
+		            		ajaxAddOrderInNetFriend("2");
+		            		return false;
+		            	} 
+		            	
+		            }else{
+		            	//判断积分
+		            	if("${orderGoods.result.totalAmount}" > "${gjfMemberInfo.consumptionMoney}"){		      
+		            		layer.open({
+		                           content:"积分不足，请选择其他支付方式",
+		                           btn:'我知道了'
+		                       })
+		            		return false;
+		            	} /* else{
+		            		$(".pay-dustbox").show();
+		            	}  */
+		            	
+
+		            	if(fhVal=="on"){
+	            			$(".pay-dustbox").show();
+	            			$("#fh-treasure-money").show();
+	            			$("#balance-money").hide();
+	            			$("#mo").html("${totalAmount+pos}")
+	            		}
+		            	
+		            	//判断用户余额
+		            	if("${orderGoods.result.totalAmount}" > "${gjfMemberInfo.balanceMoney}"){
+		            		 layer.open({
+		                           content:"余额不足，请选择其他支付方式",
+		                           btn:'我知道了'
+		                       })
+		            		return false;
+		            	}else{
+		            		if(insVal=="on"){
+		            			$("#insurance-money").show();
+		            			$("#balance-money").hide();
+		            			$("#fh-treasure-money").hide();
+		            		}else if(balVal=="on"){
+		            			$("#insurance-money").hide();
+		            			$("#balance-money").show();
+		            			$("#fh-treasure-money").hide();
+		            			var payMo=${(totalAmount+pos)*0.1+(totalAmount+pos)};
+		            			$("#mo").html(payMo.toFixed(2));
+		            		}
+		            		
+		            	
+		            		if(couVal!="on"){
+		            			$(".pay-dustbox").show();
+		            		}else{
+		            			var status=$('#pay-cou:checked').attr("status");
+								if(nvatTpye=="1"){
+									ajaxAddOrderInApp(status)
+								}else{
+									ajaxAddOrder(status);
+								}
+		            		}
+		            		
+		            	}
+		            }
+				});	
+					//关闭浮动
+				$(".pay-aff-de").on("touchend",function(event){
+					$(".pay-dustbox").hide();
+					event.preventDefault();
+				});
+				//数字显示隐藏
+				$(".xiaq_tb").on("touchend",function(){
+					$(".numb_box").slideUp(500);
+				});
+				$(".pay-inputPassword").on("touchend",function(){
+					$(".numb_box").slideDown(500);
+				});
+				var i = 0;
+				var numberarrAy=[];//存储输入密码的数组
+				var payPassword="";
+				$(".nub_ggg li a").on("touchend",function(event){
+					i++
+					numberarrAy.push($(this).html());
+					payPassword=payPassword+$(this).html();
+					if(i<6){
+						$(".pay-inputPassword li").eq(i-1).addClass("mmdd");
+					}else{
+						$(".pay-inputPassword li").eq(i-1).addClass("mmdd");
+						$(".pay-password").hide(); 
+						$(".numb_box").hide();
+						
+						//进行密码校检，密码通过则下单成功
+						$(".payPassword").val(payPassword);
+						
+						var couVals=$('#pay-cou:checked').val();
+						var balVals=$('#pay-banl:checked').val();
+						var insVals=$('#pay-ins:checked').val();						
+						var fhVal=$('#pay-fh-treasure:checked').val()
+						if(couVals){
+							var status=$('#pay-cou:checked').attr("status");
+							if(nvatTpye=="1"){
+								ajaxAddOrderInApp(status)
+							}else{
+								ajaxAddOrder(status);
+							}
+							
+						}
+						if(balVals){
+							var status=$('#pay-banl:checked').attr("status");
+							if(nvatTpye=="1"){
+								ajaxAddOrderInApp(status)
+							}else{
+								ajaxAddOrder(status);
+							}							
+						}
+						if(insVals){
+							var status=$('#pay-ins:checked').attr("status");
+							if(nvatTpye=="1"){
+								ajaxAddOrderInApp(status)
+							}else{
+								ajaxAddOrder(status);
+							}
+						}
+						
+						if(fhVal){
+							var status=$('#pay-fh-treasure:checked').attr("status");
+							if(nvatTpye=="1"){
+								ajaxAddOrderInApp(status)
+							}else{
+								ajaxAddOrder(status);
+							}
+						}
+						
+					 }
+					 event.preventDefault(); 
+				});
+				//删除
+				$(".nub_ggg li .del").on("touchend",function(){
+					if(i>0){
+						i--
+						numberarrAy.pop();
+						$(".pay-inputPassword li").eq(i).removeClass("mmdd");
+						i==0;
+						payPassword=payPassword.substring(0,payPassword.length-1);
+						console.log(payPassword);
+					}
+				});
+
+				// 重试
+				$(".pay-reg").on("touchend",function(){
+					numberarrAy=[];
+					i = 0;
+					payPassword="";
+					$(".pay-inputPassword li").removeClass("mmdd");
+					$(".pay-pawError").hide();
+					$(".pay-password").show(); 
+					$(".numb_box").show();
+				})
+				
+				
+				$(".payOnline")
+				
+			}paysunb();
+		})
+		
+		
+	//微信下单
+	function ajaxAddOrder(payType){
+		$(".payType-add").val(payType);
+		$(".remark-add").val($(".pay-aff-text").val());
+		$(".orderAddressId-add").val($(".orderAddressId").val());
+		var pos="${pos}"
+		var pointNiceAmount="${pointNiceAmount}"
+       $.ajax({
+           url: '${ctx}/wx/order/add',
+           type: 'post',
+           dataType: 'json',
+           data: $("#order-add-form").serialize(),
+           success:function(data){
+        	   var code=data.code;
+        	   if(payType=='0'||payType=='9'||(payType=='7'&&pointNiceAmount==0)||(payType=='8'&&pointNiceAmount==0)){
+        		   if(code==401){
+            		   setTimeout(function(){
+    						$(".pay-pawError").show();  //500毫秒跳转
+    					},500);
+            	   }else if(code==200){
+            		   $(".pay-dustbox").hide()
+            		   layer.open({
+                          content:data.msg,
+                          btn:'我知道了',
+                          yes:function(){
+                        	  window.location.href="${ctx}/wx/order/my?pageNo=1&pageSize=6&status=7&reqType=0"
+                          }
+                      })
+            		   /* if(payType='0'){
+            			   window.location.href="${ctx}/wx/order/my"
+            		   } */
+            	   }else{
+            		  $(".pay-dustbox").hide();
+            		  layer.open({
+                          content:data.msg,
+                          btn:'我知道了'
+                      })
+            	   }
+        	   }else if(payType=='1'||(payType=='7'&&pointNiceAmount!=0)||(payType=='8'&&pointNiceAmount!=0)){
+        		   if(code==200){        			           			
+            		  //window.location.href="https://pay.swiftpass.cn/pay/jspay?token_id="+data.result;
+        			 //利楚  
+           			 wx.config({
+           			    debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+           			    appId: data.result.appId, // 必填，公众号的唯一标识
+           			    timestamp: data.result.timeStamp, // 必填，生成签名的时间戳
+           			    nonceStr: data.result.nonceStr, // 必填，生成签名的随机串
+           			    signature:data.result.paySign,// 必填，签名，见附录1
+           			    jsApiList: ['chooseWXPay'] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+           			}); 
+   	            	
+           			wx.ready(function(){
+           				wx.chooseWXPay({
+           				    timestamp: data.result.timeStamp, // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
+           				    nonceStr: data.result.nonceStr, // 支付签名随机串，不长于 32 位
+           				    package: data.result.package_,
+           				    // package: data.result.package_str, // 统一支付接口返回的prepay_id参数值，提交格式如：prepay_id=***）
+           				    signType: "MD5", // 签名方式，默认为'SHA1'，使用新版支付需传入'MD5'
+           				    paySign: data.result.paySign, // 支付签名
+           				    success: function (res) {
+           				        // 支付成功后的回调函数   
+           				    	if(res.errMsg == "chooseWXPay:ok" ) {
+              				    	 layer.open({
+              				                content: '支付成功',
+              				                btn: ['我知道了'],
+              				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+              				                	window.location.href="${ctx}/wx/member/myWallet"
+              				                    layer.close(index);
+              				                }                   				               
+              				           });	                       				     
+              				        } 
+           				    	if(res.errMsg == "chooseWXPay:cancel" ) {
+               				    	 layer.open({
+               				                content: '取消支付',
+               				                btn: ['我知道了'],
+               				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+               				                   $(".loading-middle").addClass("hidden");
+               		                            $(".btn").removeAttr("disabled");
+               				                    layer.close(index);
+               				                }                   				               
+               				           });	                       				     
+               				     }
+           				    	if(res.errMsg == "chooseWXPay:fail" ) {
+              				    	 layer.open({
+              				                content: '支付失败',
+              				                btn: ['我知道了'],
+              				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+              				                	$(".loading-middle").addClass("hidden");
+              		                            $(".btn").removeAttr("disabled");
+              				                    layer.close(index);
+              				                }                   				               
+              				           });	
+           				    	}
+           				    	}, 
+           				    
+           				});
+           			});  
+        		   }else{
+        			   layer.open({
+                           content:data.msg,
+                           btn:'我知道了'
+                       })
+        		   }
+        	   }
+        	   //$(".pay-dustbox").hide();
+           },
+           error:function(){
+        	   layer.open({
+                   content:'网络异常',
+                   btn:'我知道了'
+               })
+           }
+       })
+     }
+	    
+	   
+	 //APP下单
+	 function ajaxAddOrderInApp(payType){
+		 $(".payType-add").val(payType);
+			$(".remark-add").val($(".pay-aff-text").val());
+			$(".orderAddressId-add").val($(".orderAddressId").val());
+			var pos="${pos}"
+			var pointNiceAmount="${pointNiceAmount}"
+	       $.ajax({
+	           url: '${ctx}/appNeed/addOrder',
+	           type: 'post',
+	           dataType: 'json',
+	           data: $("#order-add-form").serialize(),
+	           success:function(data){
+	        	   var code=data.code;
+	        	   if(payType=='0'||payType=='9'||(payType=='7'&&pointNiceAmount==0)||(payType=='8'&&pointNiceAmount==0)){
+	        		   if(code==401){
+	            		   setTimeout(function(){
+	    						$(".pay-pawError").show();  //500毫秒跳转
+	    					},500);
+	            	   }else if(code==200){
+	            		   $(".pay-dustbox").hide()
+	            		   layer.open({
+	                          content:data.msg,
+	                          btn:'我知道了',
+	                          yes:function(){
+	                        	  window.location.href="${ctx}/wx/index/online"
+	                          }
+	                      })	            		   
+	            	   }else{
+	            		  $(".pay-dustbox").hide();
+	            		  layer.open({
+	                          content:data.msg,
+	                          btn:'我知道了'
+	                      })
+	            	   }
+	        	   }else if(payType=='1'){
+	        		   if(code==200){        			           			
+	        			   var u = navigator.userAgent;
+	         			  	var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Adr') > -1; //android终端
+	         			  	var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); //ios终
+	         			  	if(isiOS==true){
+	         			  	    document.location="test::wxpay:"+data.result.appid+"++++"+data.result.prepayid+"++++"+data.result.partnerid+"++++"+data.result.timestamp+"++++"+data.result.noncestr+"++++"+data.result.paySign+"++++"+data.result.out_trade_no;
+	         			  	}
+	         			  	if(isAndroid==true){
+	         			  	 
+	         			  	  window.AndroidWebView.wxPay(data.result.appid,data.result.partnerid,data.result.prepayid,data.result.timestamp,data.result.noncestr,data.result.paySign,data.result.out_trade_no);
+	         			  	}   
+	        		   }else{
+	        			   layer.open({
+	                           content:data.msg,
+	                           btn:'我知道了'
+	                       })
+	        		   }
+	        	   }else if(payType=="2"){
+	        		   if(code==200){        			           			
+	        			   var u = navigator.userAgent;
+	         			  	var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Adr') > -1; //android终端
+	         			  	var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); //ios终
+	         			  	if(isiOS==true){	         	  		
+	         			  		//alert(data.result.payString)
+	         			  	    document.location="test::pay:"+data.result.payString;
+	         			  	}
+	         			  	if(isAndroid==true){
+	         			  	
+	         			  	  window.AndroidWebView.wxPay(data.result.payString);
+	         			  	}   
+	        		   }else{
+	        			   layer.open({
+	                           content:data.msg,
+	                           btn:'我知道了'
+	                       })
+	        		   }
+	        	   }else if((payType=='7'&&pointNiceAmount!=0)||(payType=='8'&&pointNiceAmount!=0)){
+	        		   window.location.href="${ctx}/appNeed/pointNeedPay?payMoney="+pointNiceAmount+"&orderSn="+data.result.orderSn
+	        	   }
+	        	   //$(".pay-dustbox").hide();
+	           },
+	           error:function(){
+	        	   layer.open({
+	                   content:'网络异常',
+	                   btn:'我知道了'
+	               })
+	           }
+	       })
+	 }
+	    
+	 
+	 //微信H5下单
+	 function addOrderByH5Pay(payType){
+		    $(".payType-add").val(payType);
+			$(".remark-add").val($(".pay-aff-text").val());
+			$(".orderAddressId-add").val($(".orderAddressId").val());
+			$("#order-add-form").attr("action","${ctx}/wx/order/payH5")
+			$("#order-add-form").submit()	       
+	 }
+		
+	 //选择收货地址
+	 var addressId=sessionStorage.getItem("addreId")
+	 //alert(addressId)
+	 var goodSource="${goodSource}"
+	 if(addressId!=undefined&&addressId!=null){
+		 $(".pay-aff-arr").html("")
+		 $.ajax({
+			 url:"${ctx}/wx/order/getMemAddreById",
+			 method:"GET",
+			 data:{
+				 orderAddressId:addressId,
+				 goodSource:goodSource,
+			 },
+			 success:function(data){
+				 var str="<div class='pay-add'><p>"
+					    +"<span>收货人：</span>"
+					    +"<span class='pay-addname'>"+data.result.consigneeName+"</span>"
+					    +"<i>"+data.result.mobile+"</i></p>"
+				        +"<p class='pay-af-add'><span>收货地址：</span><i>"
+				        +data.result.proviceId.province
+				        if(data.result.cityId){
+				         str+=""+data.result.cityId.city
+				        }
+				       if(data.result.areaId){
+			              str+=""+data.result.areaId.area
+			           }
+				       if(data.result.townId){
+				              str+=""+data.result.townId.townName
+				        }
+				       str+=data.result.addressDetail					   
+				        +"</i></p><input type='hidden' class='orderAddressId' value='"+data.result.id+"'></div>"
+				        
+				  $(".pay-aff-arr").html(str)
+			 }
+		 }) 
+	 }
+	 
+	 
+	 
+	 
+	//友品集下单
+	 function ajaxAddOrderInNetFriend(payType){
+		    $(".payType-add").val(payType);
+			$(".remark-add").val($(".pay-aff-text").val());
+			$(".orderAddressId-add").val($(".orderAddressId").val());
+			var pos="${pos}"
+			var pointNiceAmount="${pointNiceAmount}"
+	       $.ajax({
+	           url: '${ctx}/appNeed/addOrder',
+	           type: 'post',
+	           dataType: 'json',
+	           data: $("#order-add-form").serialize(),
+	           success:function(data){
+	        	   var code=data.code;
+	        	   if(code==200){
+	        		   netPay(data.result.jdOrderSn,"5"); 
+	        	   }
+	           },
+	           error:function(){
+	        	   layer.open({
+	                   content:'网络异常',
+	                   btn:'我知道了'
+	               })
+	           }
+	       })
+	 }
+	 
+	 //友品集商品支付
+	 function netPay(orderSn,payType){
+		 alert(orderSn)
+		 window.location.href="${ctx}/wx/product/payNetFriend?osn="+orderSn+"&pay_type="+payType		
+	 }
+	 
+	</script>
+</body>
+</html>

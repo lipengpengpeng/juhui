@@ -1,0 +1,81 @@
+package cc.messcat.dao.collection;
+
+import java.util.List;
+import java.util.Map;
+
+import cc.messcat.entity.GjfProductInfo;
+import cc.messcat.entity.McProductInfo;
+import cc.messcat.gjfeng.common.bean.Pager;
+
+public interface McProductInfoDao {
+
+	public void save(McProductInfo mcProductInfo);
+
+	public void update(McProductInfo mcProductInfo, Boolean flag);
+
+	public void delete(McProductInfo mcProductInfo);
+
+	public void delete(Long id);
+
+	public McProductInfo get(Long id);
+	
+	public GjfProductInfo getProduct(Long id);
+
+	@SuppressWarnings("unchecked")
+	public List findAll();
+
+	public Pager getPager(int pageSize, int pageNo);
+
+	public List findMcProductInfoByWhere(String where);
+
+	public List retrieveAllDateClass();
+
+	public List retrieveAllProductByNewsAndDateClass(String date);
+
+	public Pager getPagerNoRelate(int pageSize, int pageNo);
+
+	public Pager retrieveMcProductInfosPagerRelate(int pageSize, int pageNo, Long serviceCarId);
+
+	public Pager retrieveMcProductInfosPagerNoRelate(int pageSize, int pageNo, Long serviceCarId);
+
+	/**
+	 * 根据产品名称模糊查询与服务车型无关的相关产品
+	 * 
+	 * @param pageSize2
+	 * @param pageNo2
+	 * @param serviceCarId
+	 * @return
+	 */
+	public Pager retrieveMcProductInfosPagerNoRelateWithProName(int pageSize, int pageNo, Long serviceCarId, String productName);
+
+	/**
+	 * 根据商家ID和状态（在售和仓库）取店铺的所有商品
+	 * 
+	 * @param memberId
+	 * @param status
+	 * @return
+	 */
+	public List<McProductInfo> findProductByMember(Long memberId, String status);
+
+	/**
+	 * 商品分页查询
+	 */
+	public Pager findProduct4PageByMember(Map<String, Object> paramMap);
+
+	/**
+	 * 获取商家商品
+	 * 
+	 * @param paramMap
+	 * @return
+	 */
+	public Pager findMcProductByStoreId(Map paramMap);
+
+	public McProductInfo findMcProductByTitle(String title);
+
+	/**
+	 * 根据店铺id查询热销、新、收藏产品
+	 */
+	public List<McProductInfo> findMcProductInfosByCondition(Map<String, Object> paramMap);
+
+	McProductInfo findMcProductByStoreIdAndSerial(Long storeId, String serial);
+}

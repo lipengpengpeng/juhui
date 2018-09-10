@@ -1,0 +1,162 @@
+body {
+	font-size: 10pt;
+}
+a:link {color: #000000;text-decoration: none;}
+a:visited {text-decoration: none;}
+a:hover {color: #FF3333;text-decoration: underline;}
+a:active {color: #000000;text-decoration: none;}
+
+/*default*/
+.default_button {
+BORDER: #2C59AA 1px solid; PADDING: 2px;
+FILTER:progid:DXImageTransform.Microsoft.Gradient(GradientType=0,StartColorStr=#ffffff, EndColorStr=#C3DAF5);
+background:#FFFFFF;
+}
+.default_text {
+BORDER: #cccccc 1px solid; PADDING: 2px;
+}
+
+a img{border:0px;}
+
+
+.STYLE1{
+	font-size: 12px
+	}
+.STYLE3{
+	font-size: 12px;
+	font-weight: bold;
+	}
+.STYLE4 {
+	color: #03515d;
+	font-size: 12px;
+}
+.listTable1{
+	width:100%;
+	border:0px;
+}
+
+.listTable2{
+	width:100%;
+	border:0px;
+}
+
+
+/*listView,tableView*/
+.listView,.tableView{
+	color: #4f6b72;
+	background: #cccccc
+}
+
+.tableView select
+{
+	width: 100px;
+}
+
+.tableView th {
+	font: bold 12px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	color: #4f6b72;
+	/*border: 1px solid #97c8ff;*/
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	text-align: left;
+	padding: 6px 6px 6px 12px;
+	background: #b9e6fd  no-repeat;
+}
+
+
+.listView th {
+	font: bold 12px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	color: #4f6b72;
+	/*border: 1px solid #97c8ff;*/
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	text-align: left;
+	padding: 2px 6px 1px 12px;
+	background: #b9e6fd  no-repeat;
+}
+
+.listView_even {
+	background:#FFFFFF;
+}
+.listView_odd {
+	background:#FaFaFa;
+}
+.listView_mouseover {
+	background:#effaff;
+}
+
+.listView th a:link {color: #4f6b72}
+.listView th a:visited {color: #4f6b72}
+.listView th a:hover {color: #4f6b72}
+.listView th a:active {color: #4f6b72}
+
+.tableView td{
+	/*border: 1px solid #97c8ff;*/
+	font-size:12px;
+	padding: 6px 6px 6px 12px;
+	color: #4f6b72;
+	background:#FFFFFF;
+}
+
+.listView td {
+	/*border: 1px solid #97c8ff;*/
+	font-size:12px;
+	padding: 2px 6px 1px 12px;
+	color: #4f6b72;
+}
+
+/*title*/
+#title
+{
+	background: #eeedf4;
+	height:30px;
+	text-align:center;
+	line-height:30px;
+}
+
+#title .text
+{
+	color:#6c8df8;
+	font-weight:bold;
+	font-size: 20px;
+}
+
+#title .help-icon
+{
+	background: url("help.gif");width:48px;height:18px;overflow:hidden;
+	position: absolute;left:100%;top:27px;margin:0 0 0 -47px;
+	cursor: pointer;
+	background-repeat: no-repeat;
+}
+#title .help
+{
+	background:white;width:300px;height:300px;overflow-x:hidden;overflow-y:auto;
+	position: absolute;top:40px;left:100%;margin:0 0 0 -324px;
+	border-style:solid;border-color:#999999;border-width: 1px;
+	z-index: 1002;display: none;
+}
+.displayBox
+{
+	cursor: pointer; width: 100%; height: 100%; top: 0pt; left: 0pt; position: absolute; background-color: #FFFFFF; opacity: 0.2;filter:alpha(opacity=20);;display:none;
+	z-index: 1001;
+}
+
+table,tbody, tfoot, thead, tr, th, td { padding:0; margin:0; font-size:12px;  font-family:Arial, sans-serif;}
+/* Tables still need 'cellspacing="0"' in the markup. */
+table { border-collapse:separate; border-spacing:0;}
+caption, th, td { text-align:left; font-weight:normal;}
+
+.btn_2k3{
+			border-right: #002D96 1px solid; 
+			padding-right: 2px; 
+			border-top: #002D96 1px solid; 
+			padding-left: 2px; 
+			font-size: 12px; 
+			filter: progid:DXImageTransform.Microsoft.Gradient(GradientType=0, StartColorStr=#FFFFFF, EndColorStr=#9DBCEA); 
+			border-left: #002D96 1px solid; 
+			cursor: hand; 
+			color: black; 
+			padding-top: 2px; 
+			border-bottom: #002D96 1px solid;
+			width:60px;
+		}

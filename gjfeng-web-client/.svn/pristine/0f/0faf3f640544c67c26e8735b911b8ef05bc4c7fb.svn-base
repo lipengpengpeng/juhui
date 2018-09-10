@@ -1,0 +1,130 @@
+package cc.messcat.gjfeng.web.wechat;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.vo.app.OrderAddVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.dubbo.core.GjfCartInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.util.SessionUtil;
+
+@Controller
+@RequestMapping("wx/cart/")
+public class CartController extends BaseController {
+
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("cartInfoDubbo")
+	private GjfCartInfoDubbo cartInfoDubbo;
+	
+	@Autowired
+	@Qualifier("memberInfoDubbo")
+	private GjfMemberInfoDubbo memberInfoDubbo;
+
+	/**
+	 * @描述 我的购物车
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "my", method = RequestMethod.GET)
+	public ModelAndView toMyCart() {
+		Map<String, Object> model = new HashMap<String, Object>();
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			GjfMemberInfo member=memberInfoDubbo.findMember(account);
+			if("0".equals(member.getMerchantType())){
+				model.put("merchantType", "0");
+			}else if("1".equals(member.getMerchantType())){
+				model.put("merchantType", "1");
+			}else{
+				model.put("merchantType", "2");	
+			}
+			model.put("resultVo", resultVo = cartInfoDubbo.findMyCart(account));
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, CartController.class);
+			model.put("resultVo", resultVo);
+		}
+		return new ModelAndView("wx/online-shop/goods-car", model);
+	}
+
+	/**
+	 * @描述 添加商品到购物车
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param proId
+	 * @param proAttrId
+	 * @param num
+	 * @return
+	 */
+	@RequestMapping(value = "add", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addCart(OrderAddVo orderAddVo) {
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			resultVo = cartInfoDubbo.addCart(orderAddVo, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, CartController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 修改购物车商品数量
+	 * @author Karhs
+	 * @date 2017年1月17日
+	 * @param id
+	 * @param goodsNum
+	 * @return
+	 */
+	@RequestMapping(value = "update", method = RequestMethod.POST)
+	@ResponseBody
+	public Object updateCart(@RequestParam("id") Long id, @RequestParam("goodsNum") Long goodsNum) {
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			resultVo = cartInfoDubbo.updateCartNum(id, goodsNum, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, CartController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 删除购物车商品
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param proId
+	 * @param proAttrId
+	 * @param num
+	 * @return
+	 */
+	@RequestMapping(value = "del/{id}", method = RequestMethod.GET)
+	@ResponseBody
+	public Object delCart(@PathVariable("id") Long id) {
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			resultVo = cartInfoDubbo.delCart(id, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, CartController.class);
+		}
+		return resultVo;
+	}
+}

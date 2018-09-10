@@ -1,0 +1,1 @@
+<% response.sendRedirect("http://jfh.jfeimao.com/gjfeng-web-client/wx/index/o2o"); %>

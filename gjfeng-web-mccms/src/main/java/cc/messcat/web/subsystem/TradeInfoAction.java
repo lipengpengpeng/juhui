@@ -1,0 +1,1065 @@
+package cc.messcat.web.subsystem;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.struts2.ServletActionContext;
+
+import com.opensymphony.xwork2.ActionContext;
+
+import cc.messcat.entity.Users;
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.fastpay.payForOther.FastPayDemoTest;
+import cc.messcat.gjfeng.common.fastpay.payForOther.RechargeTest;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.config.WaixiConfig;
+import cc.messcat.gjfeng.entity.GjfMemberTrade;
+import cc.messcat.gjfeng.entity.GjfMemberTradeBenefit;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDivi;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDiviHistory;
+import cc.messcat.gjfeng.entity.GjfRechargePaid;
+import cc.messcat.gjfeng.entity.GjfSetDividends;
+import cc.messcat.gjfeng.entity.GjfWeiXinPayInfo;
+import cc.modules.commons.PageAction;
+import net.sf.json.JSONObject;
+
+public class TradeInfoAction extends PageAction {
+
+	private static final long serialVersionUID = 1L;
+
+	private Long id;
+	private int code;
+	private String token;
+	private String tradeStatus;
+	private List<GjfMemberTradeDivi> gjfMemberTradeDivis;
+	private List<GjfMemberTradeDiviHistory> gjfMemberTradeDiviHistories;
+	private List<GjfMemberTradeBenefit> gjfMemberTradeBenefits;
+
+	private Long memberId;
+	private String payType;
+	private String payStatus;
+	private String diviStatus;
+	private String name;
+	private String storeName;
+	private String tradeType;
+	private String nameType;
+	private String ste;// 1:导出操作
+	private String op;
+	private String addTime;
+	private String endTime;
+	private String tradeNo;
+	private String payTradeNo;
+	private String holder;
+	private String bankCard;
+	private String mobile;
+	private String directMemberName;
+	private String directMerchantsName;
+	private String startDate;
+	private String endDate;
+
+	private Object object;
+	private GjfMemberTradeBenefit gjfMemberTradeBenefit;
+
+	private GjfWeiXinPayInfo weixinInfo;
+	private BigDecimal totalTradeMoney;
+	private GjfSetDividends setDivi;
+	
+    private String accNo;
+    private String holerName;
+    private BigDecimal tanamt;
+    
+    private String memberName;
+    private String transferMemberName;
+    private String memberMobile;
+    private String transferMemberMobile;
+    
+    private String shouxinType;
+    
+	public String preDrawCashStatus(){
+		try {
+			Map session = (Map) ActionContext.getContext().getSession();
+			Users users = (Users)session.get("users");
+			resultVo = tradeDubbo.preDrawCashStatus(id, token, users.getName());
+		} catch (NullPointerException e) {
+			resultVo = LoggerPrint.getResult(e, TradeInfoAction.class);
+			// TODO: handle exception
+		}
+		code = resultVo.getCode();
+		return SUCCESS;
+	}
+	
+
+	public String updateDrawCashStatus() {
+		try {
+			Map session = (Map) ActionContext.getContext().getSession();
+			Users users = (Users)session.get("users");
+			resultVo=tradeDubbo.updateDrawCashStatus(id, token, tradeStatus,users.getName());
+
+		} catch (Exception e) {
+
+			resultVo = LoggerPrint.getResult(e, TradeInfoAction.class);
+		}
+		return "turn_withdrawal";
+	}
+
+	/**
+	 * 审核提现信息
+	 * 
+	 * @return
+	 */
+	public String auditWithdrawal() {
+		try {
+			Map session = (Map) ActionContext.getContext().getSession();
+			Users users = (Users) session.get("users");
+			resultVo = tradeDubbo.updateDrawCashStatus(id, token, tradeStatus, users.getName());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeInfoAction.class);
+		}
+		code = resultVo.getCode();
+		return SUCCESS;
+	}
+
+	/**
+	 * 获取全部提现记录
+	 */
+	@SuppressWarnings("rawtypes")
+	public String findAllTrade() {
+		try {
+			resultVo = tradeDubbo.findAllTradeInBack(pageNo, pageSize, memberId, holder, bankCard, mobile, addTime,
+					endTime, tradeStatus, ste, id);
+			pager = (Pager) resultVo.getResult();
+			List list = (List) tradeDubbo
+					.findTradeAmountInBack(holder, bankCard, mobile, addTime, endTime, tradeStatus, id).getResult();
+			object = list.get(0);
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "trade_export";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return SUCCESS;
+	}
+
+	/**
+	 * 查询提现详细信息
+	 * 
+	 * @return
+	 */
+	public String findMemberTradeDetail() {
+		try {
+			resultVo = tradeDubbo.findDrawCashHistory(id, token);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "withdrawal_detail";
+	}
+
+	/**
+	 * 提现记录
+	 * 
+	 * @return
+	 */
+
+	public String getWithdrawalDetail() {
+		try {
+			resultVo = tradeDubbo.findDrawCashHistory(id, token);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "view_detail";
+	}
+
+	/**
+	 * 查找分红权购买记录 分页 模糊查询
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public String retrieveDiviByPager() {
+		try {
+			resultVo = tradeDubbo.findTradeDiviByPage(pageNo, pageSize, name, payStatus, diviStatus, startDate,
+					endDate);
+			List list = (List) tradeDubbo.findCountTradeDivi(name, payStatus, diviStatus).getResult();
+			object = list.get(0);
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "Divi";
+	}
+
+	/**
+	 * 查找分红交易记录 分页 模糊查询
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings({ "rawtypes" })
+	public String retrieveDiviHistoryByPager() {
+		try {
+			resultVo = tradeDubbo.findMemberTradeDiviHistoryByPage(pageNo, pageSize, name, addTime, endTime, tradeNo,
+					tradeType, tradeStatus);
+			List list = (List) tradeDubbo
+					.findCountTradeDiviHistory(directMemberName, addTime, endTime, payTradeNo, tradeType, tradeStatus)
+					.getResult();
+			object = list.get(0);
+			this.pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "DiviHistory";
+	}
+
+	/**
+	 * 查询商家让利记录 分页 模糊查询
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public String retrieveMemberTradeBenefitByPage() {
+		try {
+			resultVo = tradeDubbo.findBenefitByPage(pageNo, pageSize, name, storeName, payType, tradeStatus, addTime,
+					endTime, ste, directMemberName, directMerchantsName);
+			this.pager = (Pager) resultVo.getResult();
+			this.gjfMemberTradeBenefits = pager.getResultList();
+			List list = (List) tradeDubbo.findBenefitAmountInBack(name, storeName, addTime, endTime, directMemberName,
+					directMerchantsName, tradeStatus, payType).getResult();
+			object = list.get(0);
+			/*
+			 * if ("1".equals(op)) { return "benefit_list"; }
+			 */
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "trade_benefit_export";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "benefit";
+	}
+
+	/**
+	 * 根据Id查询让利详细信息
+	 * 
+	 * @return
+	 */
+	public String retrieveMemberTradeBenefitById() {
+		try {
+			resultVo = tradeDubbo.findMemberTradeBenefitById(id, token);
+			gjfMemberTradeBenefit = (GjfMemberTradeBenefit) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "benefit_view";
+	}
+
+	/**
+	 * 查询支付明细
+	 * 
+	 * @return
+	 * @throws ParseException
+	 */
+	public String retrieveTradeLogByPage() throws ParseException {
+		try {
+			resultVo = tradeDubbo.findTradeLogByPage(pageNo, pageSize, ste, name, storeName, addTime, endTime, tradeNo,
+					payTradeNo, tradeType, tradeStatus);
+			totalTradeMoney = (BigDecimal) tradeDubbo.findCountTradeLog(directMemberName, storeName, addTime, endTime,
+					tradeNo, payTradeNo, tradeType, tradeStatus).getResult();
+			this.pager = (Pager) resultVo.getResult();
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "trade_log_export";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "trade_log_list";
+	}
+
+	/**
+	 * 查询所有分红发放成功记录
+	 * 
+	 * @return
+	 */
+	public String findAllTradeDiviHistory() {
+		try {
+			resultVo = tradeDubbo.findALLTradeDiviHistoryByPage(pageNo, pageSize);
+			this.pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "all_Trade_History";
+	}
+
+	/**
+	 * 获取全部微信配置信息
+	 * 
+	 * @return
+	 */
+	public String findAllWeiXinInfo() {
+		try {
+			resultVo = tradeDubbo.findAllWeiXinInfo(pageNo, pageSize);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "all_weixin_info";
+	}
+
+	/**
+	 * 跳到新增微信信息页面
+	 * 
+	 * @return
+	 */
+	public String goNewWeiXinInfo() {
+
+		return "newPage";
+	}
+
+	/**
+	 * 添加微信信息
+	 * 
+	 * @return
+	 */
+	public String newWeiXinInfo() {
+		try {
+			resultVo = tradeDubbo.addWeiXinInfo(weixinInfo);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "new_weixin_info";
+	}
+
+	/**
+	 * 启用微信信息
+	 */
+	public String openWeiXinInfo() {
+		try {
+			resultVo = tradeDubbo.updateWeiInfos(weixinInfo.getId());
+			new Thread(new Runnable() {
+
+				@Override
+				public void run() {
+					WaixiConfig.requestClientReload();
+					System.out.println("请求完成");
+				}
+			}).start();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "new_weixin_info";
+	}
+
+	/**
+	 * 启用微信信息
+	 */
+	public String getWeiXinInfoById() {
+		try {
+			resultVo = tradeDubbo.findWeiXinInfoById(id);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "views_weixinInfo";
+	}
+
+	/**
+	 * 更新微信信息
+	 * 
+	 * @return
+	 */
+	public String updateWeiXinInfo() {
+		try {
+			resultVo = tradeDubbo.updateWeiXinInfo(weixinInfo);
+			new Thread(new Runnable() {
+
+				@Override
+				public void run() {
+					WaixiConfig.requestClientReload();
+					System.out.println("请求完成");
+				}
+			}).start();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "update_weixinInfo";
+	}
+
+	/**
+	 * 获取全部分红权设置信息
+	 * 
+	 * @return
+	 */
+	public String getAllSetDividens() {
+		try {
+			resultVo = tradeDubbo.findAllDividends(pageNo, pageSize);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "all_setDiv";
+	}
+
+	/**
+	 * 跳转到新增页面
+	 * 
+	 * @return
+	 */
+	public String goNewsDivis() {
+		return "goNewPage";
+	}
+
+	/**
+	 * 新增分红权设置信息
+	 * 
+	 * @return
+	 */
+	public String newSetDivi() {
+		try {
+			resultVo = tradeDubbo.addDividensData(setDivi);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return getAllSetDividens();
+	}
+
+	/**
+	 * 跳转到编辑页面
+	 * 
+	 * @return
+	 */
+	public String goEditDivs() {
+		try {
+			resultVo = tradeDubbo.findDividendsById(setDivi.getId());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "goEditPage";
+	}
+
+	/**
+	 * 编辑分红权个数信息
+	 * 
+	 * @return
+	 */
+	public String editDivs() {
+		try {
+			resultVo = tradeDubbo.modifyDividensData(setDivi);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return getAllSetDividens();
+	}
+
+	/**
+	 * 删除分红权设置信息
+	 * 
+	 * @return
+	 */
+	public String deleteDivs() {
+		try {
+			resultVo = tradeDubbo.removeDividensData(setDivi.getId());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return getAllSetDividens();
+	}
+
+	/**
+	 * 代付
+	 */
+	public String paidPay() {
+		JSONObject json = new JSONObject();
+		try {			
+			// 判断添加提现记录是否成功
+			GjfMemberTrade trade = (GjfMemberTrade)tradeDubbo.findMemberTradeByOrderSn(tradeNo).getResult();
+			// 获取动态秘钥
+			String dypass = RechargeTest.getDyPass(trade.getTradeNo());
+			if (!BeanUtil.isValid(dypass)) {				
+				json = JSONObject.fromObject(new ResultVo(400, "获取动态秘钥失败", null));
+			}
+			// 计算支付金额
+			BigDecimal tradeMoney = trade.getTradeMoney().add(new BigDecimal(0.5));
+			Map<String, String> map = RechargeTest.payForOther(trade.getTradeNo(), dypass,
+					String.valueOf(tradeMoney.doubleValue()), trade.getMemberId().getName(), trade.getBankId().getBankCard(),
+					CommonProperties.GJFENG_PAID_PAY_NOTIFY_URL);
+			if (map == null) {				
+				json = JSONObject.fromObject(new ResultVo(400, "请求代付失败，请重新请求", null));
+			}
+			if ("00".equals(map.get("resultCode"))) {
+				json = JSONObject.fromObject(new ResultVo(200, "代付成功", null));
+			}
+			if (!"00".equals(map.get("resultCode"))) {				
+				json = JSONObject.fromObject(new ResultVo(400, map.get("resultDesc"), null));
+			}			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 跳转到代付列表页面
+	 * @return
+	 */
+	public String goPaidPayPage(){
+		try{
+			
+			resultVo = tradeDubbo.findRechargePaid(pageNo, pageSize);
+			pager = (Pager) resultVo.getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "goPaidPayPage";
+	}
+	/**
+	 * 跳转到代付充值页面
+	 * @return
+	 */
+	
+	public String goNewPaidRecodePage(){
+		return "goNewPaidRecodePage";
+	}
+	/**
+	 * 新增代付充值记录
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public String newRecharPaid(){
+		JSONObject json = new JSONObject();
+		GjfRechargePaid rechargePaid=new GjfRechargePaid();
+		try{
+			
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+			String orderId = sdf.format(new Date()) + System.currentTimeMillis();
+			rechargePaid.setOrderSn(orderId);
+			rechargePaid.setAccNo(accNo);
+			rechargePaid.setHolerName(holerName);
+			rechargePaid.setTanAmt(tanamt);
+			Map session = (Map)ActionContext.getContext().getSession();
+			Users users=(Users) session.get("users");
+			rechargePaid.setOperationName(users.getLoginName());
+			String dypass=RechargeTest.getDyPass(orderId);
+			Map<String, String> map=RechargeTest.rechargeApply(orderId, dypass, accNo, holerName, String.valueOf(tanamt.doubleValue()));
+			if(map==null){
+				json = JSONObject.fromObject(new ResultVo(400, "代付请求失败", null));
+			}
+			if("00".equals(map.get("resultCode"))){				
+				rechargePaid.setOrderStatus("1");
+				rechargePaid.setRmark(map.get("resultDesc"));
+				resultVo = tradeDubbo.addRechargeRecord(rechargePaid);
+				json = JSONObject.fromObject(resultVo);
+				
+			}
+			if(!"00".equals(map.get("resultCode"))){				
+				 rechargePaid.setOrderStatus("0");
+				 rechargePaid.setRmark(map.get("resultDesc"));
+				 tradeDubbo.addRechargeRecord(rechargePaid);
+				 json = JSONObject.fromObject(new ResultVo(400, map.get("resultDesc"), null));				 
+			}
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 获取积分转移流水
+	 * @return
+	 */
+	public String findMemberPointHistory(){
+		try{
+			resultVo=tradeDubbo.findMemberPointByPager(pageNo, pageSize, memberName, transferMemberName, memberMobile, transferMemberMobile,"0");
+			pager = (Pager) resultVo.getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "transfer_point_history";
+	}
+	
+	/**
+	 * 获取合并用户信息流水
+	 * @return
+	 */
+	public String findMergeMemberHistory(){
+		try{
+			resultVo=tradeDubbo.findMemberPointByPager(pageNo, pageSize, memberName, transferMemberName, memberMobile, transferMemberMobile,"1");
+			pager = (Pager) resultVo.getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "merge_member_history";
+	}
+	
+	/**
+	 * 获取用户合并信息详情
+	 * @return
+	 */
+	public String findMemberMergeDetailById(){
+		try{
+			resultVo=tradeDubbo.findMemberMergeDetailById(id);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "member_merge_detail";
+	}
+	
+	/**
+	 * 获取授信记录
+	 */
+	public String findShouxinHistory(){
+		try{
+			resultVo=tradeDubbo.findShouxinHistory(pageNo, pageSize, shouxinType);
+			pager = (Pager) resultVo.getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "shouxin_history";
+	}
+	
+	/**
+	 * 获取授信详细信息
+	 * @return
+	 */
+	public String findShouxinDetailById(){
+		try{
+			resultVo=tradeDubbo.findShouxinById(id);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "shouxin_detail";
+	}
+	
+	/**
+	 * 审核授信记录
+	 * @return
+	 */
+	public String aduilShouxinStatus(){
+		try{
+			tradeDubbo.updateShouxinStatus(id, tradeStatus);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return findShouxinHistory();
+	}
+	
+	/**
+	 * 获取凤凰宝交易记录
+	 * @return
+	 */
+	public String findFhTreasureTradeHistory(){
+		try{
+			resultVo=tradeDubbo.findFhTreasureTradeHistoryByCondition(pageNo, pageSize, tradeType, memberName, mobile);
+			pager = (Pager) resultVo.getResult();
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "treasure_export";
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "fh_treasure_history";
+	}
+	
+	/**
+	 * 获取代金券交易记录
+	 * @return
+	 */
+	public String findMemberVoucherc(){
+		try{
+			resultVo=tradeDubbo.findMemberVouchers(memberName, mobile, pageNo, pageSize);
+			pager = (Pager) resultVo.getResult();
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "voucher_export";
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "vouchers_trade_history";
+	}
+	
+	
+	/**
+	 * 获取
+	 * @return
+	 */
+	public String findMerchantUpgradeHistory(){
+		try{
+			resultVo=tradeDubbo.findMemberUpgradeHistory(pageNo, pageSize,tradeType,mobile,memberName);
+			pager = (Pager) resultVo.getResult();
+			if ("1".equals(ste)) { // 导出操作
+				request = ServletActionContext.getRequest();// 获取请求对象;
+				return "merchant_upgrade_export";
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "merchant_upgrade_history";
+	}
+	
+	
+	/**
+	 * 后台充值积分
+	 */
+	@SuppressWarnings("rawtypes")
+	public String addRechargeIntegralInBack() {
+		JSONObject json = new JSONObject();
+		try {	
+			Map session = (Map) ActionContext.getContext().getSession();
+			Users users = (Users) session.get("users");
+			resultVo=tradeDubbo.addRechargeIntegralInBack(users.getName(),memberMobile,totalTradeMoney.doubleValue());				
+			json = JSONObject.fromObject(resultVo);						
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+
+	public String getAccNo() {
+		return accNo;
+	}
+
+	public void setAccNo(String accNo) {
+		this.accNo = accNo;
+	}
+
+	public String getHolerName() {
+		return holerName;
+	}
+
+	public void setHolerName(String holerName) {
+		this.holerName = holerName;
+	}
+
+	public BigDecimal getTanamt() {
+		return tanamt;
+	}
+
+	public void setTanamt(BigDecimal tanamt) {
+		this.tanamt = tanamt;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public String getTradeStatus() {
+		return tradeStatus;
+	}
+
+	public void setTradeStatus(String tradeStatus) {
+		this.tradeStatus = tradeStatus;
+	}
+
+	public List<GjfMemberTradeDivi> getGjfMemberTradeDivis() {
+		return gjfMemberTradeDivis;
+	}
+
+	public void setGjfMemberTradeDivis(List<GjfMemberTradeDivi> gjfMemberTradeDivis) {
+		this.gjfMemberTradeDivis = gjfMemberTradeDivis;
+	}
+
+	public List<GjfMemberTradeDiviHistory> getGjfMemberTradeDiviHistories() {
+		return gjfMemberTradeDiviHistories;
+	}
+
+	public void setGjfMemberTradeDiviHistories(List<GjfMemberTradeDiviHistory> gjfMemberTradeDiviHistories) {
+		this.gjfMemberTradeDiviHistories = gjfMemberTradeDiviHistories;
+	}
+
+	public List<GjfMemberTradeBenefit> getGjfMemberTradeBenefits() {
+		return gjfMemberTradeBenefits;
+	}
+
+	public void setGjfMemberTradeBenefits(List<GjfMemberTradeBenefit> gjfMemberTradeBenefits) {
+		this.gjfMemberTradeBenefits = gjfMemberTradeBenefits;
+	}
+
+	public String getPayType() {
+		return payType;
+	}
+
+	public void setPayType(String payType) {
+		this.payType = payType;
+	}
+
+	public String getPayStatus() {
+		return payStatus;
+	}
+
+	public void setPayStatus(String payStatus) {
+		this.payStatus = payStatus;
+	}
+
+	public String getDiviStatus() {
+		return diviStatus;
+	}
+
+	public void setDiviStatus(String diviStatus) {
+		this.diviStatus = diviStatus;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getTradeType() {
+		return tradeType;
+	}
+
+	public void setTradeType(String tradeType) {
+		this.tradeType = tradeType;
+	}
+
+	public String getNameType() {
+		return nameType;
+	}
+
+	public void setNameType(String nameType) {
+		this.nameType = nameType;
+	}
+
+	public String getSte() {
+		return ste;
+	}
+
+	public void setSte(String ste) {
+		this.ste = ste;
+	}
+
+	public String getOp() {
+		return op;
+	}
+
+	public void setOp(String op) {
+		this.op = op;
+	}
+
+	public Long getMemberId() {
+		return memberId;
+	}
+
+	public void setMemberId(Long memberId) {
+		this.memberId = memberId;
+	}
+
+	public String getStoreName() {
+		return storeName;
+	}
+
+	public void setStoreName(String storeName) {
+		this.storeName = storeName;
+	}
+
+	public String getAddTime() {
+		return addTime;
+	}
+
+	public void setAddTime(String addTime) {
+		this.addTime = addTime;
+	}
+
+	public String getTradeNo() {
+		return tradeNo;
+	}
+
+	public void setTradeNo(String tradeNo) {
+		this.tradeNo = tradeNo;
+	}
+
+	public String getPayTradeNo() {
+		return payTradeNo;
+	}
+
+	public void setPayTradeNo(String payTradeNo) {
+		this.payTradeNo = payTradeNo;
+	}
+
+	public String getHolder() {
+		return holder;
+	}
+
+	public void setHolder(String holder) {
+		this.holder = holder;
+	}
+
+	public String getBankCard() {
+		return bankCard;
+	}
+
+	public void setBankCard(String bankCard) {
+		this.bankCard = bankCard;
+	}
+
+	public String getMobile() {
+		return mobile;
+	}
+
+	public void setMobile(String mobile) {
+		this.mobile = mobile;
+	}
+
+	public Object getObject() {
+		return object;
+	}
+
+	public void setObject(Object object) {
+		this.object = object;
+	}
+
+	public GjfMemberTradeBenefit getGjfMemberTradeBenefit() {
+		return gjfMemberTradeBenefit;
+	}
+
+	public void setGjfMemberTradeBenefit(GjfMemberTradeBenefit gjfMemberTradeBenefit) {
+		this.gjfMemberTradeBenefit = gjfMemberTradeBenefit;
+	}
+
+	public String getEndTime() {
+		return endTime;
+	}
+
+	public void setEndTime(String endTime) {
+		this.endTime = endTime;
+	}
+
+	public String getDirectMemberName() {
+		return directMemberName;
+	}
+
+	public void setDirectMemberName(String directMemberName) {
+		this.directMemberName = directMemberName;
+	}
+
+	public String getDirectMerchantsName() {
+		return directMerchantsName;
+	}
+
+	public void setDirectMerchantsName(String directMerchantsName) {
+		this.directMerchantsName = directMerchantsName;
+	}
+
+	public GjfWeiXinPayInfo getWeixinInfo() {
+		return weixinInfo;
+	}
+
+	public void setWeixinInfo(GjfWeiXinPayInfo weixinInfo) {
+		this.weixinInfo = weixinInfo;
+	}
+
+	public int getCode() {
+		return code;
+	}
+
+	public void setCode(int code) {
+		this.code = code;
+	}
+
+	public BigDecimal getTotalTradeMoney() {
+		return totalTradeMoney;
+	}
+
+	public void setTotalTradeMoney(BigDecimal totalTradeMoney) {
+		this.totalTradeMoney = totalTradeMoney;
+	}
+
+	public GjfSetDividends getSetDivi() {
+		return setDivi;
+	}
+
+	public void setSetDivi(GjfSetDividends setDivi) {
+		this.setDivi = setDivi;
+	}
+
+	public String getStartDate() {
+		return startDate;
+	}
+
+	public void setStartDate(String startDate) {
+		this.startDate = startDate;
+	}
+
+	public String getEndDate() {
+		return endDate;
+	}
+
+	public void setEndDate(String endDate) {
+		this.endDate = endDate;
+	}
+
+
+	public String getMemberName() {
+		return memberName;
+	}
+
+
+	public void setMemberName(String memberName) {
+		this.memberName = memberName;
+	}
+
+
+	public String getTransferMemberName() {
+		return transferMemberName;
+	}
+
+
+	public void setTransferMemberName(String transferMemberName) {
+		this.transferMemberName = transferMemberName;
+	}
+
+
+	public String getMemberMobile() {
+		return memberMobile;
+	}
+
+
+	public void setMemberMobile(String memberMobile) {
+		this.memberMobile = memberMobile;
+	}
+
+
+	public String getTransferMemberMobile() {
+		return transferMemberMobile;
+	}
+
+
+	public void setTransferMemberMobile(String transferMemberMobile) {
+		this.transferMemberMobile = transferMemberMobile;
+	}
+
+
+	public String getShouxinType() {
+		return shouxinType;
+	}
+
+
+	public void setShouxinType(String shouxinType) {
+		this.shouxinType = shouxinType;
+	}
+	
+	
+
+}

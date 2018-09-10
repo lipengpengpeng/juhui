@@ -1,0 +1,517 @@
+$(function(){
+    //初始化頁面,自適應手機大小
+(function (win, lib) {
+    var doc = win.document;
+    var docEl = doc.documentElement;
+
+    var devicePixelRatio = win.devicePixelRatio;
+    var dpr = 1; // 物理像素与逻辑像素的对应关系
+    var scale = 1; // css像素缩放比率
+    // 设置viewport
+    function setViewport() {
+        var isIPhone = !!win.navigator.appVersion.match(/iphone/gi);
+        if (isIPhone) {
+            if (devicePixelRatio >= 3) {
+                dpr = 3;
+            }
+            else if (devicePixelRatio === 2) {
+                dpr = 2;
+            }
+            else {
+                dpr = 1;
+            }
+        }
+        win.devicePixelRatioValue = dpr;
+        //win.devicePixelRatio = win.devicePixelRatio*win.devicePixelRatio;
+        scale = 1 / dpr;
+        var metaEl = doc.createElement('meta');
+        metaEl.setAttribute('name', 'viewport');
+        metaEl.setAttribute('content', 'initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no');
+        if (docEl.firstElementChild) {
+            docEl.firstElementChild.appendChild(metaEl);
+        }
+        else {
+            var wrap = doc.createElement('div');
+            wrap.appendChild(metaEl);
+            doc.write(wrap.innerHTML);
+        }
+    }
+    setViewport();
+    var newBase = 100;
+
+    function setRem() {
+        var visualView = Math.min(docEl.getBoundingClientRect().width, lib.maxWidth * dpr); // visual viewport
+        newBase = 100 * visualView / lib.desinWidth;
+        docEl.style.fontSize = newBase + 'px';
+    }
+    var tid;
+    lib.desinWidth = 750;
+    lib.baseFont = 16;
+    lib.maxWidth = 750;
+    lib.init = function () {
+        win.addEventListener('resize', function () {
+            clearTimeout(tid);
+            tid = setTimeout(setRem, 300);
+        }, false);
+        win.addEventListener('onorientationchange', function () {
+            clearTimeout(tid);
+            tid = setTimeout(setRem, 300);
+        }, false);
+        win.addEventListener('pageshow', function (e) {
+            if (e.persisted) {
+                clearTimeout(tid);
+                tid = setTimeout(setRem, 300);
+            }
+        }, false);
+        if (doc.readyState === 'complete') {
+            doc.body.style.fontSize = lib.baseFont * dpr + 'px';
+        }
+        else {
+            doc.addEventListener('DOMContentLoaded', function (e) {
+                doc.body.style.fontSize = lib.baseFont * dpr + 'px';
+            }, false);
+        }
+        setRem();
+        docEl.setAttribute('data-dpr', dpr);
+    };
+})(window, window['adaptive'] || (window['adaptive'] = {}));
+
+window['adaptive'].desinWidth = 750;// 设计图宽度 
+window['adaptive'].baseFont = 16;// 没有缩放时的字体大小
+window['adaptive'].maxWidth =750;// 页面最大宽度 默认540
+window['adaptive'].init();// 调用初始化方法 
+})
+
+
+$(function(){
+    
+    //导航
+    function headerNav(){
+        $(".header-ci").on('touchend',function(event){
+            event.preventDefault();//取消冒泡
+            $(".header-nav").toggle(); 
+        })
+    }headerNav();
+
+    //点击回到顶部
+    function GoTop(){
+        window.onscroll = function(){
+            var aScrollTop = $(window).scrollTop();
+            if(aScrollTop>0){
+                $(".goTop").stop(false,true).fadeIn(800);
+            }else{
+                $(".goTop").stop(false,true).fadeOut(800);
+            }
+        }
+        $(".goTop").on("touchend",function(event){
+                $("body,html").stop(false,true).animate({"scrollTop":0});
+                event.preventDefault();
+        })
+    }GoTop();
+    
+
+    //购物车页面点击编辑
+    function comboEdit(){
+        $(".head-count").html($('.shop-car li').length);
+
+        var countPrice=0;//总价格
+        var shopcarCount = $(".shopcar-count");//数量
+        var shopcarInput=$(".shopcar-cut-input"); //添加的个数
+
+
+        // 编辑&&完成
+        $(".shop-head-span").on("touchend",function(){
+            if('编辑' == $(this).text()){
+                $(this).text('完成');
+                $(".shopcar-submit").attr("disabled",false);
+                $(".shopcar-submit").css("background",'#ccc');
+               /* $(this).siblings(".shop-delete").hide();*/
+                $(this).siblings(".shop-delete").html("")
+                /*$(this).siblings(".shop-delete").removeAttr("onclick")*/
+                $(this).parents(".shopcar-head ").siblings(".shopcar-box").find(".shopcar-count").hide().siblings(".shopcar-count-input").show();
+            }else{
+                $(this).text('编辑');
+                $(".shopcar-submit").css("background",'#72C841');
+                $(".shopcar-submit").removeAttr("disabled");
+                $(this).siblings(".shop-delete").attr("onclick","ajaxDel(this)");
+                ajaxUpdateNum($(this).siblings(".hic-car-Id").val(), $(this).parents(".shopcar-head ").siblings(".shopcar-box").find(".shopcar-cut-input").text());
+                /*$(this).siblings(".shop-delete").show();*/
+                $(this).siblings(".shop-delete").html("删除")
+                /*$(this).siblings(".shop-delete").attr("onclick","ajaxDel(this)");*/
+                $(this).parents(".shopcar-head ").siblings(".shopcar-box").find(".shopcar-count").show().siblings(".shopcar-count-input").hide();
+            }
+        })
+
+        //购物添加数量
+        // 加
+         $(".shopcar-cuti2").on("touchend",function(){
+            var arr = [];
+            //var countVal = parseInt($(this).siblings(".shopcar-cut-input").html())+1;
+            $(this).siblings(".shopcar-cut-input").html(countVal);           
+            //var gosStock=$(".pro-stock").text()
+            var pusNum=$("#pusNum").val();
+            var mulNum=$("#mulNum").val();
+            var logist=$("#logist").val() 
+            /*if(parseInt(countVal)<=parseInt(gosStock)){
+            	 $(this).parent().siblings(".shopcar-count").html(countVal);
+            }*/            
+            if(logist==0){
+            	var countVal=1;
+            	
+            	if(parseInt($(this).siblings(".shopcar-cut-input").html())==1&&mulNum!=1){
+            		countVal=1*parseInt(mulNum);
+            	}else{
+            		
+            		countVal=parseInt($(this).siblings(".shopcar-cut-input").html())+1*parseInt(mulNum);
+            	}
+            	
+            	 //var countVal=parseInt($("#res").val())+1*parseInt(mulNum);
+            	
+            	 if(parseInt(countVal)<=parseInt(pusNum)){
+            		
+            		 $("#shopcar-count").html(countVal);
+            		 $(this).siblings(".shopcar-cut-input").html(countVal);
+                 } 
+            }else{
+            	
+            	var countVal=1;
+            	if(parseInt($(this).siblings(".shopcar-cut-input").html())==1&&mulNum!=1){
+            		countVal=1*parseInt(mulNum);
+            	}else{
+            		countVal=parseInt($(this).siblings(".shopcar-cut-input").html())+1*parseInt(mulNum);
+            	}           	
+            	 if(parseInt(countVal)<=parseInt(gosStock)){          		           		
+            		 $(this).parent().siblings(".shopcar-count").html(countVal);
+                	
+                } 
+            }
+             moneyAll();
+        })
+         // 减
+        $(".shopcar-cuti1").on("touchend",function(){
+            //var countVal = parseInt($(this).siblings(".shopcar-cut-input").html())-1;
+            var pusNum=$("#pusNum").val();
+            var mulNum=$("#mulNum").val();
+            var logist=$("#logist").val() 
+            
+            
+            var countVal=parseInt($(this).siblings(".shopcar-cut-input").html())-1*parseInt(mulNum)
+         	
+            if(countVal<=0){
+            	if(logist==0){
+            		
+            		$(this).siblings(".shopcar-cut-input").html("1");
+                    $(this).parent().siblings(".shopcar-count").html("1");
+            	}
+            	if(logist==1){          		
+            		$(this).siblings(".shopcar-cut-input").html("1");
+                    $(this).parent().siblings(".shopcar-count").html("1");
+            	}            	          	
+                return;
+            }
+        	                     
+            $(this).siblings(".shopcar-cut-input").html(countVal);
+            $(this).parent().siblings(".shopcar-count").html(countVal);
+             moneyAll();
+        })
+       
+
+        // 复选框
+        var shopChebox=$(".shopcar-checkbox");//复选框
+        var cheboxCount =0;//选中的个数
+        $(".shop-car").on("touchend",".shopcar-input",function(){
+           var chemoney= $(this).siblings(".shopcar-redact").find(".shopcar-money").html();
+           var cheCount =$(this).siblings(".shopcar-redact").find(shopcarCount).html();
+            if($(this).find(".shopcar-checkbox").hasClass("check-after")||$(".checkbox-all").hasClass("shopckall")){
+               $(this).find(".shopcar-checkbox").removeClass("check-after");
+               $(this).siblings(".shop-chckinput").prop('checked',false);
+               cheboxCount--;
+            }else{
+                $(this).find(".shopcar-checkbox").addClass("check-after");
+                 $(this).find(".shopcar-checkbox").siblings(".shop-chckinput").prop('checked',"checked");
+                 cheboxCount++;
+            }
+            //全部选中时 下面也要选中
+            for(var k=0;k<shopChebox.length;k++){
+                if(shopChebox.length==cheboxCount){
+                    $(".check-all").prop('checked',true);
+                    $(".checkbox-all").addClass("shopckall");
+                    $(".shopcar-submit").css("background",'#72C841');
+                    $(".shopcar-submit").removeAttr("disabled");
+                }else{
+                    $(".check-all").prop('checked',false);
+                    $(".checkbox-all").removeClass("shopckall");
+                    if(cheboxCount > 0){
+                    	$(".shopcar-submit").css("background",'#72C841');
+                    	$(".shopcar-submit").removeAttr("disabled");
+                    	
+                    }else{
+                    	$(".shopcar-submit").css("background",'#ccc');
+                    	$(".shopcar-submit").attr("disabled",'disabled');
+                    }
+                }
+            }
+            moneyAll();
+        })
+
+        //全选和全部选
+        $(".shopfooter-left").on("touchend",function(){
+            if($(".checkbox-all").hasClass('shopckall')){
+                cheboxCount=0;//初始化
+                $(".checkbox-all").removeClass("shopckall").siblings(".check-all").prop("checked",false);
+                $(".shop-car .shopcar-checkbox").removeClass("check-after").siblings('.shop-chckinput').prop("checked",false);
+                $(".shopcar-submit").css("background",'#ccc');
+                $(".shopcar-submit").attr("disabled",'disabled');
+                moneyAll()
+            }else{
+                cheboxCount=shopChebox.length;
+                $(".checkbox-all").addClass("shopckall").siblings(".check-all").prop("checked",true);
+                $(".shop-car .shopcar-checkbox").addClass("check-after").siblings('.shop-chckinput').prop("checked",true);
+                $(".shopcar-submit").css("background",'#72C841');
+                $(".shopcar-submit").removeAttr("disabled");
+                moneyAll()
+            }
+            
+        })
+    }comboEdit();
+
+
+
+    //选中
+    function moneyAll(){
+        var money = 0;
+        var cartIds="";
+        for(i = 0;i < $('.check-after').length;i++){
+            var that = $('.check-after').eq(i);
+            var eq = $('.shopcar-checkbox').index(that);
+            //计算金额
+            money += $('.shopcar-money').eq(eq).text() * $('.shopcar-count').eq(eq).text();
+            //购物车信息
+            cartIds+=$('.car-Id').eq(eq).val()+",";
+        }
+        money=Math.floor(money * 1000) / 1000
+        $(".cartIds").val(cartIds);
+        $(".shopcar-allmoney").html(money);
+        $(".shop-submitcount").html($('.check-after').length);
+    }
+
+    
+
+  //点击加点击减
+    function particCuti(){   	
+        // 加
+        $(".partic-cuti2").on("touchend",function(){
+            var arr = [];
+            //var countVal = parseInt($(this).siblings(".partic-cutinput").siblings(".res").val())+1; 
+           
+            var gosStock=$(".pro-stock").text()
+            var pusNum=$("#pusNum").val();
+            var mulNum=$("#mulNum").val();
+            var logist=$("#logist").val() 
+
+            if(logist==0){
+            	var countVal=1;
+            	if(parseInt($("#res").val())==1&&mulNum!=1){
+            		countVal=1*parseInt(mulNum);
+            	}else{
+            		countVal=parseInt($("#res").val())+1*parseInt(mulNum);
+            	}
+            	 //var countVal=parseInt($("#res").val())+1*parseInt(mulNum);
+            	 if(parseInt(countVal)<=parseInt(gosStock)&&parseInt(countVal)<=parseInt(pusNum)){
+            		 var str="<input id='res' type='text' value='"+countVal+"'>"           		
+                	 $(this).siblings(".partic-cutinput").html(str);
+                } 
+            }else{
+            	var countVal=1;
+            	if(parseInt($("#res").val())==1&&mulNum!=1){
+            		countVal=1*parseInt(mulNum);
+            	}else{
+            		countVal=parseInt($("#res").val())+1*parseInt(mulNum);
+            	}
+            	
+            	 if(parseInt(countVal)<=parseInt(gosStock)){
+            		 var str="<input id='res' type='text' value='"+countVal+"'>"
+            		
+                	 $(this).siblings(".partic-cutinput").html(str);
+                	 var hou=$("#hou").val()
+                	 if(hou!=undefined){
+                		 var saveMoney=Math.floor(countVal*hou*100) / 100 ;
+                		 $("#saveMoney").text("升级企业版本次购物立省"+saveMoney+"元")
+                	 }
+                } 
+            }
+           
+        })
+         // 减
+        $(".partic-cuti1").on("touchend",function(){
+           // var countVal = parseInt($(this).siblings(".partic-cutinput").siblings(".res").val())-1;
+               
+        	var mulNum=$("#mulNum").val();
+        	var logist=$("#logist").val() 
+         	var countVal=parseInt($("#res").val())-1*parseInt(mulNum)
+         	
+            if(countVal<=0){           	
+            	if(logist==0){
+            		var str="<input id='res' type='text' value='"+1+"' disabled='disabled'>"
+            		$(this).siblings(".partic-cutinput").html(str);
+            	}
+            	if(logist==1){
+            		var str="<input id='res' type='text' value='"+1+"'>"
+            		$(this).siblings(".partic-cutinput").html(str);
+            	}            	          	
+                return;
+            }
+        	var str="<input id='res' type='text' value='"+countVal+"'>"
+            $(this).siblings(".partic-cutinput").html(str);
+            var hou=$("#hou").val()
+            
+                  	
+            if(logist==1){
+                if(hou!=undefined){
+             		var saveMoney=Math.floor(countVal*hou*100) / 100 ;
+             		 $("#saveMoney").text("升级企业版本次购物立省"+saveMoney+"元")
+             	}
+               
+            }
+       	    
+            var gosStock=$(".pro-stock").text()
+            
+        })
+    }particCuti();
+
+
+    // 验证页面弹窗居中
+    function boxcenter(){
+        var left = ($(window).width() - $(".com-dust").outerWidth()) / 2;
+        $(".com-dust").css({left: (left > 0 ? left : 0)+'px'});
+    }boxcenter();
+
+
+    //登录页面发送短信验证
+    function userReset(){
+            var clickBoolean=true;//利用布尔值判断能不能点击
+            var clickti=true;
+            $(".user-verify").on("touchend",function(){
+               if(clickBoolean&&$(".phone").val()!= ""){
+                 sendMessage();
+                 clickBoolean=false;
+               }else if(clickti){
+                    alert("不能为空")
+               }
+
+            })
+            var InterValObj; //timer变量，控制时间  
+            var count = 60; //间隔函数，1秒执行  
+            var curCount;//当前剩余秒数  
+            var code = ""; //验证码  
+            var codeLength = 6;//验证码长度  
+            function sendMessage(){ 
+                clickti=false;
+                curCount = count;  
+                var phone=$(".phone").val();//手机号码  
+                if(phone != ""){  
+                    //产生验证码  
+                    for (var i = 0; i < codeLength; i++) {  
+                        code += parseInt(Math.random() * 9).toString();  
+                    }  
+                    //设置button效果，开始计时   
+                    $(".user-verify").css("background","#9c9c9c");
+                    $(".user-verify").html("请在" + curCount + "秒内输入验证码");  
+                    InterValObj = window.setInterval(SetRemainTime, 1000); //启动计时器，1秒执行一次  
+                    //向后台发送处理数据  
+                    $.ajax({  
+                        type: "POST", //用POST方式传输  
+                        dataType: "text", //数据格式:JSON  
+                        url: 'Login.ashx', //目标地址  
+                        data: "phone=" + phone + "&code=" + code,  
+                        error: function (XMLHttpRequest, textStatus, errorThrown) { },  
+                        success: function (msg){ }  
+                    });  
+                }else{  
+                    alert("手机号码不能为空！");
+                }  
+            }  
+            //timer处理函数  
+            function SetRemainTime() {  
+                if (curCount == 0) {                  
+                    window.clearInterval(InterValObj);//停止计时器  
+                     clickBoolean=true;
+                     clickti=true;
+                    $(".user-verify").css("background","#e70012");
+                    $(".user-verify").html("重新发送验证码");  
+                    code = ""; //清除验证码。如果不清除，过时间后，输入收到的验证码依然有效      
+                }  
+                else {  
+                    curCount--;  
+                    $(".user-verify").html("请在" + curCount + "秒内输入验证码");  
+                }  
+            } 
+    } userReset();
+    
+       
+})
+
+
+   
+     //app登录
+	  //adrAppLogin("15622362541","123456")			
+   function adrAppLogin(account,passwords,type){
+	    //alert(account+"***"+passwords)
+		//window.location.href="http://jinfenghuang.jfeimao.com/gjfeng-web-client/wx/login/login?account="+acc+"&password="+pas
+		$.ajax({
+				url:"http://localhost:8180/gjfeng-web-client/wx/login/login",
+				method:"GET",
+				data:{
+					account:account,
+					password:passwords,
+					type:type
+				},
+				//dataType:'jsonp',
+				success:function(data){
+					if(data.code==200){
+						//alert(data.msg)
+						return data.msg;
+					}else{
+						//alert(data.msg)
+						return data.msg;
+					}
+				}
+		}) 
+   }
+   
+    appLogin("18300072217","123456",'1')
+
+   //appLogin("13544384685","123456",'1')  
+   function appLogin(account,passwords,type){
+		   login(account,passwords,type);
+		}
+		
+	function login(acc,pas,type){
+		//alert(acc+"***"+pas)
+		//window.location.href="http://jinfenghuang.jfeimao.com/gjfeng-web-client/wx/login/login?account="+acc+"&password="+pas
+		$.ajax({
+				url:"http://localhost:8080/gjfeng-web-client/wx/login/login",
+				method:"GET",
+				data:{
+					account:acc,
+					password:pas,
+					type:type
+				},
+				dataType:'jsonp',
+				success:function(data){
+					if(data.code==200){
+						//alert(data.msg)
+						return data.msg;
+					}else{
+						//alert(data.msg)
+						return data.msg;
+					}
+				}
+		})
+	}	
+		
+    
+
+
+
+

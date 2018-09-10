@@ -1,0 +1,384 @@
+﻿/*
+ * ProductColumnDaoImpl.java
+ * 
+ * Create by MCGT
+ * 
+ * Create time 2014-02-13
+ * 
+ * Version 1.0
+ * 
+ * Copyright 2013 Messcat, Inc. All rights reserved.
+ * 
+ */
+package cc.messcat.dao.collection;
+
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.Criteria;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.criterion.Projections;
+
+import cc.messcat.bases.BaseDaoImpl;
+import cc.messcat.entity.EnterpriseColumn;
+import cc.messcat.entity.McProductInfo;
+import cc.messcat.entity.ProductColumn;
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.modules.util.ObjValid;
+
+public class ProductColumnDaoImpl extends BaseDaoImpl implements ProductColumnDao {
+
+	public void save(ProductColumn productColumn) {
+		getHibernateTemplate().save(productColumn);
+	}
+
+	public void update(ProductColumn productColumn) {
+		getHibernateTemplate().update(productColumn);
+	}
+
+	public void delete(ProductColumn productColumn) {
+		getHibernateTemplate().delete(productColumn);
+	}
+
+	public void delete(Long id) {
+		getHibernateTemplate().delete(this.get(id));
+	}
+
+	public int delete(Long productId, Long columnId) {
+		String hql = "delete from ProductColumn where mcProduct.id=? and enterpriseColumn.id=?";
+		Session session = getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(hql);
+		query.setParameter(0, productId);
+		query.setParameter(1, columnId);
+		return query.executeUpdate();
+	}
+
+	public ProductColumn get(Long id) {
+		return (ProductColumn) getHibernateTemplate().get(ProductColumn.class, id);
+	}
+
+	@SuppressWarnings("unchecked")
+	public List findAll() {
+		return getHibernateTemplate().find("from ProductColumn");
+	}
+
+	@SuppressWarnings("unchecked")
+	public Pager getPager(int pageSize, int pageNo) {
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Criteria criteria = session.createCriteria(ProductColumn.class);
+		int rowCount = ((Integer) criteria.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		criteria.setProjection(null);
+		int startIndex = pageSize * (pageNo - 1);
+		criteria.setFirstResult(startIndex);
+		criteria.setMaxResults(pageSize);
+		List result = criteria.list();
+		return new Pager(pageSize, pageNo, rowCount, result);
+	}
+
+	/**
+	 * 
+	 * @param mcProduct
+	 *            产品
+	 * @param enterpriseColumn
+	 *            栏目
+	 * @return 产品栏目列表
+	 * 
+	 *         根据产品、栏目分页查找对应列表
+	 */
+	public Pager findProductByColumnPro(McProductInfo mcProduct, EnterpriseColumn enterpriseColumn, int pageSize, int pageNo,
+		Integer order_is) {
+		try {
+			StringBuffer sBuffer = new StringBuffer();
+			sBuffer.append("from ProductColumn pc where 1=1 ");
+			if (mcProduct != null && mcProduct.getId() != null) {
+				sBuffer.append(" and pc.mcProduct.id=" + mcProduct.getId());
+			}
+			if (enterpriseColumn != null && enterpriseColumn.getId() != null) {
+				sBuffer.append(" and pc.enterpriseColumn.id=" + enterpriseColumn.getId());
+			}
+			if (order_is != null && order_is == 1) {
+				sBuffer.append(" order by pc.mcProduct.para1 asc");
+			} else if (order_is != null && order_is == 2) {
+				sBuffer.append(" order by pc.mcProduct.para1 desc");
+			} else if (order_is != null && order_is == 3) {
+				sBuffer.append(" order by pc.mcProduct.addtime desc");
+			}
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sBuffer.toString());
+			query.setFirstResult(pageSize * (pageNo - 1));
+			query.setMaxResults(pageSize);
+			List resultList = query.list();
+			String subStr=sBuffer.toString().replace("from", "select count(*) from");
+			Long count=(Long) this.getHibernateTemplate().getSessionFactory().getCurrentSession().createQuery(subStr).uniqueResult();
+			return new Pager(pageSize, pageNo, count.intValue(), resultList);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * 
+	 * @param enterpriseColumn
+	 *            栏目
+	 * @param mcProduct
+	 *            产品
+	 * @return 产品栏目列表
+	 * 
+	 *         根据栏目、产品分页查找非该栏目下的产品
+	 */
+	public Pager findProductByNoColumn(McProductInfo mcProduct, EnterpriseColumn enterpriseColumn, int pageSize, int pageNo,String type) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer("  from  GjfProductInfo pro where 1=1 and pro.status=1 and pro.storeId.storePro = '"+type+"'");
+			if (mcProduct != null && mcProduct.getName() != null) {
+				sb.append(" and pro.name like '%" + mcProduct.getName() + "%' ");
+			}
+			if("ZERO_DOLLARS".equals(enterpriseColumn.getFrontNum())){
+				sb.append(" and  pro.id not in (select pc.mcProduct.id from ProductColumn pc where pc.enterpriseColumn.id = '"
+						+ enterpriseColumn.getId() + "' and pro.isCanUserCou=1) and pro.isCanUserCou=1");
+			}else{
+				sb.append(" and pro.id not in (select pc.mcProduct.id from ProductColumn pc where pc.enterpriseColumn.id = '"
+						+ enterpriseColumn.getId() + "') ");
+			}
+			
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+			//统计数量
+			StringBuffer sql=new StringBuffer();
+			sql.append("select count(*) from gjf_product_info as pro where pro.STATUS_='1' and pro.TYPE_='"+type+"'");
+			if (mcProduct != null && mcProduct.getName() != null) {
+				sql.append(" and pro.NAME_ like '%" + mcProduct.getName() + "%' ");
+			}
+			/*if("ZERO_DOLLARS".equals(enterpriseColumn.getFrontNum())){
+				sql.append(" and  pro.ID_ not in (select PRODUCT_ID_ from gjf_product_column   where COLUMN_ID_='"
+						+ enterpriseColumn.getId() + "' and pro.IS_CAN_USER_COU_=1) and pro.IS_CAN_USER_COU_=1");
+			}else{
+				sql.append(" and pro.ID_ not in (select PRODUCT_ID_ from gjf_product_column  where COLUMN_ID_ = '"
+						+ enterpriseColumn.getId() + "') ");
+			}*/
+
+			BigInteger count= (BigInteger) this.getHibernateTemplate().getSessionFactory().getCurrentSession().createSQLQuery(sql.toString()).uniqueResult();
+			pager = new Pager(pageSize, pageNo, count.intValue(), new ArrayList());
+			query.setFirstResult(pager.getStartIndex());
+			query.setMaxResults(pageSize);
+			pager.setResultList(query.list());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	/**
+	 * 
+	 * @param mcProduct
+	 *            产品
+	 * @param enterpriseColumn
+	 *            栏目
+	 * @return 产品栏目列表
+	 * 
+	 *         根据产品、栏目查找对应列表
+	 */
+	public List<?> findProductByColumnPro(McProductInfo mcProduct, EnterpriseColumn enterpriseColumn) {
+		List<?> list = null;
+		if (!ObjValid.isValid(mcProduct) && !ObjValid.isValid(enterpriseColumn)) {
+			list = null;
+		} else {
+			StringBuffer sBuffer = new StringBuffer();
+			sBuffer.append("from ProductColumn pc where 1=1 ");
+			if (ObjValid.isValid(mcProduct)) {
+				if (ObjValid.isValid(mcProduct.getId())) {
+					sBuffer.append(" and pc.mcProduct.id = " + mcProduct.getId());
+				}
+				if (ObjValid.isValid(mcProduct.getName())) {
+					sBuffer.append(" and pc.mcProduct.name='" + mcProduct.getName() + "' ");
+					// sBuffer.append(" (select pro.id from McProductInfo pro
+					// where pro.title='"+mcProduct.getTitle()+"') ");
+				}
+			}
+			if (ObjValid.isValid(enterpriseColumn)) {
+				if (ObjValid.isValid(enterpriseColumn, enterpriseColumn.getId())) {
+					sBuffer.append(" and pc.enterpriseColumn.id = " + enterpriseColumn.getId());
+				}
+			}
+			list = getHibernateTemplate().find(sBuffer.toString());
+		}
+		return list;
+	}
+
+	/**
+	 * 
+	 * @param enterpriseColumn
+	 *            栏目
+	 * @return 产品栏目列表
+	 * 
+	 *         根据栏目查找非该栏目下的产品
+	 */
+	public List<?> findProductByNoColumn(EnterpriseColumn enterpriseColumn) {
+		StringBuffer sBuffer = new StringBuffer();
+
+		sBuffer.append("from ProductColumn pc where 1=1 ");
+		if (enterpriseColumn != null && enterpriseColumn.getId() != null) {
+			sBuffer.append(" and pc.enterpriseColumn.id != " + enterpriseColumn.getId());
+		}
+		return getHibernateTemplate().find(sBuffer.toString());
+	}
+
+	/**
+	 * 
+	 * @param enterpriseColumn
+	 *            栏目
+	 * @return 产品栏目列表
+	 * 
+	 *         根据产品搜索条件查找产品
+	 */
+	public Pager findProductByCondition(McProductInfo mcProduct, int pageSize, int pageNo, Integer order_is) {
+		Pager pager = null;
+		try {
+			StringBuffer sb = new StringBuffer("from ProductColumn pc where 1=1 ");
+			if (mcProduct != null && mcProduct.getName() != null) {
+				sb.append(" and pc.mcProduct.name like '%" + mcProduct.getName() + "%' ");
+			}
+			sb.append(" group by pc.mcProduct.id");
+			if (order_is != null && order_is == 1) {
+				sb.append(" order by pc.mcProduct.para1 asc");
+			} else if (order_is != null && order_is == 2) {
+				sb.append(" order by pc.mcProduct.para1 desc");
+			} else if (order_is != null && order_is == 3) {
+				sb.append(" order by pc.mcProduct.addtime desc");
+			}
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sb.toString());
+			query.setFirstResult(pageSize * (pageNo - 1));
+			query.setMaxResults(pageSize);
+			List resultList = query.list();
+			return new Pager(pageSize, pageNo, (this.getHibernateTemplate().find(sb.toString())).size(), resultList);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pager;
+	}
+
+	/**
+	 * 获取产品总数量
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public Integer getProductColumnCount(EnterpriseColumn selectColumn) {
+		List<ProductColumn> list = getHibernateTemplate().find("from ProductColumn pc where 1=1 and pc.enterpriseColumn.id="
+			+ selectColumn.getId() + " Order by pc.mcProduct.addtime desc");
+		if (list != null && list.size() > 0) {
+			return list.size();
+		}
+		return 0;
+	}
+
+	public Pager findProductByColumnPro(Long columnId, int level, int pageSize, int pageNo, Integer order_is) {
+		try {
+			StringBuffer sBuffer = new StringBuffer();
+			sBuffer.append("from ProductColumn pc where 1=1 ");
+			if (level == 1) {
+				sBuffer.append(" and pc.col1=?");
+			} else if (level == 2) {
+				sBuffer.append(" and pc.col2=?");
+			} else {
+				sBuffer.append(" and pc.col3=?");
+			}
+			// 商品排序条件
+			if (order_is != null && order_is == 1) {
+				sBuffer.append(" order by pc.mcProduct.sales desc");
+			} else if (order_is != null && order_is == 2) {
+				sBuffer.append(" order by pc.mcProduct.sales asc");
+			} else if (order_is != null && order_is == 3) {
+				sBuffer.append(" order by pc.mcProduct.para1 desc");
+			} else if (order_is != null && order_is == 4) {
+				sBuffer.append(" order by pc.mcProduct.para1 asc");
+			}
+			Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+			Query query = session.createQuery(sBuffer.toString());
+			query.setParameter(0, columnId.intValue());
+			query.setFirstResult(pageSize * (pageNo - 1));
+			query.setMaxResults(pageSize);
+			List resultList = query.list();
+			return new Pager(pageSize, pageNo, (this.getHibernateTemplate().find(sBuffer.toString(), columnId.intValue())).size(),
+				resultList);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	public List<ProductColumn> findFrontProductColumnByCol(Long columnId, int size) throws Exception {
+		StringBuffer sBuffer = new StringBuffer();
+		sBuffer.append(
+			"from ProductColumn pc where 1=1 and pc.col1=? and pc.mcProduct.status=1 and pc.mcProduct.goodsVerify=1 order by pc.mcProduct.isSale desc ");
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(sBuffer.toString());
+		query.setParameter(0, columnId.intValue());
+		query.setFirstResult(0);
+		query.setMaxResults(size);
+		return (query.list());
+	}
+
+	/**
+	 * 热卖商品
+	 * 
+	 * @param size
+	 * @return
+	 * @throws Exception
+	 */
+	public List<ProductColumn> findFrontProductHot(int size) throws Exception {
+		StringBuffer sBuffer = new StringBuffer();
+		sBuffer.append(
+			"from ProductColumn pc where 1=1 and pc.mcProduct.status=1 and pc.mcProduct.goodsVerify=1 and pc.mcProduct.isHot=1 ");
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(sBuffer.toString());
+		query.setFirstResult(0);
+		query.setMaxResults(size);
+		return (query.list());
+	}
+
+	/**
+	 * 抢购商品列表
+	 * 
+	 * @param size
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	public List<ProductColumn> findFrontProductQbuy(int size) throws Exception {
+		StringBuffer sBuffer = new StringBuffer();
+		sBuffer.append(
+			"from ProductColumn pc where 1=1 and pc.mcProduct.status=1 and pc.mcProduct.goodsVerify=1 and pc.mcProduct.isQbuy=1 ");
+		Session session = this.getHibernateTemplate().getSessionFactory().getCurrentSession();
+		Query query = session.createQuery(sBuffer.toString());
+		query.setFirstResult(0);
+		query.setMaxResults(size);
+		return (query.list());
+	}
+
+	@SuppressWarnings("unchecked")
+	public Pager findProductByTitle(int pageSize, int pageNo, String title, Integer order_is) {
+		StringBuffer sql=new StringBuffer("SELECT c.* FROM gjf_product_column c LEFT JOIN gjf_product_info p ON p.ID_=c.PRODUCT_ID_");
+		sql.append(" WHERE p.ADUIT_STATUS_=1 AND (p.STATUS_='0' OR p.STATUS_='1') AND (p.NAME_ LIKE '%"+title+"%' OR p.KEYWORDS_ LIKE '%"+title+"%') GROUP BY p.ID_");
+		int count=Integer.parseInt(String.valueOf(getSession().createSQLQuery("SELECT COUNT(*) FROM("+sql.toString()+") o").uniqueResult()));
+		// 商品排序条件
+		if (order_is != null && order_is == 1) {
+			sql.append(" ORDER BY p.SALES_ desc");
+		} else if (order_is != null && order_is == 2) {
+			sql.append(" ORDER BY p.SALES_ asc");
+		} else if (order_is != null && order_is == 3) {
+			sql.append(" ORDER BY p.SALES1_ desc");
+		} else if (order_is != null && order_is == 4) {
+			sql.append(" ORDER BY p.SALES1_ asc");
+		}
+		
+		List<ProductColumn> productColumns=getSession().createSQLQuery(sql.toString()).addEntity(ProductColumn.class).setMaxResults(pageSize).setFirstResult((pageNo-1)*pageSize).list();
+		return new Pager(pageSize, pageNo, count, productColumns);
+	}
+
+}

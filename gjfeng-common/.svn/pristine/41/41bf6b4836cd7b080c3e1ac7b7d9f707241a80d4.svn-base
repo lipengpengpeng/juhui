@@ -1,0 +1,50 @@
+package cc.messcat.gjfeng.common.pay.wechat.util;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.UUID;
+
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.pay.wechat.weixin.popular.api.PayMchAPI;
+import cc.messcat.gjfeng.common.pay.wechat.weixin.popular.bean.paymch.SecapiPayRefund;
+import cc.messcat.gjfeng.common.pay.wechat.weixin.popular.bean.paymch.SecapiPayRefundResult;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+
+public class RefundUtil {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+	}
+	
+	/**
+	 * 微信退款
+	 * @param orderSn 商户系统内部订单号，要求32个字符内，只能是数字、大小写字母_-|*@ ，且在同一个商户号下唯一。
+	 * @param free	订单总金额，单位为分，只能为整数
+	 * @return 退款号
+	 */
+	public static ResultVo refundWeixinPay(String orderSn,Integer free){
+		ResultVo resultVo = new ResultVo(400,"操作成功");
+		SecapiPayRefund secapiPayRefund = new SecapiPayRefund();
+		secapiPayRefund.setAppid(CommonProperties.GJFENG_APP_ID);
+		secapiPayRefund.setMch_id(CommonProperties.GJFENG_WEIXIN_MCH_ID);
+		secapiPayRefund.setNonce_str(UUID.randomUUID().toString().replace("-", ""));
+		secapiPayRefund.setOut_trade_no(orderSn);
+		secapiPayRefund.setTotal_fee(free);
+		secapiPayRefund.setRefund_fee(free);
+		String out_refund_no = DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6));
+		secapiPayRefund.setOut_refund_no(out_refund_no);
+		SecapiPayRefundResult payRefundResult = PayMchAPI.secapiPayRefund(secapiPayRefund, CommonProperties.GJFENG_WEIXIN_KEY);
+		if("SUCCESS".equals(payRefundResult.getReturn_code())){
+			resultVo.setCode(200);
+			resultVo.setResult(out_refund_no);
+			resultVo.setMsg("退款成功！");
+		}else{
+			resultVo.setMsg(payRefundResult.getReturn_msg());
+		}
+		return resultVo;
+	}
+
+}

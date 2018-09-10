@@ -1,0 +1,120 @@
+﻿<%--
+
+	gjfMemberInfo_view.jsp
+
+	Create by MCGT
+
+	Create time 2017-01-10
+
+	Version 1.0
+
+	Copyright 2013 Messcat, Inc. All rights reserved.
+
+ --%>
+<%@ page contentType="text/html;charset=UTF-8"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>查看模板</title>
+		<%@ include file="/common/taglibs.jsp"%>
+		<%@ include file="/common/meta.jsp"%>
+		<%@ include file="/common/content.jsp"%>
+		<script>
+		</script>
+	</head>
+	<body>
+		<div class="rhead">
+			<div class="rpos">当前位置: 店铺管理- 查看</div>
+			<div class="ropt"><input type="button" value='<s:text name="common.word.return.back" />' onclick="history.back();"/></div>
+		</div>
+
+		<table  align="center" class="listTable3">
+				<tr>
+					<td class="pn-flabel" width="100px">交易流水号</td>
+					<td>${resultVo.result.tradeNo}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">申请金额</td>
+					<td>${resultVo.result.applyMoney}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">交易金额</td>
+					<td>${resultVo.result.tradeMoney}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">税收金额</td>
+					<td>${resultVo.result.taxMoney}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">责任险金额</td>
+					<td>${resultVo.result.insuranceMoney}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">添加时间</td>
+					<td>
+						<mtag:longToDate value="${resultVo.result.addTime}" pattern="yyyy-MM-dd HH:mm"/>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">审核时间</td>
+					<td>
+					<c:if test="${not empty resultVo.result.dealTime}">
+						<mtag:longToDate value="${resultVo.result.dealTime}" pattern="yyyy-MM-dd HH:mm"/>
+					</c:if>
+					</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">交易时间</td>
+					<td>
+					<c:if test="${not empty resultVo.result.tradeTime}">
+						<mtag:longToDate value="${resultVo.result.tradeTime}" pattern="yyyy-MM-dd HH:mm"/>
+					</c:if>
+					</td>
+				</tr>
+				 <tr>
+					<td class="pn-flabel" width="100px">提现用户</td>
+					<td>${resultVo.result.memberName}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">提现银行卡号</td>
+					<td>${resultVo.result.bankCard}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">持卡人姓名</td>
+					<td>${resultVo.result.holder}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">银行名称</td>
+					<td>${resultVo.result.bankName}</td>
+				</tr>
+				<%-- <tr>
+					<td class="pn-flabel" width="100px">银行地址</td>
+					<td>${resultVo.result.bankId.bankProvinceId.province}${resultVo.result.bankId.bankCityId.city}</td>
+				</tr> --%>
+				<tr>
+					<td class="pn-flabel" width="100px">支行名称</td>
+					<td>${resultVo.result.bankSub}</td>
+				</tr>
+				<tr>
+					<td class="pn-flabel" width="100px">交易状态</td>
+					<c:if test="${resultVo.result.tradeStatus==0}">
+					  <td>待审核</td>
+					</c:if>
+					<c:if test="${resultVo.result.tradeStatus==1}">
+					  <td>交易成功</td>
+					</c:if>
+					<c:if test="${resultVo.result.tradeStatus==2}">
+					  <td>交易失败</td>
+					</c:if>
+					
+				</tr>
+				<c:if test="${resultVo.result.tradeStatus!=0}">
+					<tr>
+						<td class="pn-flabel" width="100px">审核人员</td>
+						<td>${resultVo.result.checkUser}</td>
+					</tr>
+				</c:if>
+
+		 </table>
+	</body>
+</html>

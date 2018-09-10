@@ -1,0 +1,160 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-shop-top.jsp" %>
+<style type="text/css">
+	.common-Img a{width: 100%;height:100%;}
+	.common-Img img{width: 100%;height: 3.4rem;}
+		.lucky-item{
+			width: 100%;
+		}
+		.lucky-item img.longImg{
+			height: 5rem;
+		}
+		/* .today-i{
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		} */
+	
+</style>
+<body>
+	<c:if test="${not empty indexAds.result}">
+		<div class="swiper-container">
+		    <div class="swiper-wrapper">
+		    <c:forEach var="bean" items="${indexAds.result}" varStatus="status">
+		    	<c:if test="${not empty bean.address}">
+		    		<a href="${bean.address}" class="swiper-slide"><img src="${bean.photo}"></a>
+		    	</c:if>
+		    	<c:if test="${empty bean.address}">
+		    		<a href="javascript:void(0)" class="swiper-slide"><img src="${bean.photo}"></a>
+		    	</c:if>
+		     </c:forEach>
+		    </div>
+		    <div class="pagination"></div>
+		</div>
+	</c:if>
+	<section class="content">
+	<c:if test="${not empty indexColumns.result}">
+		<ul class="con-icon clearfix">
+		<c:forEach var="bean" items="${indexColumns.result}" varStatus="status" begin="0" end="6">
+			<li>
+				<a href="${ctx}/wx/product/online/products/0/${bean.id}">
+					<i><img src="${bean.pic2}"></i>
+					<span>${bean.shortName}</span>
+				</a>
+			</li>
+		</c:forEach>
+		<li>
+			<a href="${ctx}/wx/column/online/allColumn">
+				<i><img src="${imagePath}/wx/online-shop/uploadimg/index-iocn8.png"></i>
+				<span>全部分类</span>
+			</a>
+		</li>
+		</ul>
+		</c:if>
+		<div class="con-snacks com-bg">
+			<h4 class="today-title clearfix"> 
+				<!-- <p class="today-icon"><img src="uploadimg/index-pollex.png"><span>待修改标题</span></p> -->
+			</h4> 
+			<ul class="common-ul common-Img clearfix">
+				<li class="lucky-item">
+					<a href="${ctx}/jsp/waiting.jsp">
+						<img src="${imagePath}/wx/o2o-shop/all-logo.png">
+					</a>
+				</li>
+			</ul>
+		</div>			
+		
+		<div class="con-snacks com-bg">
+			<h4 class="today-title clearfix">
+				<%-- <p class="today-icon"><img src="${imagePath}/wx/o2o-shop/商城-(1).png"><span>今天推荐</span></p> --%>
+			</h4>
+			<ul class="common-ul common-Img clearfix">
+				<li class="lucky-item">
+					<a href="http://m.upinkji.com/wap/myshop/shop_bind.html?weid=2&domain=baf46d8f731fff31a7587df12dea5bfe">
+						<img src="${imagePath}/wx/online-shop/adv-1.jpg">
+					</a>
+				</li>
+				<li class="lucky-item">
+					<a href="http://m.upinkji.com/wap/myshop/shop_bind.html?weid=2&domain=baf46d8f731fff31a7587df12dea5bfe">
+						<img src="${imagePath}/wx/online-shop/adv-2.jpg">
+					</a>
+				</li>
+				<li class="lucky-item">
+					<a href="http://m.upinkji.com/wap/myshop/shop_bind.html?weid=2&domain=baf46d8f731fff31a7587df12dea5bfe">
+						<img src="${imagePath}/wx/online-shop/adv-3.jpg" class="longImg" >
+					</a>
+				</li>
+			</ul>
+		</div>
+				
+		<c:if test="${not empty indexProducts.result}">
+		<c:forEach var="mapBean" items="${indexProducts.result}" varStatus="status">
+		<div class="con-today com-bg">
+			<h4 class="today-title clearfix">
+				<c:set value="${fn:substringBefore(mapBean.key,'~')}" var="columnPic" />
+				<p class="today-icon"><img src="${fn:substringAfter(columnPic,';')}"><span>${fn:substringBefore(columnPic,';')}</span></p>
+				<a href="${ctx}/wx/product/online/products/1/${fn:substringAfter(mapBean.key,'~')}" class="today-a">更多></a>
+			</h4>
+			<ul class="today-wrap clearfix">
+			<c:forEach var="bean" items="${mapBean.value}" varStatus="status">
+				<li>
+					<a href="${ctx}/wx/product/online/product/${bean.id}">
+						<img src="${bean.imgUrl}">
+						<p class="today-i">${bean.name}</p>
+						<p class="today-p">${bean.price}</p>
+					</a>
+				</li>
+			</c:forEach>
+			</ul>
+		</div>
+		</c:forEach>
+		</c:if>
+	</section>
+	<%-- <%@include file="/common/wx-footer.jsp" %> --%>
+	<div class="goTop xicon"></div>
+	<script src="${jsPath}/wx/online-shop/idangerous.swiper.min.js"></script>
+	<script src="${jsPath}/wx/online-shop/jquery.font.js"></script>
+	<script type="text/javascript">
+   		$(function(){
+   			document.title = "网上商城";
+   			$(".icon-nav-3").siblings().removeClass("nav-link-active");
+   			$(".icon-nav-3").addClass("nav-link-active");
+   			$(".icon-nav-3").parent().siblings().removeClass("nav-link-active");
+   			$(".icon-nav-3").parent().addClass("nav-link-active");
+   			
+   			var mySwiper = new Swiper('.swiper-container',{
+ 		  	autoplay:3000,//每3秒走一次
+     	  	autoplayDisableOnInteraction : false,//轮播
+   		  	loop:true,//是否无缝
+   		 	pagination: '.pagination',
+   		  	mousewheelControl:true,//值为true时，能够使用鼠标滑轮滑动swiper
+   		  	paginationClickable: true,//点击按钮
+   		  	calculateHeight:true,//Swiper根据slides内容计算容器高度。
+   		})
+	   		//今日推荐盒子的高度适配(有bug)
+			function giveHeight(){
+				var b = $('.today-i');
+					for(i=0;i< b.length;i++){
+					    if(0==i%3){
+					    	var h1 = b.eq(i).height();
+					    	var h2 =  b.eq(i+1).height();
+					    	var h3 =  b.eq(i+2).height();
+					    	if(i < b.length){
+						    	h = Math.max(h1,h2,h3);
+						    	b.eq(i).height(h);
+						    	b.eq(i+1).height(h);
+						    	b.eq(i+2).height(h);
+					    	}
+					    }
+					}
+			}	
+			giveHeight();
+   		})
+   		// 多行省略小插件 控制长度
+		$(".today-i").fonts({
+            fontNum: 12
+        });
+	</script>
+</body>
+</html>

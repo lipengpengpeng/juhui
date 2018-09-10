@@ -1,0 +1,162 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Boxy扩展</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <link rel="stylesheet" href="../css/common.css" type="text/css" />
+    <script type="text/javascript" src="../js/jquery-1.4.1.min.js"></script>
+    <script type="text/javascript" src="../js/Selector.js"></script>
+	<script type='text/javascript' src='../js/jquery.boxy.js'></script>
+    <link rel='stylesheet' href='../css/boxy.css' type='text/css' />
+    <script type="text/javascript">
+		var bigArrind = new Array();
+		bigArrind[0] = new Class(1,"计算机");
+		bigArrind[1] = new Class(2,"互联网·电子商务");
+		bigArrind[2] = new Class(53,"动漫·网络游戏");
+		
+		var midArrind = new Array();
+		midArrind[0] = new Class(1,"计算机");
+		midArrind[1] = new Class(53,"动漫·网络游戏");	
+		
+		
+		var smallArrind = new Array();
+		smallArrind[0] = new Class(1,"计算机");
+		smallArrind[1] = new Class(53,"动漫·网络游戏");
+		
+		var bigArrind2 = new Array();
+		bigArrind[0] = new Class(1,"计算机");
+		bigArrind[1] = new Class(2,"互联网·电子商务");
+		bigArrind[2] = new Class(53,"动漫·网络游戏");
+	
+      $(function() {
+            $("#bigCode").click(function() {
+				var code = $("#bigCodeId").val();										 
+                Boxy.industry(bigArrind,code, function(val,arrSelItems) {
+					var strId = "";
+					var strName = "";
+					
+					for(var i=0;i<arrSelItems.length;i++){
+						if(i==0){
+							strId+=arrSelItems[i].classId;
+							strName+=arrSelItems[i].className;
+						}else{
+							strId+=","+arrSelItems[i].classId;
+							strName+=","+arrSelItems[i].className;
+						}
+
+					}
+					
+					$("#bigCodeId").val(strId);
+					$("#bigCodeName").val(strName);
+
+                }, { title: "行业大类选择器" });
+                return false;
+            });
+   
+   			 $("#midCode").click(function() {
+				var code = $("#midCodeId").val();
+                Boxy.industry(midArrind,code, function(val,arrSelItems) {
+					var strId = "";
+					var strName = "";
+					for(var i=0;i<arrSelItems.length;i++){
+						if(i==0){
+							strId+=arrSelItems[i].classId;
+							strName+=arrSelItems[i].className;
+						}else{
+							strId+=","+arrSelItems[i].classId;
+							strName+=","+arrSelItems[i].className;
+						}
+
+					}
+					
+					$("#midCodeId").val(strId);
+					$("#midCodeName").val(strName);
+
+                }, { title: "行业中类选择器" });
+                return false;
+            });
+			 
+			$("#smallCode").click(function() {
+				var code = $("#smallCodeId").val();
+                Boxy.industry(smallArrind,code, function(val,arrSelItems) {
+
+					var strId = "";
+					var strName = "";
+					for(var i=0;i<arrSelItems.length;i++){
+						if(i==0){
+							strId+=arrSelItems[i].classId;
+							strName+=arrSelItems[i].className;
+						}else{
+							strId+=","+arrSelItems[i].classId;
+							strName+=","+arrSelItems[i].className;
+						}
+
+					}
+					
+					$("#smallCodeId").val(strId);
+					$("#smallCodeName").val(strName);
+                }, { title: "行业小类选择器" });
+                return false;
+            });
+			
+			$("#bigCode2").click(function() {
+				var code = $("#bigCode2Id").val();
+                Boxy.industry(smallArrind2,code, function(val,arrSelItems) {
+
+					var strId = "";
+					var strName = "";
+					for(var i=0;i<arrSelItems.length;i++){
+						if(i==0){
+							strId+=arrSelItems[i].classId;
+							strName+=arrSelItems[i].className;
+						}else{
+							strId+=","+arrSelItems[i].classId;
+							strName+=","+arrSelItems[i].className;
+						}
+
+					}
+					
+					$("#bigCode2Id").val(strId);
+					$("#bigCode2Name").val(strName);
+                }, { title: "重点行业选择器" });
+                return false;
+            });
+        });
+    </script>
+
+</head>
+<body>
+    <div>
+        <ul style="margin:100px;font:12px/16px; font-family:Arial;">
+            <li>行业大类
+            	<input type="hidden" id="bigCodeId" />
+            	<input type="text"id="bigCodeName" readonly="readonly"/>
+           		<input type="button" id="bigCode" value="选择" />
+            </li>
+            <li>行业中类
+            	<input type="hidden" id="midCodeId" />
+            	<input type="text"id="midCodeName" readonly="readonly"/>
+           		<input type="button" id="midCode" value="选择" />
+            </li>
+            <li>行业小类
+            	<input type="hidden" id="smallCodeId" />
+            	<input type="text"id="smallCodeName" readonly="readonly"/>
+           		<input type="button" id="smallCode" value="选择" />
+            </li>
+            
+			<li>重点行业
+            	<input type="hidden" id="bigCode2Id" />
+            	<input type="text"id="bigCode2Name" readonly="readonly"/>
+           		<input type="button" id="bigCode2" value="选择" />
+            </li>
+        </ul>
+    </div>
+    <div style=" height:500px;">
+
+    </div>
+</body>
+</html>
+<SCRIPT Language=VBScript><!--
+
+//--></SCRIPT>

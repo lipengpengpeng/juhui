@@ -1,0 +1,1305 @@
+package cc.messcat.gjfeng.service.member;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.Session;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.BeanUtilsEx;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.HttpXmlClient;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.util.Sha256;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.member.GjfMemberInfoDao;
+import cc.messcat.gjfeng.dao.trade.GjfTradeDao;
+import cc.messcat.gjfeng.entity.GjfAccessToken;
+import cc.messcat.gjfeng.entity.GjfAddressArea;
+import cc.messcat.gjfeng.entity.GjfAddressCity;
+import cc.messcat.gjfeng.entity.GjfAddressProvince;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfMemberTrade;
+import cc.messcat.gjfeng.entity.GjfMemberTradeBenefit;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDiviHistory;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.entity.GjfStoreJoinin;
+import cc.messcat.gjfeng.entity.GjfMemberCollect;
+import cc.messcat.gjfeng.entity.GjfSetBaseInfo;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+@Service("gjfMemberInfoService")
+public class GjfMemberInfoServiceImpl implements GjfMemberInfoService {
+
+	@Value("${dubbo.application.web.client}")
+	private String projectName;
+
+	@Value("${upload.member.idcard.path}")
+	private String imageFolderName;
+
+	@Value("${gjfeng.client.project.url}")
+	private String domainName;
+
+	@Autowired
+	@Qualifier("gjfMemberInfoDao")
+	private GjfMemberInfoDao gjfMemberInfoDao;
+
+	@Autowired
+	@Qualifier("gjfTradeDao")
+	private GjfTradeDao gjfTradeDao;
+
+	@Autowired
+	@Qualifier("notifyJmsTemplate")
+	private JmsTemplate notifyJmsTemplate;
+
+	/*
+	 * 我的个人信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberByMobile(
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberByMobile(String account) {
+		if (StringUtil.isBlank(account)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		System.out.println("session中用户保存电话的号码---->"+account);
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		return new ResultVo(200, "查询成功",
+				ObjValid.isNotValid(gjfMemberInfo) ? null : BeanUtilsEx.copyBean(MemberInfoVo.class, gjfMemberInfo));
+	}
+
+	/*
+	 * 我的钱包
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMyWallet(java.
+	 * lang.String)
+	 */
+	@Override
+	public ResultVo findMyWallet(String account) {
+		Map<String, Object> data = new HashMap<String, Object>();
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			return new ResultVo(400, "用户不存在", data);
+		}
+		data.put("insuranceMoney", gjfMemberInfo.getInsuranceMoney());
+		data.put("memberType", gjfMemberInfo.getType());
+		data.put("isConfirm", gjfMemberInfo.getIsConfirm());
+		data.put("dividendsRewardMoney", gjfMemberInfo.getDividendsRewardMoney());
+		data.put("recomRewardMoney", gjfMemberInfo.getRecommendRewardMoney());
+		data.put("indiRewardMoney", gjfMemberInfo.getIndiRewardMoney());
+		return new ResultVo(200, "查询成功", data);
+	}
+
+	/*
+	 * 查询我的收藏
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMyCollect(java.
+	 * lang.String, java.lang.String, int, int)
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Override
+	public ResultVo findMyCollect(String account, String collectType, int pageNo, int pageSize) {
+		// TODO Auto-generated method stub
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("collectType", collectType);
+		attr.put("memberId.mobile", account);
+		List<GjfMemberCollect> list = gjfMemberInfoDao.queryList(GjfMemberCollect.class, (pageNo - 1) * pageSize,
+				pageSize, "addTime", "desc", attr);
+		List allInfo = new ArrayList<>();
+		for (GjfMemberCollect collect : list) {
+			Map<String, Object> map = new HashMap<>();
+			map.put("colId", collect.getId());
+			if (Integer.parseInt(collectType) == 2) {
+				map.put("id", collect.getGoodsId().getId());
+				map.put("goodName", collect.getGoodsId().getName());
+				map.put("storeName", collect.getGoodsId().getStoreId().getStoreName());
+				map.put("img", collect.getGoodsId().getImgUrl());
+			} else {
+				map.put("id", collect.getStoreId().getId());
+				map.put("goodName", "");
+				map.put("storeName", collect.getStoreId().getStoreName());
+				map.put("img", collect.getStoreId().getStoreBanner());
+			}
+			map.put("addTime", collect.getAddTime());
+			allInfo.add(map);
+		}
+		return new ResultVo(200, "查询成功", allInfo);
+	}
+
+	/*
+	 * 添加我的收藏
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#addMyCollect(java.
+	 * lang.String, java.lang.String, java.lang.Long)
+	 */
+	@Override
+	public ResultVo addMyCollect(String account, String collectType, Long id) {
+		//创建收藏对象
+		GjfMemberCollect collect=new GjfMemberCollect();
+		//创建查询条件集合
+		Map<String, Object> attrs=new HashMap<>();
+		//查询用户信息
+		attrs.put("mobile", account);
+		GjfMemberInfo memInfo=gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if(!BeanUtil.isValid(memInfo)){
+			return new ResultVo(400,"用户不存在",null);
+		}
+		attrs.remove("mobile");
+		attrs.put("id", id);
+		//根据类型判断是收藏商品还是收藏店铺
+		if("2".equals(collectType)){
+		   	GjfProductInfo product=gjfMemberInfoDao.query(GjfProductInfo.class, attrs);
+		   	collect.setGoodsId(product);
+		   	collect.setCollectType("2");
+		}else{
+			GjfStoreInfo store=gjfMemberInfoDao.query(GjfStoreInfo.class, attrs);
+			collect.setStoreId(store);
+			collect.setCollectType("1");
+		}
+		collect.setAddTime(new Date());
+		collect.setMemberId(memInfo);
+		gjfMemberInfoDao.save(collect);
+		Map<String, Object> info=new HashMap<>();
+		info.put("collectType", collectType);
+		info.put("collectStatus", "1");
+		info.put("colId", collect.getId());
+		return new ResultVo(200, "收藏成功",info);
+	}
+
+	/*
+	 * 修改用户资料--微信端
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#
+	 * updateMemberByWxOrApp(cc. messcat.gjfeng.entity.GjfMemberInfo)
+	 */
+	@Override
+	public ResultVo updateMemberByWxOrApp(GjfMemberInfo gjfMemberInfo) {
+		if (ObjValid.isNotValid(gjfMemberInfo) || StringUtil.isBlank(gjfMemberInfo.getMobile())) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (StringUtil.isBlank(gjfMemberInfo.getNickName())) {
+			throw new MyException(400, "昵称不能为空", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", gjfMemberInfo.getMobile());
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (StringUtil.isNotBlank(gjfMemberInfo.getImgHeadUrl())) {
+			info.setImgHeadUrl(gjfMemberInfo.getImgHeadUrl());
+		}
+		if (StringUtil.isNotBlank(gjfMemberInfo.getRemark())) {
+			info.setRemark(gjfMemberInfo.getRemark());
+		}
+		info.setNickName(gjfMemberInfo.getNickName());
+		try {
+			info = BeanUtil.setBeanByOtherBeanWithoutNull(info, gjfMemberInfo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new MyException(400, "修改失败", null);
+		}
+		gjfMemberInfoDao.update(info);
+		return new ResultVo(200, "修改成功", BeanUtilsEx.copyBean(MemberInfoVo.class, info));
+	}
+
+	/*
+	 * 修改用户资料--后台
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#updateMember(cc.
+	 * messcat.gjfeng.entity.GjfMemberInfo)
+	 */
+	@Override
+	public ResultVo updateMember(GjfMemberInfo gjfMemberInfo) {
+		if (ObjValid.isNotValid(gjfMemberInfo)/*
+												 * || StringUtil.isBlank(
+												 * gjfMemberInfo.getMobile())
+												 */) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (StringUtil.isBlank(gjfMemberInfo.getNickName())) {
+			throw new MyException(400, "昵称不能为空", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", gjfMemberInfo.getId());
+		/* attrs.put("token", gjfMemberInfo.getToken()); */
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		if (StringUtil.isNotBlank(gjfMemberInfo.getImgHeadUrl())) {
+			info.setImgHeadUrl(gjfMemberInfo.getImgHeadUrl());
+		}
+		if (StringUtil.isNotBlank(gjfMemberInfo.getRemark())) {
+			info.setRemark(gjfMemberInfo.getRemark());
+		}
+		info.setNickName(gjfMemberInfo.getNickName());
+		try {
+			info = BeanUtil.setBeanByOtherBeanWithoutNull(info, gjfMemberInfo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new MyException(400, "修改失败", null);
+		}
+		gjfMemberInfoDao.update(info);
+		if ("0".equals(gjfMemberInfo.getStatus())) {
+			attrs.clear();
+			attrs.put("memberId.id", gjfMemberInfo.getId());
+			GjfStoreInfo store = gjfMemberInfoDao.query(GjfStoreInfo.class, attrs);
+			if (ObjValid.isValid(store)) {
+				store.setStoreStatus("0");
+				gjfMemberInfoDao.update(store);
+			}
+		}
+		return new ResultVo(200, "修改成功", BeanUtilsEx.copyBean(MemberInfoVo.class, info));
+	}
+
+	/*
+	 * 身份证实名认证
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#updateMemberIdCard(
+	 * java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo updateMemberIdCard(String account, String idCardName, String idCardNo, String idCardBefImg,
+			String idCardBehImg, String idCardHeadhild, String fileName) {
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "账号不能为空", null);
+		}
+		if (StringUtil.isBlank(idCardName)) {
+			throw new MyException(400, "真实姓名不能为空", null);
+		}
+		if (StringUtil.isBlank(idCardNo)) {
+			throw new MyException(400, "身份证号不能为空", null);
+		}
+		if (StringUtil.isBlank(idCardBefImg)) {
+			throw new MyException(400, "身份证正面图片不能为空", null);
+		}
+		if (StringUtil.isBlank(idCardBehImg)) {
+			throw new MyException(400, "身份证背面图片不能为空", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+
+		if("1".equals(idCardBefImg)&&"2".equals(idCardBehImg)){
+			info.setName(idCardName);
+			info.setIdCard(idCardNo);		
+			info.setIsReadName(idCardBefImg);
+			info.setRealNameState(idCardBehImg);
+			gjfMemberInfoDao.update(info);
+		}	
+		return new ResultVo(200, "提交成功", null);
+	}
+
+	/*
+	 * 身份证审核
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#
+	 * updateMemberIdCardStatus(java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo updateMemberIdCardStatus(String account, String status, String token) {
+		if (StringUtil.isBlank(status)
+				|| (!"0".equals(status) && !"1".equals(status) && !"2".equals(status) && !"3".equals(status))) {
+			return new ResultVo(400, "状态异常", null);
+		}
+		GjfMemberInfo info = findMember(account);
+		if (ObjValid.isNotValid(info)) {
+			return new ResultVo(400, "用户不存在", null);
+		}
+		info.setRealNameState(status);
+		if (Integer.parseInt(status) == 2) {
+			info.setIsReadName("1");
+		}
+		gjfMemberInfoDao.update(info);
+
+		sendMessage(info);
+		return new ResultVo(200, "审核成功", null);
+	}
+
+	/*
+	 * 后台根据手机号查询个人资料
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMember(java.
+	 * lang.String)
+	 */
+	public GjfMemberInfo findMember(String account) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		return gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+	}
+
+	/*
+	 * 查询用户根据unionId
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberByUnionId
+	 * (java.lang.String)
+	 */
+	public GjfMemberInfo findMemberByUnionId(String unionId) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("unionId", unionId);
+		attrs.put("isDel", "1");
+		return gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+	}
+
+	/*
+	 * 后台根据手机号和token查询个人资料
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberByMobile(
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public GjfMemberInfo findMemberByMobile(String account, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "参数缺失", null);
+		}
+		if (StringUtil.isBlank(token)) {
+			throw new MyException(400, "参数缺失", null);
+		}
+		attrs.put("mobile", account);
+		attrs.put("token", token);
+		return gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+	}
+
+	/*
+	 * 后台分页查询个人资料
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMembersByPager(
+	 * int, int, java.lang.String)
+	 */
+	@Override
+	public Pager findMembersByPager(int pageNo, int pageSize, String name, String userName, String mobile, String type,
+			String identity, String realNameState) {
+		return gjfMemberInfoDao.findMembersByPager(pageNo, pageSize, name, userName, mobile, type, identity,
+				realNameState);
+	}
+
+	/*
+	 * 获取所有会员
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	@Override
+	public ResultVo findAllMembers(int pageNo, int pageSize) {
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.findAllMember());
+	}
+
+	/*
+	 * 后台删除用户数据
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#removeMember(java.
+	 * lang.Long)
+	 */
+	@Override
+	public ResultVo modifyMember(Long id) {
+		// TODO Auto-generated method stub
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> map = new HashMap<>();
+		map.put("id", id);
+		GjfMemberInfo member = gjfMemberInfoDao.query(GjfMemberInfo.class, map);
+		if (ObjValid.isNotValid(member)) {
+			return new ResultVo(400, "用户不存在！", null);
+		}
+		member.setIsDel("0");
+		gjfMemberInfoDao.update(member);
+		map.clear();
+		map.put("memberId.id", id);
+		GjfStoreInfo store = gjfMemberInfoDao.query(GjfStoreInfo.class, map);
+		if (ObjValid.isValid(store)) {
+			store.setIsDel("0");
+			gjfMemberInfoDao.update(store);
+		}
+		return new ResultVo(200, "删除成功", null);
+	}
+
+	/*
+	 * 根据id查询用户信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberById(java
+	 * .lang.Long)
+	 */
+	@Override
+	public ResultVo findMemberById(Long memId) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", memId);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberInfo.class, attrs));
+	}
+
+	/*
+	 * 根据条件查找用户
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#
+	 * findMemberByCondition(int, int, java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberByCondition(int pageNo, int pageSize, String name, String nickName, String mobile,
+			String type) {
+		return new ResultVo(200, "查询成功",
+				gjfMemberInfoDao.findMemberByCondition(pageNo, pageSize, name, nickName, mobile, type));
+	}
+
+	/*
+	 * 查找用户下级
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#
+	 * findLowLevelByMemberId(int, int, java.lang.Long)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findLowLevelByMemberId(int pageNo, int pageSize, Long memberId) {
+		if (ObjValid.isNotValid(memberId)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("superId", memberId);
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfMemberInfoDao.queryTotalRecord(GjfMemberInfo.class, attrs))),
+				gjfMemberInfoDao.queryList(GjfMemberInfo.class, (pageNo - 1) * pageSize, pageSize, "addTime", "desc",
+						attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 查找所有代理商
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findAllAgents(int,
+	 * int)
+	 */
+	@Override
+	public ResultVo findAllAgents(int pageNo, int pageSize, String name, String startDate, String identity,
+			String status) {
+		return new ResultVo(200, "查询成功",
+				gjfMemberInfoDao.findAllAgents(pageNo, pageSize, name, startDate, identity, status));
+	}
+
+	/*
+	 * 我的钱包首页获取统计数据
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberCountInfo
+	 * (java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberCountInfo(String type, String account) {
+		Map<String, Object> map = new HashMap<>();
+		map.put("benefitYesterdayMoney", 0.00); // 今日收益
+		map.put("cumulativeMoney", 0.00);
+		map.put("balanceMoney", 0.00);
+		map.put("dividendsTotalMoney", 0.00);
+		map.put("consumptionMoney", 0.00);
+		map.put("canMoney", 0.00);
+		map.put("canParticipate", 0.00);
+		map.put("saleTotalMoney", 0.00);
+		if (ObjValid.isValid(type) && Integer.parseInt(type) == 0) {
+			// 获取用户信息
+			Map<String, Object> attr0 = new HashMap<String, Object>();
+			attr0.put("mobile", account);
+			GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attr0);
+			if (!BeanUtil.isValid(gjfMemberInfo)) {
+				return new ResultVo(200, "用户不存在", map);
+			}
+
+			/*
+			 * Double memBenefit = gjfMemberInfoDao.findMemberBenefitMoney("1",
+			 * gjfMemberInfo.getId()); // 查询用户当天让利金额 Double memDivNum =
+			 * gjfMemberInfoDao.findMemberDivNum("0"); // 获取所有开启用户的总分红权数
+			 * 
+			 * // 计算单个权益 BigDecimal individual = new BigDecimal(0.00); if
+			 * (memDivNum == 0) { map.put("individual", 0.00); } else {
+			 * individual = new BigDecimal(memBenefit).divide(new
+			 * BigDecimal(memDivNum), 2, BigDecimal.ROUND_DOWN);
+			 * map.put("individual", individual); }
+			 */
+
+			BigDecimal benefitYesterdayMoney = gjfTradeDao.findBenefitYesterdayByMember(gjfMemberInfo.getId(), "2");
+			map.put("benefitYesterdayMoney", benefitYesterdayMoney); // 昨日收益
+			map.put("cumulativeMoney", gjfMemberInfo.getCumulativeMoney()); // 累计消费金额
+			map.put("balanceMoney", gjfMemberInfo.getBalanceMoney()); // 福利帐户
+			// 统计当前用户直推会员和直推商家的交易总额
+			Double memDiviMoney = gjfMemberInfoDao.findDiviTotalMoeny(gjfMemberInfo.getId());
+			map.put("dividendsTotalMoney", memDiviMoney); // 销售福利
+			map.put("consumptionMoney", gjfMemberInfo.getConsumptionMoney()); // 待领取
+			map.put("saleTotalMoney", gjfMemberInfo.getInsuranceMoney());
+			if (gjfMemberInfo.getCumulativeMoney().doubleValue() == 0) { // 已领取
+				map.put("canMoney", 0.00);
+			} else {
+				map.put("canMoney", gjfMemberInfo.getDividendsTotalMoney().multiply(new BigDecimal(100))
+						.divide(gjfMemberInfo.getCumulativeMoney(), 2, BigDecimal.ROUND_DOWN));
+			}
+			double diviNum = gjfMemberInfo.getDividendsNum().doubleValue();
+			// 可参与福利权益
+			if (gjfMemberInfo.getDividendsTotalMoney().doubleValue()
+					/ gjfMemberInfo.getCumulativeMoney().doubleValue() >= 0.2) {
+				diviNum = diviNum / 2;
+			}
+			if (gjfMemberInfo.getDividendsTotalMoney().doubleValue()
+					/ gjfMemberInfo.getCumulativeMoney().doubleValue() >= 0.52) {
+				diviNum = diviNum / 2;
+			}
+			map.put("canParticipate", new BigDecimal(diviNum).setScale(0, BigDecimal.ROUND_DOWN));
+
+		} else {
+			// 获取店铺信息
+			Map<String, Object> attr1 = new HashMap<String, Object>();
+			attr1.put("memberId.mobile", account);
+			GjfStoreInfo gjfStoreInfo = gjfMemberInfoDao.query(GjfStoreInfo.class, attr1);
+			if (!BeanUtil.isValid(gjfStoreInfo)) {
+				return new ResultVo(200, "店铺不存在", map);
+			}
+
+			/*
+			 * Double memBenefit = gjfMemberInfoDao.findMemberBenefitMoney("2",
+			 * gjfStoreInfo.getId()); // 查询用户当天让利金额 Double storeDivNum =
+			 * gjfMemberInfoDao.findMemberDivNum("0"); // 获取商家分红权总数 // 计算单个权益
+			 * BigDecimal individual = new BigDecimal(0.00); if (storeDivNum ==
+			 * 0) { map.put("individual", 0.00); } else { individual = (new
+			 * BigDecimal(memBenefit)).divide(new BigDecimal(storeDivNum), 2,
+			 * BigDecimal.ROUND_DOWN); map.put("individual", individual); }
+			 */
+
+			BigDecimal benefitYesterdayMoney = gjfTradeDao
+					.findBenefitYesterdayByMember(gjfStoreInfo.getMemberId().getId(), "3");
+			map.put("benefitYesterdayMoney", benefitYesterdayMoney); // 昨日收益
+			// 累计贡献金额
+			map.put("cumulativeMoney", gjfStoreInfo.getStoreBenefitTotalMoney());
+			// 总销售额
+			map.put("saleTotalMoney", gjfStoreInfo.getStoreSaleTotalMoney());
+			// 已经领取
+			if (gjfStoreInfo.getStoreSaleTotalMoney().doubleValue() == 0) {
+				map.put("canMoney", 0.00);
+			} else {
+				map.put("canMoney", gjfStoreInfo.getStoreDividendsTotalMoney().multiply(new BigDecimal(100))
+						.divide(gjfStoreInfo.getStoreBenefitTotalMoney(), 2, BigDecimal.ROUND_DOWN));
+			}
+
+			// 待领取
+			map.put("consumptionMoney", gjfStoreInfo.getStoreDividendsTotalMoneyBla());
+
+			// 可参与福利权益
+			BigDecimal storeDividensNum=gjfStoreInfo.getStoreDividendsNum();
+			if(gjfStoreInfo.getStoreDividendsTotalMoney().doubleValue()>=gjfStoreInfo.getStoreBenefitTotalMoney().multiply(new BigDecimal(0.5)).doubleValue()){
+				storeDividensNum=storeDividensNum.divide(new BigDecimal(2)).setScale(2,BigDecimal.ROUND_DOWN);
+			}
+			if(gjfStoreInfo.getStoreDividendsTotalMoney().doubleValue()>=gjfStoreInfo.getStoreBenefitTotalMoney().multiply(new BigDecimal(0.2)).doubleValue()){
+				storeDividensNum=storeDividensNum.divide(new BigDecimal(2)).setScale(2,BigDecimal.ROUND_DOWN);
+			}
+			
+			map.put("canParticipate", storeDividensNum.setScale(0, BigDecimal.ROUND_DOWN));
+		}
+
+		return new ResultVo(200, "查询成功", map);
+	}
+
+	@Override
+	public ResultVo addMemberData(String url, String type, String status) {
+		String str = HttpXmlClient.get(url);
+		JSONObject json = JSONObject.fromObject(str);
+		if (Integer.parseInt(type) == 1) {
+			return addMemberInfo(json);
+		}
+		if (Integer.parseInt(type) == 2) {
+			return addStoreInfo(json);
+		}
+		if (Integer.parseInt(type) == 3) {
+			return addStoreJoin(json);
+		}
+		if (Integer.parseInt(type) == 4) {
+			return addWithdraw(json);
+		}
+		if (Integer.parseInt(type) == 5) {
+			return addBenefit(json);
+		}
+		if (Integer.parseInt(type) == 6) {
+			return addBenefitHistory(json, status);
+		}
+
+		return new ResultVo(200, "成功", null);
+	}
+
+	// 添加用户信息
+	public ResultVo addMemberInfo(JSONObject json) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					GjfMemberInfo info = new GjfMemberInfo();
+					info.setId(map.getLong("id"));
+					// info.setUnionId(map.getString("openid"));
+					info.setOpenId(map.getString("openid"));
+					info.setMobile(map.getString("mobile"));
+					info.setNickName(map.getString("nickName"));
+
+					String sex = map.getString("sex");
+					if (Integer.parseInt(sex) == -1) {
+						info.setSex("0");
+					}
+					if (Integer.parseInt(sex) == 0) {
+						info.setSex("1");
+					}
+					if (Integer.parseInt(sex) == 1) {
+						info.setSex("2");
+					}
+					info.setImgHeadUrl(map.getString("imgHeadUrl"));
+					info.setSuperId(map.getLong("superId"));
+					info.setBalanceMoney(new BigDecimal(map.getDouble("balanceMoney")));
+					info.setConsumptionMoney(new BigDecimal(map.getDouble("consumptionMoney")));
+					info.setCumulativeMoney(new BigDecimal(map.getDouble("cumulativeMoney")));
+					info.setDividendsMoneyBla(new BigDecimal("0.00"));
+					info.setWithdrawalMoney(new BigDecimal(map.getDouble("withdrawalMoney")));
+					info.setDividendsTotalMoney(new BigDecimal(map.getDouble("dividendsTotalMoney")));
+					info.setDividendsNum(new BigDecimal(map.getDouble("dividendsNum")));
+					info.setInsuranceMoney(new BigDecimal(0.00));
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+					try {
+						if (BeanUtil.isValid(map.getLong("addTime"))) {
+							Long lt = map.getLong("addTime");
+							String time = sdf.format(lt);
+							info.setAddTime(sdf.parse(time));
+						} else {
+							info.setAddTime(new Date());
+						}
+
+						if (BeanUtil.isValid(map.getLong("editTime"))) {
+							Long lt = map.getLong("editTime");
+							String time = sdf.format(lt);
+							info.setEditTime(sdf.parse(time));
+						}
+
+						if (BeanUtil.isValid(map.getLong("lastLoginTime"))) {
+							Long lt = map.getLong("lastLoginTime");
+							String time = sdf.format(lt);
+							info.setLastLoginTime(sdf.parse(time));
+						}
+
+					} catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					info.setType(map.getString("type"));
+					info.setIdentity("0");
+					info.setIsBuy("1");
+					info.setIsComments("1");
+					info.setIsDel("1");
+					info.setIsMessage("1");
+					info.setIsReport("1");
+					info.setIsReadName("0");
+					info.setStatus("1");
+					info.setToken(Sha256.getSha256Hash(info.getMobile(), info.getStatus(), CommonStatus.SIGN_KEY_NUM));
+					info.setRealNameState("0");
+
+					gjfMemberInfoDao.save(info);
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	// 接入店铺信息
+	public ResultVo addStoreInfo(JSONObject json) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					if (BeanUtil.isValid(map.getLong("memberId"))) {
+						GjfStoreInfo store = new GjfStoreInfo();
+						store.setId(map.getLong("id"));
+						store.setStoreName(map.getString("storeName"));
+						GjfMemberInfo info = new GjfMemberInfo();
+						info.setId(map.getLong("id"));
+						GjfMemberInfo memberId = new GjfMemberInfo();
+						memberId.setId(map.getLong("memberId"));
+						store.setMemberId(memberId);
+						store.setSellerName(map.getString("sellerName"));
+						store.setSellerMobile(map.getString("sellerMobile"));
+						store.setAddressDetail(map.getString("addressDetail"));
+						store.setLatitude(map.getDouble("latitude"));
+						store.setLongitude(map.getDouble("longitude"));
+						store.setStoreLogoUrl(map.getString("storeLogoUrl"));
+						store.setStoreDescription(map.getString("storeDescription"));
+						store.setStoreDividendsTotalMoney(new BigDecimal(map.getDouble("storeDividendsTotalMoney")));
+						store.setStoreDividendsTotalMoneyBla(
+								new BigDecimal(map.getDouble("storeDividendsTotalMoneyBla")));
+						store.setStoreDividendsNum(new BigDecimal(map.getDouble("storeDividendsNum")));
+						store.setStoreBenefitTotalMoney(new BigDecimal(map.getDouble("storeBenefitTotalMoney")));
+						store.setStoreWorkingTime(map.getString("storeWorkingTime"));
+
+						store.setStoreAddTime(new Date());
+						store.setStoreRecommend("0");
+						store.setStoreSaleTotalMoney(new BigDecimal(0.00));
+						store.setStoreBenefitTotalMoney(new BigDecimal(0.00));
+						store.setStoreCreditScore(0L);
+						store.setStoreDesccreditScore(new BigDecimal(0.00));
+						store.setStoreServiceCreditScore(new BigDecimal(0.00));
+						store.setStoreDeliveryCreditScore(new BigDecimal(0.00));
+						store.setStoreCollectNum(0L);
+						store.setStoreFreePrice(new BigDecimal(0.00));
+
+						Map<String, Object> memMap = new HashMap<>();
+						memMap.put("id", map.getLong("memberId"));
+						GjfMemberInfo memInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, memMap);
+						if (BeanUtil.isValid(memInfo)) {
+							memInfo.setLineOfCrade(new BigDecimal(map.getDouble("ed")));
+							gjfMemberInfoDao.update(memInfo);
+						}
+
+						store.setStoreIsOwnShop("0");
+						store.setStorePro("0");
+						store.setStoreType("1");
+						store.setStoreStatus("1");
+						store.setIsDel("1");
+						store.setStoreDividendsMoneyBla(new BigDecimal(0.00));
+						store.setStoreNum(
+								DateHelper.dataToString(new Date(), "yyyyMMddHHmmss") + RandUtil.getRandomStr(2));
+						store.setToken(Sha256.getSha256Hash(store.getSellerMobile(), store.getStoreName(),
+								CommonStatus.SIGN_KEY_NUM));
+						gjfMemberInfoDao.save(store);
+					}
+
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 添加店铺的其他信息
+	 * 
+	 * @param json
+	 * @return
+	 */
+	public ResultVo addStoreJoin(JSONObject json) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					GjfStoreJoinin join = new GjfStoreJoinin();
+					// join.setId(map.getLong("id"));
+					GjfStoreInfo store = new GjfStoreInfo();
+					store.setId(map.getLong("storeId"));
+					join.setStoreId(store);
+					join.setCompanyName(map.getString("companyName"));
+					join.setBusinessLicenceNumberElectronic(map.getString("businessLicenceNumberElectronic"));
+					gjfMemberInfoDao.save(join);
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 接入提现记录
+	 * 
+	 * @param json
+	 * @return
+	 */
+	public ResultVo addWithdraw(JSONObject json) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					if (BeanUtil.isValid(map.getLong("memberId"))) {
+						GjfMemberTrade trade = new GjfMemberTrade();
+						// join.setId(map.getLong("id"));
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+						Long lt = map.getLong("addTime");
+						String time = sdf.format(lt);
+						try {
+							trade.setAddTime(sdf.parse(time));
+						} catch (ParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						GjfMemberInfo member = new GjfMemberInfo();
+						member.setId(map.getLong("memberId"));
+						System.out.println(map.getLong("memberId"));
+						trade.setMemberId(member);
+						trade.setTradeMoney(new BigDecimal(map.getDouble("tradeMoney")));
+						trade.setTradeType(map.getString("tradeType"));
+						trade.setTradeStatus("1");
+						trade.setTaxMoney(new BigDecimal(0.00));
+						trade.setInsuranceMoney(new BigDecimal(0.00));
+						trade.setTradeNo(
+								DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+						trade.setToken(Sha256.getSha256Hash(
+								DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)),
+								trade.getTradeType(), CommonStatus.SIGN_KEY_NUM));
+						gjfMemberInfoDao.save(trade);
+					}
+
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 接入商家让利信息
+	 * 
+	 * @param json
+	 * @return
+	 */
+	public ResultVo addBenefit(JSONObject json) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					GjfMemberTradeBenefit trade = new GjfMemberTradeBenefit();
+					GjfMemberInfo member = new GjfMemberInfo();
+					member.setId(map.getLong("memberId"));
+					trade.setMemberId(member);
+					GjfStoreInfo store = new GjfStoreInfo();
+					store.setId(map.getLong("storeId"));
+					trade.setStoreId(store);
+					trade.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+					try {
+						trade.setAddTime(sdf.parse(map.getString("addTime")));
+					} catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					trade.setTradeMoney(new BigDecimal(map.getDouble("tradeMoney")));
+					trade.setBenefitMoney(new BigDecimal(map.getDouble("benefitMoney")));
+					trade.setMemberDividendsNum(new BigDecimal(0.00));
+					trade.setMerchantsDividendsNum(new BigDecimal(0.00));
+					trade.setPayType("0");
+					trade.setTradeStatus("1");
+					trade.setToken(Sha256.getSha256Hash(
+							DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)), "1",
+							CommonStatus.SIGN_KEY_NUM));
+					gjfMemberInfoDao.save(trade);
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 接入商家让利信息
+	 * 
+	 * @param json
+	 * @return
+	 */
+	public ResultVo addBenefitHistory(JSONObject json, String status) {
+		if (Integer.parseInt(json.getString("status")) == 200) {
+			JSONArray list = json.getJSONArray("result");
+			if (BeanUtil.isValid(list)) {
+				for (int i = 0; i < list.size(); i++) {
+					JSONObject map = list.getJSONObject(i);
+					GjfMemberTradeDiviHistory trade = new GjfMemberTradeDiviHistory();
+					if (Integer.parseInt(status) == 3) {
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+						try {
+							trade.setAddTime(sdf.parse(map.getString("addTime")));
+							trade.setTradeTime(sdf.parse(map.getString("tradeTime")));
+						} catch (ParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					} else {
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+						try {
+							Long lt = map.getLong("addTime");
+							String time = sdf.format(lt);
+							trade.setAddTime(sdf.parse(time));
+
+							Long tradelt = map.getLong("tradeTime");
+							String tradeTime = sdf.format(tradelt);
+							trade.setTradeTime(sdf.parse(tradeTime));
+						} catch (ParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+
+					trade.setTradeMoney(new BigDecimal(map.getDouble("tradeMoney")));
+					if (Integer.parseInt(status) == 3) {
+						Long storeId = map.getLong("supplier_id");
+						Map<String, Object> attr = new HashMap<>();
+						attr.put("id", storeId);
+						GjfStoreInfo store = gjfMemberInfoDao.query(GjfStoreInfo.class, attr);
+						if (BeanUtil.isValid(store)) {
+							trade.setMemberId(store.getMemberId());
+						} else {
+							GjfMemberInfo member = new GjfMemberInfo();
+							member.setId(1L);
+							trade.setMemberId(member);
+						}
+					} else {
+						Map<String, Object> attr = new HashMap<>();
+						attr.put("id", map.getLong("memberId"));
+						GjfMemberInfo member = gjfMemberInfoDao.query(GjfMemberInfo.class, attr);
+						if (BeanUtil.isValid(member)) {
+							trade.setMemberId(member);
+						} else {
+							GjfMemberInfo member0 = new GjfMemberInfo();
+							member0.setId(1L);
+							trade.setMemberId(member0);
+						}
+					}
+
+					trade.setTradeType(status);
+					trade.setTradeStatus("1");
+					trade.setTradeTrmo(map.getString("tradeTrmo"));
+					trade.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+					trade.setToken(Sha256.getSha256Hash(
+							DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)), "1",
+							CommonStatus.SIGN_KEY_NUM));
+					gjfMemberInfoDao.save(trade);
+
+				}
+			}
+
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	@Override
+	public ResultVo addMemberDataGetUnId(GjfMemberInfo info) {
+		gjfMemberInfoDao.save(info);
+		return new ResultVo(200, "添加成功", null);
+
+	}
+
+	/*
+	 * 修改用户代理情况
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfMemberInfoService#updateMemberAgent(
+	 * java.lang.Long, java.lang.Long, java.lang.Long,
+	 * cc.messcat.gjfeng.entity.GjfMemberInfo)
+	 */
+	@Override
+	public ResultVo updateMemberAgent(Long area, Long pri, Long city, GjfMemberInfo gjfMemberInfo, String type,
+			Date startTime, Date endTime) throws ParseException {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		if (ObjValid.isNotValid(area) && ObjValid.isNotValid(pri) && ObjValid.isNotValid(city) && "1".equals(type)) {
+			gjfMemberInfo.setProviceId(null);
+			gjfMemberInfo.setCityId(null);
+			gjfMemberInfo.setAreaId(null);
+			gjfMemberInfo.setIdentity(type);
+		} else if (ObjValid.isValid(area) && ObjValid.isValid(pri) && ObjValid.isValid(city) && "2".equals(type)) {
+			attrs.put("provinceId", pri);
+			GjfAddressProvince gjfAddressProvince = gjfMemberInfoDao.query(GjfAddressProvince.class, attrs);
+			if (ObjValid.isNotValid(gjfAddressProvince)) {
+				throw new MyException(400, "省份不存在", null);
+			}
+
+			attrs.clear();
+			attrs.put("cityId", city);
+			GjfAddressCity gjfAddressCity = gjfMemberInfoDao.query(GjfAddressCity.class, attrs);
+			if (ObjValid.isNotValid(gjfAddressCity)) {
+				throw new MyException(400, "市不存在", null);
+			}
+
+			attrs.clear();
+			attrs.put("areaId", area);
+			GjfAddressArea gjfAddressArea = gjfMemberInfoDao.query(GjfAddressArea.class, attrs);
+			if (ObjValid.isNotValid(gjfAddressArea)) {
+				throw new MyException(400, "地区不存在", null);
+			}
+			gjfMemberInfo.setProviceId(gjfAddressProvince);
+			gjfMemberInfo.setCityId(gjfAddressCity);
+			gjfMemberInfo.setAreaId(gjfAddressArea);
+			gjfMemberInfo.setIdentity(type);
+		} else if (ObjValid.isNotValid(area) && ObjValid.isValid(pri) && ObjValid.isValid(city) && "3".equals(type)) {
+			attrs.put("provinceId", pri);
+			GjfAddressProvince gjfAddressProvince = gjfMemberInfoDao.query(GjfAddressProvince.class, attrs);
+			if (ObjValid.isNotValid(gjfAddressProvince)) {
+				throw new MyException(400, "省份不存在", null);
+			}
+
+			attrs.clear();
+			attrs.put("cityId", city);
+			GjfAddressCity gjfAddressCity = gjfMemberInfoDao.query(GjfAddressCity.class, attrs);
+			if (ObjValid.isNotValid(gjfAddressCity)) {
+				throw new MyException(400, "市不存在", null);
+			}
+
+			gjfMemberInfo.setProviceId(gjfAddressProvince);
+			gjfMemberInfo.setCityId(gjfAddressCity);
+			gjfMemberInfo.setAreaId(null);
+			gjfMemberInfo.setIdentity(type);
+		}
+		gjfMemberInfo.setAgentStartDate(startTime);
+		gjfMemberInfo.setAgentEndDate(endTime);
+		gjfMemberInfoDao.update(gjfMemberInfo);
+		return new ResultVo(200, "操作成功", null);
+	}
+
+	// 发送mq消息
+	public void sendMessage(GjfMemberInfo info) {
+		// 发送短信消息通知
+		try {
+			Map<String, Object> dataMap = new HashMap<String, Object>();
+			dataMap.put("mobile", info.getMobile());
+			dataMap.put("variable0", info.getMobile());
+			if (info.getRealNameState().equals("2")) {//成功
+				dataMap.put("templateCode", CommonProperties.MNS_TEMPLATE_IDCARD_SUCC);
+//				content = "亲爱的" + info.getMobile() + "用户，您的实名制认证已经审核成功，如有疑问请联系工作人员！";
+			} else if (info.getRealNameState().equals("3")) {//失败
+				dataMap.put("templateCode", CommonProperties.MNS_TEMPLATE_IDCARD_FAIL);
+//				content = "亲爱的" + info.getMobile() + "用户，您的实名制认证审核失败，请重新填写申请，如有疑问请联系工作人员！";
+			}
+			Object toJSON = JSONObject.fromObject(dataMap);
+			final String str = toJSON.toString();
+			notifyJmsTemplate.send("SmsSendNotify", new MessageCreator() {
+				public Message createMessage(Session session) throws JMSException {
+					Message obj = session.createTextMessage(str);
+					return obj;
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public ResultVo updateMemberCode(GjfMemberInfo memberInfo) {
+
+		if (!BeanUtil.isValid(memberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		return new ResultVo(200, "修改成功", gjfMemberInfoDao.update(memberInfo));
+	}
+
+	@Override
+	public ResultVo addAccessToken(GjfAccessToken accessTokens) {
+
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.MINUTE, 80);
+		accessTokens.setExpirationTime(cal.getTime());
+		gjfMemberInfoDao.save(accessTokens);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	@Override
+	public ResultVo getAccessTonken(String type) {
+
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("type", type);
+		List<GjfAccessToken> list = gjfMemberInfoDao.queryList(GjfAccessToken.class, "expirationTime", "desc", attrs);
+		GjfAccessToken accessTokens = null;
+		if (list.size() > 0) {
+			accessTokens = list.get(0);
+		}
+		return new ResultVo(200, "查询成功", accessTokens);
+	}
+
+	/*
+	 * 获取用户下级
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#getMemberLowerLevel(java.lang.Long, java.lang.Integer, java.lang.Integer)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo getMemberLowerLevel(Long superId, Integer pageNo, Integer pageSize) {
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("superId", superId);
+		attrs.put("isDel", "1");
+		List<GjfMemberInfo> list = gjfMemberInfoDao.queryList(GjfMemberInfo.class, (pageNo - 1) * pageSize, pageSize,
+				"addTime", "desc", attrs);
+		return new ResultVo(200, "查询成功", list);
+	}
+
+	@Override
+	public ResultVo findMemberTradeByH5() {
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.findAllMemberTradeByH5());
+	}
+
+	/*
+	 * 查询用户
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#findMemberByIdAndToken(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findMemberByIdAndToken(Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			throw new MyException(400, "参数缺失", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			throw new MyException(400, "参数缺失", null);
+		}
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfMemberInfo.class, attrs));
+	}
+
+	/*
+	 * 取消代理身份
+	 * @see cc.messcat.gjfeng.service.member.GjfMemberInfoService#updateAgent(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateAgent(Long id, String token) {
+		if (ObjValid.isNotValid(id)) {
+			return new ResultVo(400, "参数缺失", null);
+		}
+		if (ObjValid.isNotValid(token)) {
+			return new ResultVo(400, "参数缺失", null);
+		}
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		GjfMemberInfo memberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(memberInfo)) {
+			return new ResultVo(400, "用户信息不存在!", null);
+		}
+		memberInfo.setIdentity("0");
+		memberInfo.setProviceId(null);
+		memberInfo.setCityId(null);
+		memberInfo.setAreaId(null);
+		memberInfo.setAgentStartDate(null);
+		memberInfo.setAgentEndDate(null);
+		gjfMemberInfoDao.update(memberInfo);
+		return new ResultVo(200, "取消成功", null);
+	}
+
+	@Override
+	public ResultVo findmemberInfoByIdCard(String idCard) {
+		boolean falg=false;
+		Map<String, Object> attr=new HashMap<>();
+		attr.put("idCard", idCard);
+		GjfMemberInfo memberInfo=gjfMemberInfoDao.query(GjfMemberInfo.class, attr);
+		if(BeanUtil.isValid(memberInfo)){
+			falg=true;
+		}else{
+			falg=false;
+		}
+		return new ResultVo(200, "取消成功", falg);
+	}
+
+	@Override
+	public ResultVo findSetBaseInfoByKey(String key) {
+		Map<String, Object> attr=new HashMap<>();
+		attr.put("key",key);
+		return new ResultVo(200,"查询成功",gjfMemberInfoDao.query(GjfSetBaseInfo.class, attr));
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllSetBaseInfo(Integer pageNo, Integer pageSize) {
+		Map<String, Object> attr=new HashMap<>();
+		return new ResultVo(200,"查询成功",gjfMemberInfoDao.queryList(GjfSetBaseInfo.class, (pageNo - 1) * pageSize, pageSize,
+				"id", "desc", attr));
+	}
+
+	@Override
+	public ResultVo updateSetBaseInfo(Long id) {
+		Map<String, Object> attr=new HashMap<>();
+		attr.put("id", id);
+		GjfSetBaseInfo gjfSetBaseInfo=gjfMemberInfoDao.query(GjfSetBaseInfo.class, attr);
+		if (!BeanUtil.isValid(gjfSetBaseInfo)) {
+			throw new MyException(400, "信息不存在", null);
+		}
+		if("0".equals(gjfSetBaseInfo.getStatus())){
+			gjfSetBaseInfo.setStatus("1");
+		}else{
+			gjfSetBaseInfo.setStatus("0");
+		}
+		return new ResultVo(200,"设置成功",gjfMemberInfoDao.update(gjfSetBaseInfo));
+	}
+
+	/**
+	 * 取消收藏
+	 */
+	@Override
+	public ResultVo removeMyCollect(Long colId) {
+		//创建查询条件集合
+		Map<String, Object> attrs=new HashMap<>();
+		attrs.put("id", colId);
+		//查询收藏信息
+		GjfMemberCollect collect=gjfMemberInfoDao.query(GjfMemberCollect.class, attrs);
+		if(!BeanUtil.isValid(collect)){
+			return new ResultVo(400,"收藏信息不存在",null);
+		}
+		//删除收藏信息
+		gjfMemberInfoDao.delete(collect);
+		Map<String, Object> info =new HashMap<>();
+		info.put("collectStatus", "0");
+		return new ResultVo(200,"已取消收藏",info);
+	}
+
+	/**
+	 *用户是否收藏
+	 */
+	@Override
+	public ResultVo findIsCollect(String account, Long id, String type) {
+		String collectStatus="0";
+		Map<String, Object> map=new HashMap<>();
+		map.put("memberId.mobile", account);
+		if("2".equals(type)){
+			map.put("goodsId.id", id);
+		}else{
+			map.put("storeId.id", id);
+		}
+		GjfMemberCollect collect=gjfMemberInfoDao.query(GjfMemberCollect.class, map);
+		if(collect!=null){
+			collectStatus="1";
+		}
+		return new ResultVo(200,"已取消收藏",collectStatus);
+	}
+
+}

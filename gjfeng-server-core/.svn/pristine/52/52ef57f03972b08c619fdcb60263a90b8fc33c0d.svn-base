@@ -1,0 +1,270 @@
+package cc.messcat.gjfeng.service.order;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.OrderAddVo;
+import cc.messcat.gjfeng.common.vo.app.OrderGoodsVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.order.GjfOrderInfoDao;
+import cc.messcat.gjfeng.dao.product.GjfProductInfoDao;
+import cc.messcat.gjfeng.entity.GjfCartInfo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfProductAttr;
+import cc.messcat.gjfeng.entity.GjfProductAttrStock;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import cc.messcat.gjfeng.service.member.GjfMemberInfoService;
+
+@Service("gjfCartInfoService")
+public class GjfCartInfoServiceImpl implements GjfCartInfoService {
+
+	@Autowired
+	@Qualifier("gjfOrderInfoDao")
+	private GjfOrderInfoDao gjfOrderInfoDao;
+	
+	@Autowired
+	@Qualifier("gjfProductInfoDao")
+	private GjfProductInfoDao gjfProductInfoDao;
+
+
+	@Autowired
+	@Qualifier("gjfMemberInfoService")
+	private GjfMemberInfoService gjfMemberInfoService;
+
+	/*
+	 * 添加购物车
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfCartInfoService#addCart(cc.messcat.
+	 * gjfeng.common.vo.app.OrderAddVo, java.lang.String)
+	 */
+	@Override
+	public ResultVo addCart(OrderAddVo orderAddVo, String account) {
+		if (ObjValid.isNotValid(orderAddVo) || ObjValid.isNotValid(orderAddVo.getGoodsId(), orderAddVo.getGoodsNum())
+			|| StringUtil.isBlank(account)) {
+			throw new MyException(400, "添加购物车失败", null);
+		}
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		GjfCartInfo gjfCartInfo = new GjfCartInfo();
+		Object goodsObj = gjfOrderInfoDao.get(orderAddVo.getGoodsId(), GjfProductInfo.class.getName());
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "商品不存在", null);
+		}
+		GjfProductAttrStock attrStock = null;
+		if (StringUtil.isNotBlank(orderAddVo.getGoodsAttr())) {
+			Map<String, Object> attrs = new HashMap<>();
+			attrs.put("productId.id", orderAddVo.getGoodsId());
+			attrs.put("productAttrIds", orderAddVo.getGoodsAttr().substring(0, orderAddVo.getGoodsAttr().length()));
+			attrStock = gjfOrderInfoDao.query(GjfProductAttrStock.class, attrs);
+			if (ObjValid.isNotValid(attrStock)) {
+				throw new MyException(400, "商品属性不存在", null);
+			}
+			
+			if(attrStock.getRepertory()<=0){
+				throw new MyException(400, "商品库存不足", null);
+			}
+			
+			String goodsAttr = "";
+			for (String idStr : attrStock.getProductAttrIds().split(",")) {
+				Object o = gjfOrderInfoDao.get(Long.valueOf(idStr), GjfProductAttr.class.getName());
+				GjfProductAttr attr = (GjfProductAttr) o;
+				goodsAttr += attr.getAttrValueId().getAttrId().getAttrName() + ":" + attr.getAttrValueId().getAttrValue() + " ";
+			}
+			gjfCartInfo.setGoodsAttr(goodsAttr);
+			gjfCartInfo.setGoodsAttrStockId(attrStock);
+		}
+		// 判断当前商品是否已经加入购物车，如果已经加入，则只添加购物数量
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.id", gjfMemberInfo.getId());
+		attrs.put("goodsId.id", ((GjfProductInfo) goodsObj).getId());
+		attrs.put("goodsAttrStockId.id", attrStock.getId());
+		GjfCartInfo cartInfo = gjfOrderInfoDao.query(GjfCartInfo.class, attrs);
+		if (ObjValid.isValid(cartInfo)) {
+			cartInfo.setGoodsNum(cartInfo.getGoodsNum() + orderAddVo.getGoodsNum());
+			return new ResultVo(200, "添加购物车成功", null);
+		}
+		gjfCartInfo.setGoodsId((GjfProductInfo) goodsObj);
+		gjfCartInfo.setGoodsNum(orderAddVo.getGoodsNum());
+		gjfCartInfo.setMemberId(gjfMemberInfo);
+		gjfCartInfo.setAddTime(new Date());
+		gjfOrderInfoDao.save(gjfCartInfo);
+		return new ResultVo(200, "添加购物车成功", null);
+	}
+
+	/*
+	 * 修改购物车商品数量
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfCartInfoService#updateCartNum(java.
+	 * lang.Long, java.lang.Long)
+	 */
+	@Override
+	public ResultVo updateCartNum(Long id, Long goodsNum, String account) {
+		if (ObjValid.isNotValid(id) || ObjValid.isNotValid(goodsNum) || StringUtil.isBlank(account)) {
+			throw new MyException(400, "修改失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("memberId.mobile", account);
+		GjfCartInfo cartInfo = gjfOrderInfoDao.query(GjfCartInfo.class, attrs);
+		if (ObjValid.isNotValid(cartInfo)) {
+			throw new MyException(400, "购物车不存在该商品", null);
+		}
+		cartInfo.setGoodsNum(goodsNum);
+		gjfOrderInfoDao.update(cartInfo);
+		return new ResultVo(200, "修改商品数量成功", goodsNum);
+	}
+
+	/*
+	 * 删除购物车
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfCartInfoService#delCart(java.lang.
+	 * Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo delCart(Long cartId, String account) {
+		if (ObjValid.isNotValid(cartId)) {
+			throw new MyException(400, "商品不存在", null);
+		}
+		if (StringUtil.isBlank(account)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", cartId);
+		attrs.put("memberId.mobile", account);
+		GjfCartInfo cartInfo=gjfOrderInfoDao.query(GjfCartInfo.class, attrs);
+		gjfOrderInfoDao.delete(cartInfo);
+		return new ResultVo(200, "删除成功", null);
+	}
+
+	/*
+	 * 查询我的购物车
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfCartInfoService#findMyCart(int,
+	 * int, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findMyCart(String account) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo memberInfo=gjfOrderInfoDao.query(GjfMemberInfo.class, attrs);
+		if(!BeanUtil.isValid(memberInfo)){
+			throw new MyException(400, "用户不存在", null);
+		}
+		List list=gjfProductInfoDao.findAllCartMember(memberInfo.getId());
+		List<GjfCartInfo> cartInfo=new ArrayList<>();
+		if(list.size()>0){
+			for(int i=0;i<list.size();i++){
+				Map<String, Object> map=(Map<String, Object>) list.get(i);
+				GjfCartInfo cart=new GjfCartInfo();				
+				cart.setId( Long.valueOf(map.get("id").toString()));
+				cart.setGoodsNum(Long.valueOf(map.get("goodsNum").toString()));
+				cart.setGoodsAttr(map.get("goodsAttr").toString());
+				
+				
+				Map<String, Object> attrGoods = new HashMap<String, Object>();
+				attrGoods.put("id", Long.valueOf(map.get("goodsId").toString()));
+				GjfProductInfo goodsId=gjfOrderInfoDao.query(GjfProductInfo.class, attrGoods);
+				if(BeanUtil.isValid(goodsId)){
+					Map<String, Object> attrstock = new HashMap<String, Object>();
+					attrstock.put("id", Long.valueOf(map.get("goodsAttrStockId").toString()));
+					GjfProductAttrStock goodsAttrStockId=gjfOrderInfoDao.query(GjfProductAttrStock.class, attrstock);
+					cart.setGoodsAttrStockId(goodsAttrStockId);
+					if("0".equals(goodsId.getStatus())||"2".equals(goodsId.getStatus())){
+						goodsId.setName("商品已经下架");					
+					}
+					cart.setGoodsId(goodsId);
+				}else{
+					GjfProductAttrStock goodsAttrStockId=new GjfProductAttrStock();
+					GjfProductInfo good=new GjfProductInfo();
+					good.setName("商品已经下架");
+					goodsAttrStockId.setPrice(new BigDecimal(0.00));
+					cart.setGoodsId(good);
+					cart.setGoodsAttrStockId(goodsAttrStockId);
+				}
+				cartInfo.add(cart);
+			}
+		}		
+		return new ResultVo(200, "查询成功", cartInfo);
+	}
+
+	/*
+	 * 结算我的购物车
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfCartInfoService#caculateCart(java.lang
+	 * .String, java.lang.String)
+	 */
+	@Override
+	public ResultVo caculateCart(String account, String cartIds) {
+		if (StringUtil.isBlank(cartIds) || StringUtil.isBlank(account)) {
+			throw new MyException(400, "结算失败，购物车不存在该商品", null);
+		}
+		String[] stringArr = cartIds.split(",");
+		Map<String, Object> dataMap = new HashMap<String, Object>();
+		List<OrderGoodsVo> goodsVos = new ArrayList<OrderGoodsVo>();
+		List<OrderAddVo> orderAddVos = new ArrayList<OrderAddVo>();
+		BigDecimal totalAmount = new BigDecimal(0.00);
+		int isCanUseCou=0;
+		for (String str : stringArr) {
+			Object o = gjfOrderInfoDao.get(Long.valueOf(str), GjfCartInfo.class.getName());
+			if (ObjValid.isValid(o)) {
+				OrderGoodsVo goodsVo = new OrderGoodsVo();
+				OrderAddVo orderAddVo = new OrderAddVo();
+				GjfCartInfo cartInfo = (GjfCartInfo) o;
+				//判断购物车商品库存
+				GjfProductAttrStock stock=cartInfo.getGoodsAttrStockId();
+				if(stock.getRepertory()<=0||cartInfo.getGoodsNum()>stock.getRepertory()){
+					return new ResultVo(400, cartInfo.getGoodsId().getName()+"库存不足", null);
+				}
+				
+				//判断商品是否下架
+				if("0".equals(cartInfo.getGoodsId().getStatus())||"2".equals(cartInfo.getGoodsId().getStatus())){
+					return new ResultVo(400, cartInfo.getGoodsId().getName()+"已经下架", null);
+				}
+				
+				if("0".equals(cartInfo.getGoodsId().getIsCanUserCou())){
+					isCanUseCou=1;
+				}
+							
+				goodsVo.setGoodsAmount(cartInfo.getGoodsAttrStockId().getPrice());
+				goodsVo.setGoodsAttr(cartInfo.getGoodsAttr());
+				goodsVo.setGoodsImg(cartInfo.getGoodsId().getImgUrl());
+				goodsVo.setGoodsName(cartInfo.getGoodsId().getName());
+				goodsVo.setGoodsNum(cartInfo.getGoodsNum());
+				goodsVos.add(goodsVo);
+				totalAmount=totalAmount.add(cartInfo.getGoodsAttrStockId().getPrice().multiply(new BigDecimal(cartInfo.getGoodsNum())));
+				// gjfOrderInfoDao.delete(cartInfo);
+				orderAddVo.setGoodsAttrIds(cartIds);
+				orderAddVo.setGoodsAttr(cartInfo.getGoodsAttr());
+				orderAddVo.setGoodsId(cartInfo.getGoodsId().getId());
+				orderAddVo.setGoodsNum(cartInfo.getGoodsNum());
+				orderAddVo.setGoodsAttrStockId(cartInfo.getGoodsAttrStockId().getId());
+				orderAddVos.add(orderAddVo);
+			}
+		}
+		dataMap.put("goodsVos", goodsVos);
+		dataMap.put("orderAddVos", orderAddVos);
+		dataMap.put("totalAmount", totalAmount);
+		dataMap.put("isCanUseCou", isCanUseCou);
+		return new ResultVo(200, "操作成功", dataMap);
+	}
+
+}

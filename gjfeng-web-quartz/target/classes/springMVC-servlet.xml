@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true"
+	xmlns="http://www.springframework.org/schema/beans" 
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:dubbo="http://code.alibabatech.com/schema/dubbo"
+	xsi:schemaLocation="  
+       http://www.springframework.org/schema/beans   
+       http://www.springframework.org/schema/beans/spring-beans-4.2.xsd    
+       http://www.springframework.org/schema/mvc   
+       http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd     
+       http://www.springframework.org/schema/context   
+       http://www.springframework.org/schema/context/spring-context-4.2.xsd
+       http://code.alibabatech.com/schema/dubbo 
+       http://code.alibabatech.com/schema/dubbo/dubbo.xsd"
+       >
+	
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<!-- order 属性可设置加载顺序 -->
+		<!-- <property name="order" value="2" /> -->
+		<property name="locations">
+			<list>
+				<value>classpath:dubbo.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	 <!-- 提供方应用信息，用于计算依赖关系 -->
+	 <dubbo:application name="${dubbo.application.web.quartz}" />
+	 
+	 <!-- 使用zookeeper注册中心暴露服务地址 -->
+	 <!-- 多注册中心配置，竖号分隔表示同时连接多个不同的注册中心，同一个注册中心的多个集群地址用逗号隔开 -->
+	 <dubbo:registry protocol="zookeeper" address="${zookeeper.address}" />
+	 
+	 <!-- core子系统 -->
+	 <dubbo:reference id="countInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.CountInfoDubbo" check="false"/>
+	  <dubbo:reference id="orderInfoDubbo" interface="cc.messcat.gjfeng.dubbo.core.GjfOrderInfoDubbo" check="false"/>
+	 <!-- benefit子系统 -->
+	 <dubbo:reference id="benefitInfoDubbo" interface="cc.messcat.gjfeng.dubbo.benefit.GjfBenefitInfoDubbo" check="false"/>
+	 
+	 <!-- sms子系统 -->
+	 <dubbo:reference id="smsDubbo" interface="cc.messcat.gjfeng.dubbo.sms.SmsDubbo" check="false"/>
+	 
+	 
+	 <!-- 注解驱动 -->
+	 <mvc:annotation-driven />
+	 
+	 
+	<!-- 扫描包 -->
+	<context:component-scan base-package="cc.messcat.gjfeng"/>
+	
+	<!-- 编码处理  -->
+	<bean id="stringConverter"
+		class="org.springframework.http.converter.StringHttpMessageConverter">
+		<property name="supportedMediaTypes">
+			<list>
+				<value>text/plain;charset=UTF-8</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- 输出对象转JSON支持 -->
+	<!-- P.S. spring4.0只支持使用MappingJackson2HttpMessageConverter而不是MappingJacksonHttpMessageConverter -->
+	<bean id="jsonConverter"
+		class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+		<!-- 编码处理  -->
+		<property name="supportedMediaTypes">
+			<list>
+				<value>text/plain;charset=UTF-8</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- 校验 -->
+	<bean id="validator"
+    	class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean"/>
+
+	<!-- 启用Spring MVC注解功能，完成请求及响应自动转换为JSON字符串 -->
+	<!-- P.S. 这里使用了Spring3.1开始的更高级的RequestMappingHandlerAdapter来支持 -->
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter">
+		<property name="messageConverters"> 
+			<list> 
+				<ref bean="stringConverter"	/> 
+				<ref bean="jsonConverter" />
+			</list> 
+		</property>
+	</bean>
+
+	<!-- 视图解析，返回的视图模型数据需要经过jstl来处理  -->
+	<bean class="org.springframework.web.servlet.view.UrlBasedViewResolver">
+		<property name="viewClass"
+			value="org.springframework.web.servlet.view.JstlView" />
+		<property name="prefix" value="/WEB-INF/jsp/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+
+	<!-- 对静态资源文件的访问 不支持访问WEB-INF目录 -->
+	<mvc:default-servlet-handler />
+
+</beans>

@@ -1,0 +1,93 @@
+package cc.messcat.gjfeng.common.jd.bean;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class OrderResult {
+
+	private String OrderNo;
+	
+	private String tradeNo;
+	
+	private BigDecimal productAmount;
+	
+	private BigDecimal orderAmount;
+	
+	private String totalDeliveryFee;
+		
+	
+	private String goodsList;
+	
+	private List<OrderSuccessResult> successList;
+	
+	private List<OrderFailResult> createFailList;
+
+	public String getOrderNo() {
+		return OrderNo;
+	}
+
+	public void setOrderNo(String orderNo) {
+		OrderNo = orderNo;
+	}
+
+	public String getTradeNo() {
+		return tradeNo;
+	}
+
+	public void setTradeNo(String tradeNo) {
+		this.tradeNo = tradeNo;
+	}
+
+	public BigDecimal getProductAmount() {
+		return productAmount;
+	}
+
+	public void setProductAmount(BigDecimal productAmount) {
+		this.productAmount = productAmount;
+	}
+
+	public BigDecimal getOrderAmount() {
+		return orderAmount;
+	}
+
+	public void setOrderAmount(BigDecimal orderAmount) {
+		this.orderAmount = orderAmount;
+	}
+
+	public String getTotalDeliveryFee() {
+		return totalDeliveryFee;
+	}
+
+	public void setTotalDeliveryFee(String totalDeliveryFee) {
+		this.totalDeliveryFee = totalDeliveryFee;
+	}
+
+	public String getGoodsList() {
+		return goodsList;
+	}
+
+	public void setGoodsList(String goodsList) {
+		this.goodsList = goodsList;
+	}
+
+	public List<OrderSuccessResult> getSuccessList() {
+		return successList;
+	}
+
+	public void setSuccessList(List<OrderSuccessResult> successList) {
+		this.successList = successList;
+	}
+
+	public List<OrderFailResult> getCreateFailList() {
+		return createFailList;
+	}
+
+	public void setCreateFailList(List<OrderFailResult> createFailList) {
+		this.createFailList = createFailList;
+	}
+		
+
+	
+	
+	
+}

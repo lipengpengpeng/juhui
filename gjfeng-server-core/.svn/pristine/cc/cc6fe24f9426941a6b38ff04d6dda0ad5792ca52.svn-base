@@ -1,0 +1,643 @@
+package cc.messcat.gjfeng.service.product;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.netFriends.NetFriendUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.Sha256;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.NetFriendProductInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.product.GjfProductAttrDao;
+import cc.messcat.gjfeng.entity.GjfAttrType;
+import cc.messcat.gjfeng.entity.GjfAttrValue;
+import cc.messcat.gjfeng.entity.GjfProductAttr;
+import cc.messcat.gjfeng.entity.GjfProductAttrStock;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import net.sf.json.JSONObject;
+
+@Service("gjfProductAttrService")
+public class GjfProductAttrServiceImpl implements GjfProductAttrService {
+
+	@Autowired
+	@Qualifier("gjfProductAttrDao")
+	private GjfProductAttrDao gjfProductAttrDao;
+
+	/*
+	 * 添加属性类型
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#addAttrType(cc.
+	 * messcat.gjfeng.entity.GjfAttrType)
+	 */
+	@Override
+	public ResultVo addAttrType(GjfAttrType gjfAttrType) {
+		if (ObjValid.isNotValid(gjfAttrType) || StringUtil.isBlank(gjfAttrType.getAttrName())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(gjfAttrType.getSortOrder())) {
+			gjfAttrType.setSortOrder(100L);
+		}
+		if (StringUtil.isBlank(gjfAttrType.getStatus())
+			|| (!gjfAttrType.getStatus().equals("0") && !gjfAttrType.getStatus().equals("1"))) {
+			gjfAttrType.setStatus("0");
+		}
+		gjfAttrType.setAddTime(new Date());
+		gjfAttrType.setToken(Sha256.getSha256Hash(gjfAttrType.getAttrName(), gjfAttrType.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.save(gjfAttrType);
+		return new ResultVo(200, "保存成功", null);
+	}
+
+	/*
+	 * 修改属性类型
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#updateAttrType(cc
+	 * .messcat.gjfeng.entity.GjfAttrType)
+	 */
+	@Override
+	public ResultVo updateAttrType(GjfAttrType gjfAttrType) {
+		if (ObjValid.isNotValid(gjfAttrType) || ObjValid.isNotValid(gjfAttrType.getId())
+			|| StringUtil.isBlank(gjfAttrType.getToken()) || StringUtil.isBlank(gjfAttrType.getAttrName())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(gjfAttrType.getSortOrder())) {
+			gjfAttrType.setSortOrder(100L);
+		}
+		if (StringUtil.isBlank(gjfAttrType.getStatus())
+			|| (!gjfAttrType.getStatus().equals("0") && !gjfAttrType.getStatus().equals("1"))) {
+			gjfAttrType.setStatus("0");
+		}
+		Object object = findAttrTypeById(gjfAttrType.getId(), gjfAttrType.getToken()).getResult();
+		if (ObjValid.isNotValid(object)) {
+			throw new MyException(400, "对象不存在", null);
+		}
+		GjfAttrType attrType = (GjfAttrType) object;
+		attrType.setAttrName(gjfAttrType.getAttrName());
+		attrType.setSortOrder(gjfAttrType.getSortOrder());
+		attrType.setStatus(gjfAttrType.getStatus());
+		attrType.setEditTime(new Date());
+		attrType.setToken(Sha256.getSha256Hash(gjfAttrType.getAttrName(), gjfAttrType.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.update(attrType);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 修改属性类型状态
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * updateAttrTypeStatus(java.lang.Long, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateAttrTypeStatus(Long id, String status, String token) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(status) || StringUtil.isBlank(token)
+			|| (!"0".equals(status) && !"1".equals(status))) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Object object = findAttrTypeById(id, token).getResult();
+		if (ObjValid.isNotValid(object)) {
+			throw new MyException(400, "对象不存在", null);
+		}
+		GjfAttrType attrType = (GjfAttrType) object;
+		attrType.setStatus(status);
+		attrType.setEditTime(new Date());
+		attrType.setToken(Sha256.getSha256Hash(attrType.getAttrName(), attrType.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.update(attrType);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 根据id查询属性类型
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAttrTypeById(
+	 * java.lang.Long)
+	 */
+	@Override
+	public ResultVo findAttrTypeById(Long id) {
+		if (ObjValid.isNotValid(id)) {
+			return new ResultVo(200, "查询失败", null);
+		}
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.get(id, GjfAttrType.class.getName()));
+	}
+
+	/*
+	 * 根据id、token查询属性类型
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAttrTypeById(
+	 * java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAttrTypeById(Long id, String token) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(token)) {
+			return new ResultVo(200, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.query(GjfAttrType.class, attrs));
+	}
+
+	/*
+	 * 根据状态查询所有的属性类型
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAllAttrType(
+	 * java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllAttrTypeByStatus(String status) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("status", status);
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.queryList(GjfAttrType.class, "id" , "asc" ,attrs));
+	}
+	
+	/*查询所有的属性类型
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#findAllAttrType()
+	 */
+	@Override
+	public ResultVo findAllAttrType() {
+		return new ResultVo(200,"查询成功",gjfProductAttrDao.getAll(GjfAttrType.class.getName()));
+	}
+
+	/*
+	 * 分页查询所有的属性类型
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * findAttrTypeByPage(int, int)
+	 */
+	@Override
+	public ResultVo findAttrTypeByPage(int pageNo, int pageSize) {
+		Pager pager = new Pager(pageSize, pageNo,
+			Integer.parseInt(String.valueOf(gjfProductAttrDao.queryTotalRecord(GjfAttrType.class, null))),
+			gjfProductAttrDao.queryList(GjfAttrType.class,(pageNo-1)*pageSize,pageSize, "id", "asc", null));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 添加属性值
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#addAttrValue(cc.
+	 * messcat.gjfeng.entity.GjfAttrValue)
+	 */
+	@Override
+	public ResultVo addAttrValue(GjfAttrValue gjfAttrValue) {
+		if (ObjValid.isNotValid(gjfAttrValue) || StringUtil.isBlank(gjfAttrValue.getAttrValue())
+			|| ObjValid.isNotValid(gjfAttrValue.getAttrId()) || ObjValid.isNotValid(gjfAttrValue.getAttrId().getId())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(gjfAttrValue.getSortOrder())) {
+			gjfAttrValue.setSortOrder(100L);
+		}
+		if (StringUtil.isBlank(gjfAttrValue.getStatus())
+			|| (!gjfAttrValue.getStatus().equals("0") && !gjfAttrValue.getStatus().equals("1"))) {
+			gjfAttrValue.setStatus("0");
+		}
+		Object object = gjfProductAttrDao.get(gjfAttrValue.getAttrId().getId(), GjfAttrType.class.getName());
+		if (ObjValid.isNotValid(object)) {
+			throw new MyException(400, "属性类型不存在", null);
+		}
+		gjfAttrValue.setAttrId((GjfAttrType) object);
+		gjfAttrValue.setAddTime(new Date());
+		gjfAttrValue
+			.setToken(Sha256.getSha256Hash(gjfAttrValue.getAttrValue(), gjfAttrValue.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.save(gjfAttrValue);
+		return new ResultVo(200, "保存成功", null);
+	}
+
+	/*
+	 * 修改属性值
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#updateAttrValue(
+	 * cc.messcat.gjfeng.entity.GjfAttrValue)
+	 */
+	@Override
+	public ResultVo updateAttrValue(GjfAttrValue gjfAttrValue) {
+		if (ObjValid.isNotValid(gjfAttrValue) || ObjValid.isNotValid(gjfAttrValue.getId())
+			|| StringUtil.isBlank(gjfAttrValue.getToken()) || StringUtil.isBlank(gjfAttrValue.getAttrValue())
+			|| ObjValid.isNotValid(gjfAttrValue.getAttrId()) || ObjValid.isNotValid(gjfAttrValue.getAttrId().getId())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		if (ObjValid.isNotValid(gjfAttrValue.getSortOrder())) {
+			gjfAttrValue.setSortOrder(100L);
+		}
+		if (StringUtil.isBlank(gjfAttrValue.getStatus())
+			|| (!gjfAttrValue.getStatus().equals("0") && !gjfAttrValue.getStatus().equals("1"))) {
+			gjfAttrValue.setStatus("0");
+		}
+		Object object = findAttrValueById(gjfAttrValue.getId(), gjfAttrValue.getToken()).getResult();
+		if (ObjValid.isNotValid(object)) {
+			throw new MyException(400, "对象不存在", null);
+		}
+		Object obj = gjfProductAttrDao.get(gjfAttrValue.getAttrId().getId(), GjfAttrType.class.getName());
+		if (ObjValid.isNotValid(obj)) {
+			throw new MyException(400, "属性类型不存在", null);
+		}
+		GjfAttrValue attrValue = (GjfAttrValue) object;
+		attrValue.setAttrId((GjfAttrType) obj);
+		attrValue.setAttrValue(gjfAttrValue.getAttrValue());
+		attrValue.setColumnId(gjfAttrValue.getColumnId());
+		attrValue.setSortOrder(gjfAttrValue.getSortOrder());
+		attrValue.setStatus(gjfAttrValue.getStatus());
+		attrValue.setAddTime(gjfAttrValue.getAddTime());
+		attrValue.setEditTime(new Date());
+		attrValue.setToken(Sha256.getSha256Hash(gjfAttrValue.getAttrValue(), gjfAttrValue.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.update(attrValue);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 修改属性值状态
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * updateAttrValueStatus(java.lang.Long, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateAttrValueStatus(Long id, String status, String token) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(status) || StringUtil.isBlank(token)
+			|| (!"0".equals(status) && !"1".equals(status))) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Object object = findAttrValueById(id, token).getResult();
+		if (ObjValid.isNotValid(object)) {
+			throw new MyException(400, "对象不存在", null);
+		}
+		GjfAttrValue attrValue = (GjfAttrValue) object;
+		attrValue.setStatus(status);
+		attrValue.setEditTime(new Date());
+		attrValue.setToken(Sha256.getSha256Hash(attrValue.getAttrValue(), attrValue.getStatus(), CommonStatus.SIGN_KEY_NUM));
+		gjfProductAttrDao.update(attrValue);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 根据id查询属性值
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAttrValueById
+	 * (java.lang.Long)
+	 */
+	@Override
+	public ResultVo findAttrValueById(Long id) {
+		if (ObjValid.isNotValid(id)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.get(id, GjfAttrValue.class.getName()));
+	}
+
+	/*
+	 * 根据id、token查询属性值
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAttrValueById
+	 * (java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAttrValueById(Long id, String token) {
+		if (ObjValid.isNotValid(id) || StringUtil.isBlank(token)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("token", token);
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.query(GjfAttrValue.class, attrs));
+	}
+
+	/*
+	 * 根据属性类型id、token查询属性值
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * findAttrValueByattrTypeId(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAttrValueByattrTypeId(Long attrTypeId, String attrTypeToken) {
+		return null;
+	}
+	
+	/*	根据栏目Id查找属性值
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#findAttrValueByColumnId(java.lang.Long)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAttrValueByColumnId(Long columnId) {
+		if (ObjValid.isNotValid(columnId)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("status", "1");
+		attrs.put("columnId", columnId);
+		return new ResultVo(200,"查询成功",gjfProductAttrDao.queryList(GjfAttrValue.class,"id","asc", attrs));
+	}
+	
+	/*
+	 * 根据状态查询所有的属性值
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findAllAttrValue(
+	 * java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllAttrValueByStatus(String status) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("status", status);
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.queryList(GjfAttrValue.class, "id", "asc", attrs));
+	}
+	
+	/*
+	 * 查询所有的属性类型
+	 */
+	@Override
+	public ResultVo findAllAttrValue() {
+		return new ResultVo(200,"查询成功",gjfProductAttrDao.getAll(GjfAttrValue.class.getName()));
+	}
+	
+	/*
+	 * 分页查询属性值
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * findAttrValueByPage(int, int)
+	 */
+	@Override
+	public ResultVo findAttrValueByPage(int pageNo, int pageSize) {
+		Pager pager = new Pager(pageSize, pageNo,
+			Integer.parseInt(String.valueOf(gjfProductAttrDao.queryTotalRecord(GjfAttrValue.class, null))),
+			gjfProductAttrDao.queryList(GjfAttrValue.class,(pageNo-1)*pageSize,pageSize, "id", "asc", null));
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 添加商品属性
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#addProductAttr(cc
+	 * .messcat.gjfeng.entity.GjfProductAttr)
+	 */
+	@Override
+	public ResultVo addProductAttr(GjfProductAttr gjfProductAttr) {
+		if (ObjValid.isNotValid(gjfProductAttr)
+			|| ObjValid.isNotValid(gjfProductAttr.getProductId(), gjfProductAttr.getAttrValueId())
+			|| ObjValid.isNotValid(gjfProductAttr.getProductId().getId(), gjfProductAttr.getAttrValueId().getId())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Object o1 = gjfProductAttrDao.get(gjfProductAttr.getProductId().getId(), GjfProductInfo.class.getName());
+		if (ObjValid.isNotValid(o1)) {
+			throw new MyException(400, "商品不存在", null);
+		}
+		Object o2 = gjfProductAttrDao.get(gjfProductAttr.getAttrValueId().getId(), GjfAttrValue.class.getName());
+		if (ObjValid.isNotValid(o2)) {
+			throw new MyException(400, "属性值不存在", null);
+		}
+		gjfProductAttr.setProductId((GjfProductInfo) o1);
+		gjfProductAttr.setAttrValueId((GjfAttrValue) o2);
+		gjfProductAttrDao.save(gjfProductAttr);
+		return new ResultVo(200, "保存成功", gjfProductAttr.getId());
+	}
+
+	/*
+	 * 根据商品id查询商品属性（分页）
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * findProAttrByProId(java.lang.Long)
+	 */
+	@Override
+	public ResultVo findProAttrByProId(Long proId,int pageNo, int pageSize) {
+		if (ObjValid.isNotValid(proId)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("productId.id", proId);
+		Pager pager = new Pager(pageSize, pageNo,
+				Integer.parseInt(String.valueOf(gjfProductAttrDao.queryTotalRecord(GjfProductAttr.class, attrs))),
+				gjfProductAttrDao.queryList(GjfProductAttr.class,(pageNo-1)*pageSize,pageSize, "id", "asc", attrs));
+		return new ResultVo(200, "查询成功", pager);
+	}
+	
+	/*
+	 * 根据商品id查询商品属性
+	 * 
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#
+	 * findProAttrByProId(java.lang.Long)
+	 */
+	@Override
+	public ResultVo findProAttrByProId(Long proId) {
+		if (ObjValid.isNotValid(proId)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		
+		Map<String, Object> dataMap = new LinkedHashMap<String, Object>();
+		//查询商品信息
+		Map<String, Object> attr=new HashMap<>();
+		attr.put("id", proId);
+		GjfProductInfo productInfo=gjfProductAttrDao.query(GjfProductInfo.class, attr);
+		if(productInfo==null){
+			throw new MyException(400, "商品不存在", null);
+		}
+		dataMap.put("productInfo", productInfo);
+		//如果商品是友品集商品进行商品的更新
+		if("1".equals(productInfo.getSuorceGoods())){
+			//请求友集网获取商品信息接口
+			JSONObject json=NetFriendUtil.getNetFriendProductInfo(productInfo.getNetProId().toString(), "", "");
+			//把json数据转为Javabean
+			NetFriendProductInfoVo netProductInfo=(NetFriendProductInfoVo) JSONObject.toBean(json.getJSONObject("data"),NetFriendProductInfoVo.class);
+			
+			//添加友集网商品id
+			productInfo.setNetProId(netProductInfo.getId());
+			//商品名称
+			productInfo.setName(netProductInfo.getTitle());
+			//商品关键字
+			productInfo.setKeywords(netProductInfo.getShort_title());
+			//商品标签
+			productInfo.setRemark(netProductInfo.getGoodslabel());
+			//国家图片
+			productInfo.setPara8(netProductInfo.getCountry());
+			//实际价格
+			productInfo.setPrice(netProductInfo.getStart());
+			//
+			productInfo.setGcostPrice(netProductInfo.getMarketprice());
+			//销售价
+			productInfo.setMarketPrice(netProductInfo.getMarketprice());
+			//库存
+			productInfo.setRepertory(netProductInfo.getTotal());
+			//商品详情
+			productInfo.setContent(netProductInfo.getContent());
+			//商品描述
+			productInfo.setDescription(netProductInfo.getDescription());
+			//商品展示缩略图
+			productInfo.setImgUrl(netProductInfo.getThumb());
+			//商品图片
+			productInfo.setPara1(netProductInfo.getThumb());
+			//销量
+			productInfo.setSalesNum(netProductInfo.getSales());
+			
+			gjfProductAttrDao.update(productInfo);
+		}
+		
+		String attrIds="";		
+		//1.查询出该商品所有属性，排除掉重复的
+		List<GjfProductAttr> gjfProductAttrs=gjfProductAttrDao.findProAttrByProId(proId);
+		if (ObjValid.isValid(gjfProductAttrs)) {
+			dataMap.put("productInfo", gjfProductAttrs.get(0).getProductId());
+			
+			//2.根据商品属性查询该商品属性下的属性值
+			for (GjfProductAttr gjfProductAttr : gjfProductAttrs) {
+				List<GjfProductAttr> attrValues=gjfProductAttrDao.findProAttrValueByAttrId(proId, gjfProductAttr.getAttrValueId().getAttrId().getId());
+				dataMap.put(gjfProductAttr.getAttrValueId().getAttrId().getAttrName(), attrValues);
+				attrIds += gjfProductAttr.getId()+",";
+			}
+			
+			//查询第一个属性值的库存和价格
+			Map<String, Object> attrs = new HashMap<>();
+			attrs.put("productId.id", gjfProductAttrs.get(0).getProductId().getId());
+			attrs.put("productAttrIds", attrIds);
+			dataMap.put("productAttrStock", gjfProductAttrDao.query(GjfProductAttrStock.class, attrs));
+		}
+		return new ResultVo(200, "查询成功", dataMap);
+	}
+	
+	/* 
+	 * 根据商品属性值组合查询商品库存和价格
+	 * @see cc.messcat.gjfeng.service.product.GjfProductAttrService#findProAttrStockByAttrId(java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo findProAttrStockByAttrId(Long proId, String attrIds) {
+		if (StringUtil.isBlank(attrIds) || ObjValid.isNotValid(proId)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("productId.id", proId);
+		attrs.put("productAttrIds", attrIds);
+		
+		
+		
+		GjfProductAttrStock attrStock = gjfProductAttrDao.query(GjfProductAttrStock.class, attrs);
+		if (ObjValid.isNotValid(attrStock)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		return new ResultVo(200, "查询成功", attrStock);
+	}
+	
+	/*
+	 * 根据id查询商品属性
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#findProAttrById(
+	 * java.lang.Long)
+	 */
+	@Override
+	public ResultVo findProAttrById(Long id) {
+		if (ObjValid.isNotValid(id)) {
+			return new ResultVo(200, "查询失败", null);
+		}
+		return new ResultVo(200, "查询成功", gjfProductAttrDao.get(id, GjfProductAttr.class.getName()));
+	}
+
+	/*
+	 * 删除商品属性
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.product.GjfProductAttrService#delProductAttr(cc
+	 * .messcat.gjfeng.entity.GjfProductAttr)
+	 */
+	@Override
+	public ResultVo delProductAttr(GjfProductAttr gjfProductAttr) {
+		if (ObjValid.isNotValid(gjfProductAttr)
+			|| ObjValid.isNotValid(gjfProductAttr.getProductId(), gjfProductAttr.getAttrValueId())
+			|| ObjValid.isNotValid(gjfProductAttr.getProductId().getId(), gjfProductAttr.getAttrValueId().getId())) {
+			throw new MyException(400, "参数错误", null);
+		}
+		gjfProductAttrDao.delete(gjfProductAttr);;
+		return new ResultVo(200, "删除成功", null);
+	}	
+	
+	@Override
+	public ResultVo findProAttrByProAttrStock(GjfProductAttrStock attrStock) {
+		String goodsAttr="";
+		for (String idStr : attrStock.getProductAttrIds().split(",")) {
+			Object o = gjfProductAttrDao.get(Long.valueOf(idStr), GjfProductAttr.class.getName());
+			GjfProductAttr attr=(GjfProductAttr) o;
+			goodsAttr+=attr.getAttrValueId().getAttrId().getAttrName()+":"+attr.getAttrValueId().getAttrValue()+" ";
+		}
+		return new ResultVo(200, "查询成功", goodsAttr);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Override
+	public ResultVo findProAttrByProIdInApp(Long proId) {
+		if (ObjValid.isNotValid(proId)) {
+			throw new MyException(400, "参数错误", null);
+		}
+		String attrIds="";
+		Map<String, Object> dataMap = new LinkedHashMap<String, Object>();
+		//1.查询出该商品所有属性，排除掉重复的
+		List<GjfProductAttr> gjfProductAttrs=gjfProductAttrDao.findProAttrByProId(proId);
+		if (ObjValid.isValid(gjfProductAttrs)) {
+			Long proIds=gjfProductAttrs.get(0).getProductId().getId();
+			dataMap.put("proName", gjfProductAttrs.get(0).getProductId().getName());
+			dataMap.put("proId", gjfProductAttrs.get(0).getProductId().getId());
+			dataMap.put("proImg", gjfProductAttrs.get(0).getProductId().getImgUrl());
+			dataMap.put("para1", gjfProductAttrs.get(0).getProductId().getPara1());
+			dataMap.put("para2", gjfProductAttrs.get(0).getProductId().getPara2());
+			dataMap.put("para3", gjfProductAttrs.get(0).getProductId().getPara3());
+			dataMap.put("para4", gjfProductAttrs.get(0).getProductId().getPara4());
+			dataMap.put("para5", gjfProductAttrs.get(0).getProductId().getPara5());
+			
+			//2.根据商品属性查询该商品属性下的属性值
+			List attrList=new ArrayList<>();
+			for (GjfProductAttr gjfProductAttr : gjfProductAttrs) {
+				Map attrMap=new HashMap<>();
+				attrMap.put("attrName", gjfProductAttr.getAttrValueId().getAttrId().getAttrName());
+				
+				List<GjfProductAttr> attrValues=gjfProductAttrDao.findProAttrValueByAttrId(proId, gjfProductAttr.getAttrValueId().getAttrId().getId());
+				List vauleList=new ArrayList<>();
+				for(GjfProductAttr attrValue:attrValues){
+					Map valueMap=new HashMap<>();
+					valueMap.put("id", attrValue.getId());
+					valueMap.put("attrValueId", attrValue.getAttrValueId());
+					valueMap.put("orderBy", attrValue.getOrderBy());
+					vauleList.add(valueMap);
+				}
+				attrMap.put("attrValues", vauleList);
+				attrList.add(attrMap);
+				dataMap.put("attrs", attrList);
+				attrIds += gjfProductAttr.getId()+",";
+			}
+			
+			//查询第一个属性值的库存和价格
+			Map<String, Object> attrs = new HashMap<>();
+			attrs.put("productId.id", proIds);
+			attrs.put("productAttrIds", attrIds);
+			GjfProductAttrStock gjfProductAttrStock=gjfProductAttrDao.query(GjfProductAttrStock.class, attrs);
+			Map stockMap=new HashMap<>();
+			stockMap.put("id", gjfProductAttrStock.getId());
+			stockMap.put("productAttrIds", gjfProductAttrStock.getProductAttrIds());
+			stockMap.put("repertory", gjfProductAttrStock.getRepertory());
+			stockMap.put("price", gjfProductAttrStock.getPrice());
+			dataMap.put("productAttrStock", stockMap);
+		}
+		return new ResultVo(200, "查询成功", dataMap);
+	}
+
+	
+
+	
+
+}

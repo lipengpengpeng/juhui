@@ -1,0 +1,180 @@
+package cc.messcat.web.system;
+
+import java.net.URLDecoder;
+import java.util.Date;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.apache.struts2.ServletActionContext;
+import org.springframework.security.Authentication;
+import org.springframework.security.context.SecurityContext;
+import org.springframework.security.context.SecurityContextHolder;
+import org.springframework.security.userdetails.UserDetails;
+
+import cc.messcat.bases.BaseAction;
+import cc.messcat.entity.Users;
+import cc.messcat.entity.WebSite;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.vo.app.SmsVo;
+import cc.messcat.gjfeng.dubbo.sms.SmsDubbo;
+import cc.messcat.gjfeng.entity.GjfMessageHistory;
+import cc.messcat.service.system.UsersManagerDao;
+import cc.messcat.web.left.Authorize;
+
+import com.opensymphony.xwork2.ActionContext;
+
+public class LoginAction extends BaseAction {
+
+	private static final long serialVersionUID = -5876455173672710380L;
+
+	@SuppressWarnings("unchecked")
+	public String execute() throws Exception {
+		SecurityContext sc = SecurityContextHolder.getContext();
+		Authentication auth = sc.getAuthentication();
+		UserDetails ud = null;
+		try {
+			ud = (UserDetails) auth.getPrincipal();
+		} catch (Exception e) {
+			addActionMessage("登陆出错");
+			return "input";
+		}
+		Map session = (Map) ActionContext.getContext().getSession();
+
+		String username = ud.getUsername();
+		String result_value = "success";
+
+		Users users = usersManagerDao.getUsersByLoginName(username);
+
+		if (session.get("users") != null)
+			session.remove("users");
+
+		session.put("users", users);
+
+		if (session.get("currentUserName") != null)
+			session.remove("currentUserName");
+
+		session.put("currentUserName", ud.getUsername());
+
+		if (session.get("userID") != null)
+			session.remove("userID");
+
+		session.put("userID", users.getId());
+		if (session.get("isAdmin") != null)
+			session.remove("isAdmin");
+
+		session.put("isAdmin", isAdmin(users));
+
+		webSite = webSiteManagerDao.getWebSite();
+		return result_value;
+	}
+
+	private UsersManagerDao usersManagerDao;
+	private WebSite webSite;
+
+	public int isAdmin(Users users) {
+		int res = 0;
+		Authorize isAuthorize = new Authorize();
+		if(isAuthorize.isAuthorize("REVIEW_NEWS")){
+			res = 1;
+		}
+		
+		return res;
+	}
+	
+	private String loginName;
+	
+	private String code;
+	
+	private SmsDubbo smsDubbo;
+	
+	@SuppressWarnings("unchecked")
+	public String sendCode(){
+		
+		if(loginName == null || loginName=="")
+			throw new IllegalArgumentException("登录名参数为空");
+		
+		Users user = usersManagerDao.getUsersByLoginName(loginName);
+		if(user.getMobile() == null || "".equals(user.getMobile()))
+			return renderText("false");
+		SmsVo smsVo = smsDubbo.sendMsg(user.getMobile(), RandUtil.getRandomStr(6));
+		final GjfMessageHistory gjfMessageHistory = new GjfMessageHistory();
+		gjfMessageHistory.setAccepter(smsVo.getMobile());
+		gjfMessageHistory.setContent(smsVo.getContent());
+		gjfMessageHistory.setSendTime(new Date());
+		if (smsVo.getCode().equals("2")) {
+			Map session = (Map) ActionContext.getContext().getSession();
+			session.put(CommonStatus.SESSION_MCCMS_SMSCODE, smsVo.getContent());
+			gjfMessageHistory.setStatus("1");
+		} else {
+			gjfMessageHistory.setStatus("0");
+		}
+
+		new Thread(new Thread() {
+			@Override
+			public void run() {
+				smsDubbo.addMessageHistory(gjfMessageHistory);
+			}
+		}).start();
+		
+		return renderText("true");
+	}
+	
+	public String checkCode(){
+		clearMessages();
+		HttpServletRequest request = ServletActionContext.getRequest();
+		String rand = request.getParameter("vercode");
+		HttpSession session = request.getSession(false);
+		String checkCode = session.getAttribute(CommonStatus.SESSION_MCCMS_SMSCODE) != null ? 
+				(String) session.getAttribute(CommonStatus.SESSION_MCCMS_SMSCODE) : "";
+		rand = rand.toUpperCase();
+		checkCode = checkCode.toUpperCase();
+		if (checkCode.equalsIgnoreCase(rand)) {
+			//为什么要设置成null,这样先输入正确的，删掉输错的，再输入正确的时候有问题
+			//session.setAttribute("rand", null);
+			return renderText("true");
+		} else {
+			this.addActionMessage("验证码不正确");
+			return renderText("false");
+		}
+	}
+	
+
+	public String getLoginName() {
+		return loginName;
+	}
+	public void setLoginName(String loginName) {
+		this.loginName = loginName;
+	}
+	public String getCode() {
+		return code;
+	}
+	public void setCode(String code) {
+		this.code = code;
+	}
+	public SmsDubbo getSmsDubbo() {
+		return smsDubbo;
+	}
+	public void setSmsDubbo(SmsDubbo smsDubbo) {
+		this.smsDubbo = smsDubbo;
+	}
+	public WebSite getWebSite() {
+		return webSite;
+	}
+
+	public void setWebSite(WebSite webSite) {
+		this.webSite = webSite;
+	}
+
+	public UsersManagerDao getUsersManagerDao() {
+		return usersManagerDao;
+	}
+
+	public void setUsersManagerDao(UsersManagerDao usersManagerDao) {
+		this.usersManagerDao = usersManagerDao;
+	}
+
+}

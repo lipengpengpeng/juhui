@@ -1,0 +1,829 @@
+package cc.messcat.gjfeng.service.member;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.beanutils.BeanPropertyValueEqualsPredicate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.alibaba.fastjson.JSONObject;
+
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.jd.JdUtil;
+import cc.messcat.gjfeng.common.jd.bean.CityInfo;
+import cc.messcat.gjfeng.common.jd.bean.DistrictInfo;
+import cc.messcat.gjfeng.common.jd.bean.LowerInfo;
+import cc.messcat.gjfeng.common.jd.bean.Province;
+import cc.messcat.gjfeng.common.jd.bean.ProvinceLowerLevel;
+import cc.messcat.gjfeng.common.jd.bean.TownInfo;
+import cc.messcat.gjfeng.common.netFriends.NetFriendUtil;
+import cc.messcat.gjfeng.common.netFriends.bean.NetAddress;
+import cc.messcat.gjfeng.common.proprietary.bean.AddressInfo;
+import cc.messcat.gjfeng.common.proprietary.util.ProUtil;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.BeanUtilsEx;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberAddressVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.member.GjfMemberInfoDao;
+import cc.messcat.gjfeng.entity.GjfAddressArea;
+import cc.messcat.gjfeng.entity.GjfAddressCity;
+import cc.messcat.gjfeng.entity.GjfAddressProvince;
+import cc.messcat.gjfeng.entity.GjfAddressTown;
+import cc.messcat.gjfeng.entity.GjfMemberAddress;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+
+@Service("gjfAddressService")
+public class GjfAddressServiceImpl implements GjfAddressService {
+
+	@Autowired
+	@Qualifier("gjfMemberInfoDao")
+	private GjfMemberInfoDao gjfMemberInfoDao;
+
+	/*
+	 * 添加收货地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#addDeliveryAddress(cc.
+	 * messcat.gjfeng.entity.GjfMemberAddress)
+	 */
+	@Override
+	public ResultVo addDeliveryAddress(Object... objs) {
+		String account = (String) objs[0];
+		String consigneeName = (String) objs[1];
+		String consigneeSex = (String) objs[2];
+		String mobile = (String) objs[3];
+		Long proviceId = (Long) objs[4];
+		Long cityId = (Long) objs[5];
+		Long areaId = (Long) objs[6];
+		String addressDetail = (String) objs[7];
+		String goodSource = (String) objs[8];
+		Long townId = (Long) objs[9];
+		if (!consigneeSex.equals("1") && !consigneeSex.equals("2")) {
+			return new ResultVo(400, "性别有误，添加失败", null);
+		}
+		// 获取用户信息
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			return new ResultVo(400, "用户不存在，添加失败", null);
+		}
+
+		// 获取省份信息
+		Object proObj = gjfMemberInfoDao.get(proviceId, GjfAddressProvince.class.getName());
+		// 获取城市信息
+		Object cityObj = "";
+		if (BeanUtil.isValid(cityId)) {
+			cityObj = gjfMemberInfoDao.get(cityId, GjfAddressCity.class.getName());
+		}
+		// 获取区域信息
+		Object areaObj = "";
+		if (BeanUtil.isValid(areaId)) {
+			areaObj = gjfMemberInfoDao.get(areaId, GjfAddressArea.class.getName());
+		}
+		// 获取镇信息
+		Object townObj = "";
+		if (BeanUtil.isValid(townId)) {
+			townObj = gjfMemberInfoDao.get(townId, GjfAddressTown.class.getName());
+		}
+
+		GjfMemberAddress address = new GjfMemberAddress();
+		address.setMemberId(info);
+		address.setConsigneeName(consigneeName);
+		address.setConsigneeSex(consigneeSex);
+		address.setMobile(mobile);
+		// 省
+		GjfAddressProvince gjfProvince = (GjfAddressProvince) proObj;
+		address.setProviceId(gjfProvince);
+
+		// 市
+		GjfAddressCity gjfCity = (GjfAddressCity) cityObj;
+		if (BeanUtil.isValid(cityObj)) {
+			address.setCityId(gjfCity);
+		}
+		// 区域id
+		String area_id = "";
+		String areaName = "";
+		if (BeanUtil.isValid(areaObj)) {
+			GjfAddressArea gjfArea = (GjfAddressArea) areaObj;
+			address.setAreaId(gjfArea);
+			area_id = gjfArea.getAreaId().toString();
+			areaName = gjfArea.getArea();
+		}
+		if (BeanUtil.isValid(townObj)) {
+			address.setTownId((GjfAddressTown) townObj);
+		}
+
+		// 如果是友品集商品
+		if ("2".equals(goodSource)) {
+			net.sf.json.JSONObject json = NetFriendUtil.addNetFriendAddress(info.getToken().substring(0, 50),
+					consigneeName, info.getIdCard(), mobile, area_id, gjfProvince.getProvince(), gjfCity.getCity(),
+					areaName, addressDetail, "0", "");
+			int errcode = (int) json.get("errcode");
+			String errmsg = (String) json.get("errmsg");
+			if (errcode != 0) {
+				return new ResultVo(400, errmsg, null);
+			}
+			net.sf.json.JSONObject jsonObject = json.getJSONObject("data");
+			NetAddress netAddress = (NetAddress) jsonObject.toBean(jsonObject, NetAddress.class);
+			address.setNetAddressId(netAddress.getAid());
+
+		}
+
+		address.setAddressDetail(addressDetail);
+		address.setIsDefault("0");
+		address.setAddressSouce(goodSource);
+		gjfMemberInfoDao.save(address);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/*
+	 * 修改地址为默认收货地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#updateAdressIsDefault(
+	 * java.lang.Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateAdressIsDefault(Long id, String account, String goodSource) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		attrs.put("isDefault", "1");
+		attrs.put("addressSouce", goodSource);
+		GjfMemberAddress add0 = gjfMemberInfoDao.query(GjfMemberAddress.class, attrs);
+		if (BeanUtil.isValid(add0)) {
+			add0.setIsDefault("0");
+			gjfMemberInfoDao.update(add0);
+		}
+
+		Map<String, Object> attrs0 = new HashMap<String, Object>();
+		attrs0.put("id", id);
+		GjfMemberAddress add = gjfMemberInfoDao.query(GjfMemberAddress.class, attrs0);
+		add.setIsDefault("1");
+		gjfMemberInfoDao.update(add);
+
+		return new ResultVo(200, "设置成功", null);
+	}
+
+	/*
+	 * 修改收货地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#updateAddress(java.
+	 * lang.Object[])
+	 */
+	@Override
+	public ResultVo updateAddress(Object... objs) {
+		String account = (String) objs[0];
+		String consigneeName = (String) objs[1];
+		String consigneeSex = (String) objs[2];
+		String mobile = (String) objs[3];
+		Long proviceId = (Long) objs[4];
+		Long cityId = (Long) objs[5];
+		Long areaId = (Long) objs[6];
+		String addressDetail = (String) objs[7];
+		Long id = (Long) objs[8];
+		Long townId = (Long) objs[9];
+
+		if (!"".equals(consigneeSex) && consigneeSex != null) {
+			if (!consigneeSex.equals("1") && !consigneeSex.equals("2")) {
+				return new ResultVo(400, "性别有误，添加失败", null);
+			}
+		}
+
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			return new ResultVo(400, "用户不存在，添加失败", null);
+		}
+		Object proObj = gjfMemberInfoDao.get(proviceId, GjfAddressProvince.class.getName());
+		Object cityObj = gjfMemberInfoDao.get(cityId, GjfAddressCity.class.getName());
+
+		if (ObjValid.isNotValid(proObj, cityObj)) {
+			return new ResultVo(400, "地址有误，添加失败", null);
+		}
+
+		Object areaObj = null;
+		if (BeanUtil.isValid(areaId)) {
+			areaObj = gjfMemberInfoDao.get(areaId, GjfAddressArea.class.getName());
+		}
+		Object townObj = null;
+		if (BeanUtil.isValid(townId)) {
+			townObj = gjfMemberInfoDao.get(townId, GjfAddressTown.class.getName());
+		}
+
+		// 获取收货地址
+		Map<String, Object> attrs0 = new HashMap<String, Object>();
+		attrs0.put("memberId.mobile", account);
+		attrs0.put("id", id);
+		GjfMemberAddress address0 = gjfMemberInfoDao.query(GjfMemberAddress.class, attrs0);
+
+		if ("2".equals(address0.getAddressSouce())) {
+			net.sf.json.JSONObject json = NetFriendUtil.addNetFriendAddress(info.getToken().substring(0, 50),
+					consigneeName, info.getIdCard(), mobile, ((GjfAddressArea) areaObj).getAreaId().toString(),
+					((GjfAddressProvince) proObj).getProvince(), ((GjfAddressCity) cityObj).getCity(),
+					((GjfAddressArea) areaObj).getArea(), addressDetail, "0", address0.getNetAddressId());
+			int errcode = (int) json.get("errcode");
+			String errmsg = (String) json.get("errmsg");
+			if (errcode != 0) {
+				return new ResultVo(400, errmsg, null);
+			}
+		}
+
+		address0.setMemberId(info);
+		address0.setConsigneeName(consigneeName);
+		address0.setConsigneeSex(consigneeSex);
+		address0.setMobile(mobile);
+		address0.setProviceId((GjfAddressProvince) proObj);
+		address0.setCityId((GjfAddressCity) cityObj);
+		if (BeanUtil.isValid(areaObj)) {
+			address0.setAreaId((GjfAddressArea) areaObj);
+		}
+		address0.setAddressDetail(addressDetail);
+		if (BeanUtil.isValid(townObj)) {
+			address0.setTownId((GjfAddressTown) townObj);
+		}
+		gjfMemberInfoDao.updateObj(address0);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 删除收货地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#delAddress(java.lang.
+	 * Long, java.lang.String)
+	 */
+	@Override
+	public ResultVo removeAddress(Long id, String account) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		gjfMemberInfoDao.delMemAdder(gjfMemberInfo.getId(), id);
+		return new ResultVo(200, "删除成功", null);
+	}
+
+	/*
+	 * 查询收货地址根据id
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#findAdressById(java.
+	 * lang.Long, java.lang.String)
+	 */
+	public ResultVo findAddressById(Long id, String account, String goodSource) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", id);
+		attrs.put("memberId.mobile", account);
+		if (BeanUtil.isValid(goodSource)) {
+			attrs.put("addressSouce", goodSource);
+		}
+		return new ResultVo(200, "查询成功",
+				BeanUtilsEx.copyBean(MemberAddressVo.class, gjfMemberInfoDao.query(GjfMemberAddress.class, attrs)));
+	}
+
+	/*
+	 * 查询我的收货地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#findMyDeliveryAddress(
+	 * java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findMyDeliveryAddress(String account, String goodSource) {
+		if (StringUtil.isBlank(account)) {
+			return new ResultVo(400, "账号不存在", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		if (BeanUtil.isValid(goodSource)) {
+			attrs.put("addressSouce", goodSource);
+		}
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfMemberAddress.class, "id", "asc", attrs));
+	}
+
+	/*
+	 * 查询我的默认收货地址
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfAddressService#
+	 * findMyDefDeliveryAddress(java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findMyDefDeliveryAddress(String account, String goodSource) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("memberId.mobile", account);
+		attrs.put("isDefault", "1");
+		if (BeanUtil.isValid(goodSource)) {
+			attrs.put("addressSouce", goodSource);
+		}
+		GjfMemberAddress address = gjfMemberInfoDao.query(GjfMemberAddress.class, attrs);
+		if (ObjValid.isValid(address)) {
+			return new ResultVo(200, "查询成功", address);
+		}
+		Object o = findMyDeliveryAddress(account, goodSource).getResult();
+		if (ObjValid.isValid(o)) {
+			List<GjfMemberAddress> addresses = (List<GjfMemberAddress>) o;
+			return new ResultVo(200, "查询成功", addresses.get(0));
+		}
+		return new ResultVo(400, "没有收获地址", null);
+	}
+
+	/*
+	 * 查询省市区
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#findAddress(java.lang.
+	 * Long, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAddress(Long fatherId, String addressType, String goodSource) {
+		if (StringUtil.isBlank(addressType)) {
+			return new ResultVo(400, "参数错误", null);
+		}
+		if (addressType.equals("1")) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			if (!ObjValid.isNotValid(goodSource)) {
+				attrs.put("provinceSource", goodSource);
+			} else {
+				attrs.put("provinceSource", "0");
+			}
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfAddressProvince.class, "id", "asc", attrs));
+		} else if (addressType.equals("2")) {
+			if (ObjValid.isNotValid(fatherId)) {
+				return new ResultVo(400, "参数错误", null);
+			}
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("fatherId", fatherId);
+			if (!ObjValid.isNotValid(goodSource)) {
+				attrs.put("citySouce", goodSource);
+			} else {
+				attrs.put("citySouce", "0");
+			}
+
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfAddressCity.class, "id", "asc", attrs));
+		} else if (addressType.equals("3")) {
+			if (ObjValid.isNotValid(fatherId)) {
+				return new ResultVo(400, "参数错误", null);
+			}
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("fatherId", fatherId);
+			if (!ObjValid.isNotValid(goodSource)) {
+				attrs.put("areaSouce", goodSource);
+			} else {
+				attrs.put("areaSouce", "0");
+			}
+
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfAddressArea.class, "id", "asc", attrs));
+		} else if ("4".equals(addressType)) {
+			if (ObjValid.isNotValid(fatherId)) {
+				return new ResultVo(400, "参数错误", null);
+			}
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("fatherId", fatherId);
+			if (!ObjValid.isNotValid(goodSource)) {
+				attrs.put("townSouce", goodSource);
+			} else {
+				attrs.put("townSouce", "0");
+			}
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfAddressTown.class, "id", "asc", attrs));
+		}
+		return new ResultVo(400, "参数错误", null);
+	}
+
+	/*
+	 * 根据字母获取省市区
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#findAddressByLetter(
+	 * java.lang.String, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAddressByLetter(String letter, String type) {
+		if (Integer.parseInt(type) == 1) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("letter", letter);
+			return new ResultVo(200, "查询成功",
+					gjfMemberInfoDao.queryList(GjfAddressProvince.class, "id", "asc", "province", attrs));
+		}
+		if (Integer.parseInt(type) == 2) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("letter", letter);
+			return new ResultVo(200, "查询成功",
+					gjfMemberInfoDao.queryList(GjfAddressCity.class, "id", "asc", "city", attrs));
+		}
+		if (Integer.parseInt(type) == 2) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("letter", letter);
+			return new ResultVo(200, "查询成功",
+					gjfMemberInfoDao.queryList(GjfAddressArea.class, "id", "asc", "area", attrs));
+		}
+		return new ResultVo(400, "参数错误", null);
+	}
+
+	/*
+	 * 根据区域编号获取城市id
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.member.GjfAddressService#findCityIdByAreaCode(
+	 * java.lang.Long)
+	 */
+	@Override
+	public ResultVo findCityIdByAreaCode(Long areaCode) {
+
+		return null;
+	}
+
+	@Override
+	public ResultVo findAddressByCode(Long code, String type) {
+		// TODO Auto-generated method stub
+		if (Integer.parseInt(type) == 1) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("provinceId", code);
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfAddressProvince.class, attrs));
+		}
+		if (Integer.parseInt(type) == 2) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("cityId", code);
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfAddressCity.class, attrs));
+		}
+		if (Integer.parseInt(type) == 2) {
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("areaId", code);
+			return new ResultVo(200, "查询成功", gjfMemberInfoDao.query(GjfAddressArea.class, attrs));
+		}
+		return new ResultVo(400, "参数错误", null);
+	}
+
+	/*
+	 * 查询所有区域
+	 * 
+	 * @see cc.messcat.gjfeng.service.member.GjfAddressService#findAllArea()
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findAllArea() {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		return new ResultVo(200, "查询成功", gjfMemberInfoDao.queryList(GjfAddressArea.class, "id", "asc", "area", attrs));
+	}
+
+	@Override
+	public ResultVo addDeliveryAddressInIos(Object... objs) {
+		String account = (String) objs[0];
+		String consigneeName = (String) objs[1];
+		String consigneeSex = (String) objs[2];
+		String mobile = (String) objs[3];
+		Long proviceId = (Long) objs[4];
+		Long cityId = (Long) objs[5];
+		Long areaId = (Long) objs[6];
+		String addressDetail = (String) objs[7];
+
+		String goodSource = (String) objs[8];
+		Long townId = (Long) objs[9];
+		if (!consigneeSex.equals("1") && !consigneeSex.equals("2")) {
+			return new ResultVo(400, "性别有误，添加失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			return new ResultVo(400, "用户不存在，添加失败", null);
+		}
+
+		if (!BeanUtil.isValid(proviceId)) {
+			throw new MyException(400, "省份不能为空", null);
+		}
+		if (!BeanUtil.isValid(cityId)) {
+			throw new MyException(400, "城市不能为空", null);
+		}
+
+		GjfMemberAddress address = new GjfMemberAddress();
+		// 平台地址
+		if ("0".equals(goodSource)) {
+			// 处理省份
+			Map<String, Object> proAttrs = new HashMap<String, Object>();
+			proAttrs.put("provinceId", proviceId);
+			GjfAddressProvince proObj = gjfMemberInfoDao.query(GjfAddressProvince.class, proAttrs);
+			if (ObjValid.isNotValid(proObj)) {
+				throw new MyException(400, "省份不能为空", null);
+			}
+
+			// 处理城市
+			Map<String, Object> cityAttrs = new HashMap<String, Object>();
+			cityAttrs.put("cityId", cityId);
+			GjfAddressCity cityObj = gjfMemberInfoDao.query(GjfAddressCity.class, cityAttrs);
+			if (ObjValid.isNotValid(cityObj)) {
+				throw new MyException(400, "城市不能为空", null);
+			}
+
+			// 处理区域
+			Map<String, Object> areaAttrs = new HashMap<String, Object>();
+			areaAttrs.put("areaId", areaId);
+			GjfAddressArea areaObj = gjfMemberInfoDao.query(GjfAddressArea.class, areaAttrs);
+
+			address.setProviceId(proObj);
+			if (BeanUtil.isValid(cityObj)) {
+				address.setCityId(cityObj);
+			}
+			if (BeanUtil.isValid(areaObj)) {
+				address.setAreaId(areaObj);
+			}
+		} else {// 京东地址
+				// 获取省份信息
+			Object proObj = gjfMemberInfoDao.get(proviceId, GjfAddressProvince.class.getName());
+			// 获取城市信息
+			Object cityObj = "";
+			if (BeanUtil.isValid(cityId)) {
+				cityObj = gjfMemberInfoDao.get(cityId, GjfAddressCity.class.getName());
+			}
+			// 获取区域信息
+			Object areaObj = "";
+			if (BeanUtil.isValid(areaId)) {
+				areaObj = gjfMemberInfoDao.get(areaId, GjfAddressArea.class.getName());
+			}
+			// 获取镇信息
+			Object townObj = "";
+			if (BeanUtil.isValid(townId)) {
+				townObj = gjfMemberInfoDao.get(townId, GjfAddressTown.class.getName());
+			}
+
+			// 省
+			GjfAddressProvince gjfProvince = (GjfAddressProvince) proObj;
+			address.setProviceId(gjfProvince);
+
+			// 市
+			GjfAddressCity gjfCity = (GjfAddressCity) cityObj;
+			if (BeanUtil.isValid(cityObj)) {
+				address.setCityId(gjfCity);
+			}
+			// 区域id
+			if (BeanUtil.isValid(areaObj)) {
+				GjfAddressArea gjfArea = (GjfAddressArea) areaObj;
+				address.setAreaId(gjfArea);
+			}
+			// 镇
+			if (BeanUtil.isValid(townObj)) {
+				address.setTownId((GjfAddressTown) townObj);
+			}
+
+		}
+
+		address.setMemberId(info);
+		address.setConsigneeName(consigneeName);
+		address.setConsigneeSex(consigneeSex);
+		address.setMobile(mobile);
+
+		address.setAddressDetail(addressDetail);
+		address.setIsDefault("0");
+		address.setAddressSouce("0");
+		gjfMemberInfoDao.save(address);
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	@Override
+	public ResultVo updateAddressInIos(Object... objs) {
+		String account = (String) objs[0];
+		String consigneeName = (String) objs[1];
+		String consigneeSex = (String) objs[2];
+		String mobile = (String) objs[3];
+		Long proviceId = (Long) objs[4];
+		Long cityId = (Long) objs[5];
+		Long areaId = (Long) objs[6];
+		String addressDetail = (String) objs[7];
+		Long id = (Long) objs[8];
+		String goodSource = (String) objs[9];
+		Long townId = (Long) objs[10];
+		if (!"".equals(consigneeSex) && consigneeSex != null) {
+			if (!consigneeSex.equals("1") && !consigneeSex.equals("2")) {
+				return new ResultVo(400, "性别有误，添加失败", null);
+			}
+		}
+
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("mobile", account);
+		GjfMemberInfo info = gjfMemberInfoDao.query(GjfMemberInfo.class, attrs);
+		if (ObjValid.isNotValid(info)) {
+			return new ResultVo(400, "用户不存在，添加失败", null);
+		}
+
+		// 获取收货地址
+		Map<String, Object> attrs0 = new HashMap<String, Object>();
+		attrs0.put("memberId.mobile", account);
+		attrs0.put("id", id);
+		GjfMemberAddress address0 = gjfMemberInfoDao.query(GjfMemberAddress.class, attrs0);
+
+		if ("0".equals(goodSource)) {
+			// 处理省份
+			Map<String, Object> proAttrs = new HashMap<String, Object>();
+			proAttrs.put("provinceId", proviceId);
+			GjfAddressProvince proObj = gjfMemberInfoDao.query(GjfAddressProvince.class, proAttrs);
+
+			// 处理城市
+			Map<String, Object> cityAttrs = new HashMap<String, Object>();
+			cityAttrs.put("cityId", cityId);
+			GjfAddressCity cityObj = gjfMemberInfoDao.query(GjfAddressCity.class, cityAttrs);
+
+			// 处理区域
+			Map<String, Object> areaAttrs = new HashMap<String, Object>();
+			areaAttrs.put("areaId", areaId);
+			GjfAddressArea areaObj = gjfMemberInfoDao.query(GjfAddressArea.class, areaAttrs);
+			
+			address0.setProviceId(proObj);
+			address0.setCityId(cityObj);
+			address0.setAreaId(areaObj);
+		} else {
+			// 获取省份信息
+			Object proObj = gjfMemberInfoDao.get(proviceId, GjfAddressProvince.class.getName());
+			// 获取城市信息
+			Object cityObj = "";
+			if (BeanUtil.isValid(cityId)) {
+				cityObj = gjfMemberInfoDao.get(cityId, GjfAddressCity.class.getName());
+			}
+			// 获取区域信息
+			Object areaObj = "";
+			if (BeanUtil.isValid(areaId)) {
+				areaObj = gjfMemberInfoDao.get(areaId, GjfAddressArea.class.getName());
+			}
+			// 获取镇信息
+			Object townObj = "";
+			if (BeanUtil.isValid(townId)) {
+				townObj = gjfMemberInfoDao.get(townId, GjfAddressTown.class.getName());
+			}
+
+			// 省
+			GjfAddressProvince gjfProvince = (GjfAddressProvince) proObj;
+			address0.setProviceId(gjfProvince);
+
+			// 市
+			GjfAddressCity gjfCity = (GjfAddressCity) cityObj;
+			if (BeanUtil.isValid(cityObj)) {
+				address0.setCityId(gjfCity);
+			}
+			// 区域id
+			if (BeanUtil.isValid(areaObj)) {
+				GjfAddressArea gjfArea = (GjfAddressArea) areaObj;
+				address0.setAreaId(gjfArea);
+			}
+			// 镇
+			if (BeanUtil.isValid(townObj)) {
+				address0.setTownId((GjfAddressTown) townObj);
+			}
+		}
+		address0.setMemberId(info);
+		address0.setConsigneeName(consigneeName);
+		address0.setConsigneeSex(consigneeSex);
+		address0.setMobile(mobile);
+		address0.setAddressDetail(addressDetail);
+		gjfMemberInfoDao.updateObj(address0);
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/**
+	 * 添加京东省份信息
+	 */
+	@Override
+	public ResultVo addJdProvice() {
+		// 获取京东所有省份信息
+		List<Province> list = JdUtil.getJdProvince();
+		Iterator<Province> it = list.iterator();
+		while (it.hasNext()) {
+			// 获取省份信息
+			Province province = it.next();
+			// 创建本平台省份信息
+			GjfAddressProvince gjfProvice = new GjfAddressProvince();
+			gjfProvice.setProvince(province.getProvinceName());
+			gjfProvice.setProvinceId(province.getPrivinceId());
+			gjfProvice.setProvinceSource("1");
+			gjfMemberInfoDao.save(gjfProvice);
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 获取省份下级信息
+	 */
+	@Override
+	public ResultVo addJdProviceLowerLevel() {
+		List<Province> list = JdUtil.getJdProvince();
+		Iterator<Province> it = list.iterator();
+		while (it.hasNext()) {
+			// 获取省份信息
+			Province province = it.next();
+
+			String jsonStr = JdUtil.getJdProviceLowerLevel(province.getPrivinceId());
+
+			ProvinceLowerLevel lower = com.alibaba.fastjson.JSONObject.parseObject(jsonStr, ProvinceLowerLevel.class);
+			// 获取城市
+			if (lower.getSecondLevel() != null) {
+				List<CityInfo> secondLevel = lower.getSecondLevel();
+				Iterator<CityInfo> secodIt = secondLevel.iterator();
+				while (secodIt.hasNext()) {
+					// 添加城市
+					CityInfo secInfo = secodIt.next();
+					GjfAddressCity city = new GjfAddressCity();
+					city.setCity(secInfo.getCityName());
+					city.setCityId(secInfo.getCityId());
+					city.setFatherId(secInfo.getParentId());
+					city.setCitySouce("1");
+					gjfMemberInfoDao.save(city);
+				}
+			}
+
+			// 获取区域
+			if (lower.getThirdLevel() != null) {
+				List<DistrictInfo> thirdLevel = lower.getThirdLevel();
+				Iterator<DistrictInfo> thirdIt = thirdLevel.iterator();
+				while (thirdIt.hasNext()) {
+					// 添加区域
+					DistrictInfo thirdInfo = thirdIt.next();
+					GjfAddressArea area = new GjfAddressArea();
+					area.setArea(thirdInfo.getDistrictName());
+					area.setAreaSouce("1");
+					area.setFatherId(thirdInfo.getParentId());
+					area.setAreaId(thirdInfo.getDistrictId());
+					gjfMemberInfoDao.save(area);
+				}
+			}
+
+			// 获取镇
+			if (lower.getFouthLevel() != null) {
+				List<TownInfo> fouthLevel = lower.getFouthLevel();
+				Iterator<TownInfo> fouthIt = fouthLevel.iterator();
+				while (fouthIt.hasNext()) {
+					// 添加镇信息
+					TownInfo fouthInfo = fouthIt.next();
+					GjfAddressTown town = new GjfAddressTown();
+					town.setTownId(fouthInfo.getTownId());
+					town.setTownName(fouthInfo.getTownName());
+					town.setTownSouce("1");
+					town.setFatherId(fouthInfo.getParentId());
+					gjfMemberInfoDao.save(town);
+				}
+			}
+		}
+		return new ResultVo(200, "添加成功", null);
+	}
+
+	/**
+	 * 添加商品池地址
+	 * @return
+	 */
+	@Override
+	public ResultVo addProAddress() {
+		//获取所有地址信息
+		List<AddressInfo> list=ProUtil.getAddress();
+		//如果返回数据不为空
+		if(BeanUtil.isValid(list)){
+			//遍历数组
+			for(AddressInfo address:list){
+				//获取省份信息
+				if("1".equals(address.getLevel())){
+					GjfAddressProvince province=new GjfAddressProvince();
+					province.setProvince(address.getName());
+					province.setProvinceId(address.getId());
+					province.setProvinceSource("5");
+					gjfMemberInfoDao.save(province);
+				}
+				//获取市信息
+				if("2".equals(address.getLevel())){
+					GjfAddressCity city=new GjfAddressCity();
+					city.setCity(address.getName());
+					city.setCitySouce("5");
+					city.setCityId(address.getId());
+					city.setFatherId(Long.valueOf(address.getParent_id()));
+					gjfMemberInfoDao.save(city);
+				}
+				//获取区信息
+				if("3".equals(address.getLevel())){
+					GjfAddressArea area=new GjfAddressArea();
+					area.setArea(address.getName());
+					area.setAreaId(address.getId());
+					area.setFatherId(Long.valueOf(address.getParent_id()));
+					area.setAreaSouce("5");
+					gjfMemberInfoDao.save(area);
+				}
+				//获取镇信息
+				if("4".equals(address.getLevel())){
+					GjfAddressTown town=new GjfAddressTown();
+					town.setFatherId(Long.valueOf(address.getParent_id()));
+					town.setTownId(address.getId());
+					town.setTownName(address.getName());
+					town.setTownSouce("5");
+					gjfMemberInfoDao.save(town);
+				}
+				
+			}
+		}
+		return new ResultVo(200,"添加成功");
+	}
+
+}

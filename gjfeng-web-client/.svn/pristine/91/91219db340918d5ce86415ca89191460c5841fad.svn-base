@@ -1,0 +1,416 @@
+package cc.messcat.gjfeng.web.app.v1;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.alipay.direct.config.AlipayConfig;
+import com.alipay.direct.util.OrderInfoUtil2_0;
+import com.h5pay.api.H5PayUtil;
+import com.wechat.WeixinUtil;
+
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.EncryptionUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeBenefitVo;
+import cc.messcat.gjfeng.common.vo.app.OrderAddModel;
+import cc.messcat.gjfeng.common.vo.app.OrderAddVo;
+import cc.messcat.gjfeng.common.vo.app.OrderInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.dubbo.core.GjfAddressDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfCartInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfOrderInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfTradeDubbo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfOrderInfo;
+import cc.messcat.gjfeng.entity.GjfWeiXinPayInfo;
+import cc.messcat.gjfeng.util.SessionUtil;
+import cc.messcat.gjfeng.web.wechat.OrderController;
+import cc.messcat.gjfeng.web.wechat.StoreController;
+
+@Controller
+@RequestMapping(value = "app/order/", headers = "app-version=v1.0")
+public class OrderControllerV1 extends BaseController {
+
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("response")
+	private HttpServletResponse response;
+
+	@Autowired
+	@Qualifier("orderInfoDubbo")
+	private GjfOrderInfoDubbo orderInfoDubbo;
+
+	@Autowired
+	@Qualifier("addressDubbo")
+	private GjfAddressDubbo addressDubbo;
+
+	@Autowired
+	@Qualifier("memberInfoDubbo")
+	private GjfMemberInfoDubbo memberInfoDubbo;
+
+	@Autowired
+	@Qualifier("cartInfoDubbo")
+	private GjfCartInfoDubbo cartInfoDubbo;
+
+	@Autowired
+	@Qualifier("tradeDubbo")
+	private GjfTradeDubbo tradeDubbo;
+	
+	@Value("${gjfeng.client.project.url}")
+	private String projectName;
+
+	/**
+	 * @描述 根据状态获取订单信息
+	 *
+	 */
+	@RequestMapping(value = "v1_0/getOrder", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getOrder(String account, Integer pageNo, Integer pageSize, String status) {
+		try {
+			resultVo = orderInfoDubbo.findMyOrder(ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, account, status);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, OrderController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 确认收货
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param orderSn
+	 * @param status
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/updateOrderStatus", method = RequestMethod.POST)
+	@ResponseBody
+	public Object updateOrderStatus(@RequestParam("account") String account, @RequestParam("orderSn") String orderSn,
+			@RequestParam("status") String status) {
+		try {
+			resultVo = orderInfoDubbo.updateOrderStatus(orderSn, "", status, account, null, "1");
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, OrderController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 下单Search
+
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param orderStatus
+	 * @return
+	 */
+	PrimeUnionThread primeUnionThread = null;
+
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value = "v1_0/addOrder", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addOrder(String goodsId,String goodsAttrStockId,String goodsAttrIds,String goodsAttr,String goodsNum, @RequestParam("payType") String payType, String remark,
+			Long couponsId, @RequestParam("orderAddressId") Long orderAddressId, String payPassword) {
+		try {
+			String account = SessionUtil.getAccountSession(request);
+			if (payType.equals("0") || payType.equals("7") || payType.equals("8")) {
+				// 如果是全余额支付，则主要校检其支付密码
+				GjfMemberInfo info = memberInfoDubbo.findMember(account);
+				if (StringUtil.isBlank(info.getPayPassword())) {
+					resultVo = new ResultVo(402, "请先设置支付密码", null);
+					return resultVo;
+				}
+				if (!info.getPayPassword().equals(EncryptionUtil.getMD5Code(info.getMobile() + payPassword))) {
+					resultVo = new ResultVo(401, "支付密码错误", null);
+					return resultVo;
+				}
+			}
+			if(StringUtil.isBlank(goodsId)||StringUtil.isBlank(goodsAttrStockId)||StringUtil.isBlank(goodsAttrIds)||StringUtil.isBlank(goodsAttr)||StringUtil.isBlank(goodsNum)){
+				resultVo = new ResultVo(401, "参数错误", null);
+				return resultVo;
+			}
+			String[] goodsIds=goodsId.split(",");
+			String[] goodsAttrStockIds=goodsAttrStockId.split(",");
+			String[] goodsAttrId=goodsAttrIds.split(",");
+			String[] goodsAttrs=goodsAttr.split(",");
+			String[]  goodsNums=goodsNum.split(",");
+			List<OrderAddVo> orderAddVosList =new ArrayList<>();
+			for(int i=0;i<goodsIds.length;i++){
+				OrderAddVo orderAddVos=new OrderAddVo();
+				orderAddVos.setGoodsId(Long.parseLong(goodsIds[i]));
+				orderAddVos.setGoodsAttrStockId(Long.parseLong(goodsAttrStockIds[i]));
+				orderAddVos.setGoodsAttrIds(goodsAttrId[i]);
+				orderAddVos.setGoodsAttr(goodsAttrs[i]);
+				orderAddVos.setGoodsNum(Long.parseLong(goodsNums[i]));
+			}			
+			resultVo = orderInfoDubbo.addOrder(account, orderAddVosList, "1", payType, remark, couponsId, orderAddressId);
+
+			if (resultVo.getCode() == 200) {
+				GjfOrderInfo gjfOrderInfo = (GjfOrderInfo) resultVo.getResult();
+				if (payType.equals("1")) {
+					// 调用微信支付
+					GjfWeiXinPayInfo payInfo = (GjfWeiXinPayInfo) tradeDubbo.findWeiXinBaseInfo("0").getResult();
+					/*String token_id = H5PayUtil.weiXinPay(payInfo, request, gjfOrderInfo.getOrderSn(),
+							gjfOrderInfo.getOfflinePayAmount().toString(), "购买商品",
+							CommonProperties.GJFENG_WEIXIN_NOTIFY_ORDER,
+							CommonProperties.GJFENG_WEIXIN_CALLBACK_URL_ORDER, gjfOrderInfo.getMemberId().getOpenId());*/
+					Map map=WeixinUtil.unifiedorderResultInApp(request,gjfOrderInfo.getOrderSn(),"充值授信额度",gjfOrderInfo.getOfflinePayAmount().toString(),CommonProperties.GJFENG_WEIXIN_JSPAY_NOTIFY_URL_ORDER);
+					resultVo.setResult(map);
+				} else if (payType.equals("2")) {
+					// 调用支付宝支付
+					Map<String, String> map=new HashMap<>();
+					Map<String, String> params = OrderInfoUtil2_0.getAppPlayParams(gjfOrderInfo.getOrderSn(), "下单成功",
+							gjfOrderInfo.getOfflinePayAmount().toString(), "购买商品", AlipayConfig.order_notify);
+					String orderParam = OrderInfoUtil2_0.buildOrderParam(params, false);
+					String sign = OrderInfoUtil2_0.getSign(params, AlipayConfig.RSA_PRIVATE);
+					final String orderInfo = orderParam + "&" + sign + "&sign_type=\"RSA\"";
+					map.put("payString", orderInfo);
+					resultVo.setResult(map);
+					
+				} else if (payType.equals("3")) {
+					// 调用银联支付
+					/*resultVo = new ResultVo(200, "查询成功",
+							projectName + "/appNeed/appWangYinPay?type=0&payMoney="
+									+ String.valueOf(gjfOrderInfo.getOfflinePayAmount().doubleValue()) + "&memberInfo="
+									+ benefitVo.getMemberId() + "&orderSn=" + gjfOrderInfo.getOrderSn());
+					return resultVo;*/
+				}
+			}
+
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, OrderController.class);
+		}
+		return resultVo;
+	}
+
+	// 线程
+	class PrimeUnionThread extends Thread {
+		private String out_trade_on;
+
+		PrimeUnionThread(String out_trade_on) {
+			this.out_trade_on = out_trade_on;
+		}
+
+		public void run() {
+			try {
+				for (int i = 0; i < 3; i++) {
+					if (i == 0) {
+						Thread.sleep(180000);
+					}
+					if (i == 1) {
+						Thread.sleep(480000);
+					}
+					String xml = H5PayUtil.queryH5Order(request, out_trade_on);
+					String[] str = xml.split("&");
+					Map<String, String> map = new HashMap<String, String>();
+					for (int j = 0; j < str.length; j++) {
+						String str0 = str[j];
+						String[] str1 = str0.split("=");
+						if (str1.length == 1) {
+							map.put(str1[0], "");
+						} else {
+							for (int k = 0; k < str1.length; k++) {
+								map.put(str1[0], str1[1]);
+							}
+						}
+					}
+					if (map.get("retCode").equals("000000")) {
+						String out_trade_no = map.get("merchOrderId");
+						String trade_no = map.get("orderId");
+						resultVo = orderInfoDubbo.updateOrderStatus(out_trade_no, trade_no, "1", null, null, "1");
+						if (resultVo.getCode() == 200) {
+							primeUnionThread.interrupt();
+						}
+					}
+				}
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	
+	/**
+	 * @描述 结算购物车
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @param orderStatus
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/actCart", method = RequestMethod.POST)
+	@ResponseBody
+	public Object actCart(@RequestParam("cartIds") String cartIds,String account) {
+		return new ResultVo(200,"查询成功",projectName+"/appNeed/appActCart?cartIds="+cartIds+"&account="+account);
+
+	}
+	
+	/**
+	 * 获取用户某个收货地址
+	 */
+	@RequestMapping(value = "v1_0/getMemAddreById", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getMemAddreById(Long orderAddressId,String account) {
+		try {
+			resultVo = addressDubbo.findAddressById(orderAddressId, account,"0");
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, OrderController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 获取店铺订单信息
+	 */
+	@RequestMapping(value="v1_0/findO2oOrderByPage",method=RequestMethod.POST)
+	@ResponseBody
+	public Object findO2oOrderByPage(String status,Long storeId,String beginTime,String endTime,Integer pageNo,Integer pageSize){
+		Map<String, Object> map=new HashMap<>();
+		try {
+			if(!BeanUtil.isValid(pageNo)){
+				pageNo=1;
+			}
+			if(!BeanUtil.isValid(pageSize)){
+				pageSize=10;
+			}
+			resultVo = orderInfoDubbo.findO2oOrderInfo(status,storeId,beginTime,endTime,pageNo,pageSize);
+			map.put("storeId", storeId);
+			map.put("status", status);
+			map.put("resultVo", resultVo.getResult());
+		   resultVo.setResult(map);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, StoreController.class);			
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 生成付款二维码
+	 * @return
+	 */
+	@RequestMapping(value="v1_0/goMoneyPage",method = RequestMethod.POST)
+	@ResponseBody
+	public Object goMoneyPage(Long storeId){
+		Map<String, Object> model = new HashMap<String, Object>();		
+		try {
+			String url = URLEncoder.encode(CommonProperties.CLIENT_PROJECT_URL+"/wx/store/goInputMoneyPage?storeId="+storeId, "UTF-8");
+			model.put("storeId", storeId);
+			model.put("url", url);
+		    resultVo=new ResultVo();
+			resultVo.setResult(model);
+		} catch (UnsupportedEncodingException e) {			
+			e.printStackTrace();
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 未支付订单调用支付
+	 * @author Karhs
+	 * @date 2017年1月23日
+	 * @param orderSn
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/payOrderSign", method = RequestMethod.POST)
+	@ResponseBody
+	public Object payOrderSign(@RequestParam("orderSn") String orderSn,String orderType,String account) {
+		try {			
+			resultVo = orderInfoDubbo.findOrderDetail(orderSn, account);
+			if (resultVo.getCode() == 200) {
+				OrderInfoVo infoVo = (OrderInfoVo) resultVo.getResult();
+				if (infoVo.getOrderStatus().equals("1")) {
+					resultVo.setCode(400);
+					resultVo.setResult("订单已经付款，无需重复");
+					return resultVo;
+				} else if (!infoVo.getOrderStatus().equals("0")) {
+					resultVo.setCode(400);
+					resultVo.setResult("订单不是待付款状态，不能进行支付");
+					return resultVo;
+				}
+				//有余额的先判断用户余额是否充足
+				if("4".equals(infoVo.getPayType())||"6".equals(infoVo.getPayType())){
+					GjfMemberInfo info = memberInfoDubbo.findMember(account);
+					if(infoVo.getOnlinePayAmount().compareTo(info.getBalanceMoney())==1){
+						//如果余额不足就进行资金的调整
+						String newOrderSn=DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6));
+						infoVo.setOnlinePayAmount(info.getBalanceMoney());
+						infoVo.setOfflinePayAmount(infoVo.getOrderTotalAmount().subtract(info.getBalanceMoney()));
+						orderInfoDubbo.updateOrderPayMoney(infoVo.getOrderSn(),infoVo.getOnlinePayAmount().doubleValue(),infoVo.getOfflinePayAmount().doubleValue(),newOrderSn);
+						infoVo.setOrderSn(newOrderSn);
+					}
+				}
+				
+				if (infoVo.getPayType().equals("1") || infoVo.getPayType().equals("4")) {
+					// 调用微信支付
+					GjfWeiXinPayInfo payInfo=(GjfWeiXinPayInfo) tradeDubbo.findWeiXinBaseInfo("0").getResult();
+					String token_id="";
+					if("1".equals(orderType)){
+						token_id = H5PayUtil.weiXinPay(payInfo,request, infoVo.getOrderSn(),
+								infoVo.getOfflinePayAmount().toString(), "购买商品",
+								CommonProperties.GJFENG_WEIXIN_NOTIFY_ORDER,
+								CommonProperties.GJFENG_WEIXIN_CALLBACK_URL_ORDER, infoVo.getMemberId().getOpenId());
+					}else{
+						// 调用微信支付
+						 token_id = H5PayUtil.weixinSweepPay(infoVo.getStoreId().getPayMchId(),infoVo.getStoreId().getPayKey(),request, 
+								infoVo.getOfflinePayAmount().toString().toString(),infoVo.getOrderSn(), "购买商品",CommonProperties.GJFENG_SWEEP_NOTIFY_ORDER);
+						resultVo.setResult(token_id);
+					}
+					
+					resultVo.setResult(token_id);
+				} else if (infoVo.getPayType().equals("2")) {
+					// 调用支付宝支付	
+					// 调用支付宝支付
+					Map<String, String> map=new HashMap<>();
+					Map<String, String> params = OrderInfoUtil2_0.getAppPlayParams(infoVo.getOrderSn(), "下单成功",
+							infoVo.getOfflinePayAmount().toString(), "购买商品", AlipayConfig.order_notify);
+					String orderParam = OrderInfoUtil2_0.buildOrderParam(params, false);
+					String sign = OrderInfoUtil2_0.getSign(params, AlipayConfig.RSA_PRIVATE);
+					final String orderInfo = orderParam + "&" + sign + "&sign_type=\"RSA\"";
+					map.put("payString", orderInfo);
+					resultVo.setResult(map);
+									
+				} else if (infoVo.getPayType().equals("3")) {
+					resultVo = new ResultVo(200, "查询成功",
+							projectName + "/appNeed/appWangYinPay?type=3&payMoney="
+									+ String.valueOf(infoVo.getOfflinePayAmount().doubleValue()) + "&mobile="
+									+ infoVo.getMemberId().getMobile() + "&orderSn=" + infoVo.getOrderSn());
+					return resultVo;
+				}
+			}
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, OrderController.class);
+		}
+		return resultVo;
+	}
+
+
+}

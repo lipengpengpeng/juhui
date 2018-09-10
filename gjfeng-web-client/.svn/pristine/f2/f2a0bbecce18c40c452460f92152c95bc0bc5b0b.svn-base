@@ -1,0 +1,434 @@
+package cc.messcat.gjfeng.web.app.v1;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.alipay.direct.config.AlipayConfig;
+import com.alipay.direct.util.OrderInfoUtil2_0;
+import com.h5pay.api.H5PayUtil;
+import com.wechat.WeixinUtil;
+import com.wechat.popular.bean.pay.PayJsRequest;
+
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.vo.app.MemberTradeBenefitVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.vo.app.StoreInfoVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfStoreInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfTradeDubbo;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfMemberTrade;
+import cc.messcat.gjfeng.entity.GjfWeiXinPayInfo;
+import cc.messcat.gjfeng.util.SessionUtil;
+import cc.messcat.gjfeng.web.wechat.MemberController;
+import cc.messcat.gjfeng.web.wechat.TradeContrller;
+
+@Controller
+@RequestMapping(value = "app/trade/", headers = "app-version=v1.0")
+public class TradeContrllerV1 extends BaseController {
+
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("response")
+	private HttpServletResponse response;
+
+	@Autowired
+	@Qualifier("tradeDubbo")
+	private GjfTradeDubbo tradeDubbo;
+
+	@Autowired
+	@Qualifier("memberInfoDubbo")
+	private GjfMemberInfoDubbo memberInfoDubbo;
+
+	@Autowired
+	@Qualifier("storeInfoDubbo")
+	private GjfStoreInfoDubbo storeInfoDubbo;
+
+	@Value("${gjfeng.client.project.url}")
+	private String projectName;
+
+	/**
+	 * @描述 跳转到我要提现页面
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/toDrawCash", method = RequestMethod.POST)
+	@ResponseBody
+	public Object toDrawCash(String account) {
+		try {
+			// 查询用户最新的资金情况和所有的银行卡列表
+			resultVo = tradeDubbo.toDrawCash(account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 申请提现
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/addDrawCash", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addDrawCash(@RequestParam("account") String account, @RequestParam("myBankId") Long myBankId,
+			@RequestParam("money") String money, @RequestParam("remark") String remark) {
+		try {
+			// 先判断用户是否实名制
+			Double money0 = Double.valueOf(money);
+			resultVo = tradeDubbo.addDrawCash(account, remark, myBankId, money0);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * 获取用户银行卡
+	 * 
+	 * @param myBankId
+	 * @param money
+	 * @param remark
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getMyBank", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getMyBank(@RequestParam("account") String account, @RequestParam("bankId") Long bankId) {
+		try {
+			resultVo = tradeDubbo.findMemberBankById(bankId, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 获取提现历史记录
+	 * @author Karhs
+	 * @date 2017年1月10日
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getDrawHistory", method = RequestMethod.POST)
+	@ResponseBody
+	public Object toDrawHistory(String account, Integer pageNo, Integer pageSize) {
+		try {
+			resultVo = tradeDubbo.findDrawCashHistory(ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 跳转到我的银行卡列表
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/myBanks", method = RequestMethod.POST)
+	@ResponseBody
+	public Object myBanks(String account) {
+		try {
+			resultVo = tradeDubbo.findMyBankCard(account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 绑定银行卡
+	 * @author Karhs
+	 * @date 2017年1月10日
+	 * @param bankId
+	 * @param bankSub
+	 * @param bankCard
+	 * @param holder
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/bindBank", method = RequestMethod.POST)
+	@ResponseBody
+	public Object bindBank(@RequestParam("bankId") Long bankId, @RequestParam("bankSub") String bankSub,
+			@RequestParam("bankCard") String bankCard, @RequestParam("holder") String holder,
+			@RequestParam("cityValue") String cityValue, String account) {
+		try {
+			resultVo = tradeDubbo.bindMyBankCard(account, bankId, bankSub, bankCard, holder, cityValue);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 获取所有银行卡信息
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getAllBank", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getAllBank() {
+		try {
+			resultVo = tradeDubbo.findAllBank();
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * 删除银行卡
+	 * 
+	 * @param bankId
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/deleteMemBank", method = RequestMethod.POST)
+	@ResponseBody
+	public Object deleteMemBank(@RequestParam("bankId") Long bankId, String account) {
+		try {
+			resultVo = tradeDubbo.delMyBank(account, bankId);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 查询我的福利记录
+	 * @author Karhs
+	 * @date 2017年1月10日
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/diviHis", method = RequestMethod.POST)
+	@ResponseBody
+	public Object toDiviHistory(Integer pageNo, Integer pageSize, String account) {
+		try {
+			resultVo = tradeDubbo.findTradeDiviHistory(ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, account, "1");
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 我的钱包---累积消费(消费记录)
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getInterests", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getInterests(String type, String account) {
+		try {
+			resultVo = tradeDubbo.findMemberInterests(account, type);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 我的钱包---福利权益
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getParticipate", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getParticipate(String type, String account) {
+		try {
+			resultVo = tradeDubbo.findMemberParticipate(account, type);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 商家让利
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value = "v1_0/addBenefit", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addBenefit(@RequestParam("amount") double amount, @RequestParam("mobile") String mobile,
+			@RequestParam("payType") String payType, String account) {
+		try {
+			// 添加让利记录并调支付接口
+			System.out.println("销售录入用户" + account);
+			Object o = storeInfoDubbo.findStoreByAccount(account).getResult();
+			if (ObjValid.isNotValid(o)) {
+				resultVo = new ResultVo(400, "店铺不存在", null);
+				return resultVo;
+			}
+			StoreInfoVo store = (StoreInfoVo) o;
+
+			// 网银支付
+			// if ("2".equals(payType)||"1".equals(payType)) {
+			// resultVo = new ResultVo(200, "查询成功", projectName +
+			// "/appNeed/addBenefitByH5?amount=" + amount
+			// + "&account=" + account + "&mobile=" + mobile + "&payType=" +
+			// payType);
+			// return resultVo;
+			// }
+
+			resultVo = tradeDubbo.addStoreBenefit(account, store.getId(), mobile, amount, payType);
+			// 根据支付方式调用相对应的支付
+			if (payType.equals("0") && resultVo.getCode() == 200) {
+				// 微信支付
+				MemberTradeBenefitVo benefitVo = (MemberTradeBenefitVo) resultVo.getResult();
+				GjfMemberInfo info = memberInfoDubbo.findMember(account);
+				// 获取微信配置信息
+				/*
+				 * GjfWeiXinPayInfo payInfo = (GjfWeiXinPayInfo)
+				 * tradeDubbo.findWeiXinBaseInfo("0").getResult(); Map<String,
+				 * String> map = H5PayUtil.weixinAppPay(payInfo, request, info,
+				 * benefitVo.getBenefitMoney().toString().toString(),
+				 * benefitVo.getTradeNo(),
+				 * CommonProperties.GJFENG_WEIXIN_NOTIFY_BENETI);
+				 * System.out.println("-----app微信支付返回成功" + map);
+				 */
+				Map map = WeixinUtil.unifiedorderResultInApp(request, benefitVo.getTradeNo(), "充值授信额度",
+						benefitVo.getBenefitMoney().toString(),
+						CommonProperties.GJFENG_WEIXIN_JSPAY_NOTIFY_URL_BENEFIT);
+				resultVo.setResult(map);
+			}
+
+			// 支付宝
+			if ("1".equals(payType) && resultVo.getCode() == 200) {
+				Map<String, String> resultMap=new HashMap<>();
+				MemberTradeBenefitVo benefitVo = (MemberTradeBenefitVo) resultVo.getResult();
+				Map<String, String> params = OrderInfoUtil2_0.getAppPlayParams(benefitVo.getTradeNo(), "下单成功",
+						String.valueOf(benefitVo.getBenefitMoney().doubleValue() ), "购买商品", AlipayConfig.banefit_notify);
+				String orderParam = OrderInfoUtil2_0.buildOrderParam(params, false);
+				String sign = OrderInfoUtil2_0.getSign(params, AlipayConfig.RSA_PRIVATE);
+				final String orderInfo = orderParam + "&" + sign + "&sign_type=\"RSA\"";
+				resultMap.put("alyString", orderInfo);
+				resultVo.setResult(resultMap);				
+			}
+
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * 充值授信额度
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(value = "v1_0/addShouXin", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addShouXin(String type, Double tradeMoney, String account) {
+		try {
+			if (!BeanUtil.isValid(type) && !BeanUtil.isValid(tradeMoney)) {
+				return new ResultVo(400, "参数为空", null);
+			}
+
+			// 网银支付
+			if ("3".equals(type)) {
+
+				resultVo = new ResultVo(200, "查询成功", projectName + "/appNeed/addShouXinByH5?type=" + type
+						+ "&tradeMoney=" + tradeMoney + "&account=" + account);
+				return resultVo;
+			}
+			// 支付宝支付
+			/*
+			 * if ("2".equals(type)) { resultVo = new ResultVo(200, "查询成功",
+			 * projectName + "/appNeed/addShouXinByAlipay?type=" + type +
+			 * "&tradeMoney=" + tradeMoney + "&account=" + account); return
+			 * resultVo; }
+			 */
+
+			resultVo = tradeDubbo.addShouXin(type, account, tradeMoney);
+			if ("1".equals(type) && resultVo.getCode() == 200) {
+				GjfMemberTrade trade = (GjfMemberTrade) resultVo.getResult();
+				// 获取微信配置信息
+				GjfWeiXinPayInfo payInfo = (GjfWeiXinPayInfo) tradeDubbo.findWeiXinBaseInfo("0").getResult();
+				// 微信扫呗
+				/*
+				 * Map<String, String> map = H5PayUtil.weixinAppPay(payInfo,
+				 * request, trade.getMemberId(),
+				 * trade.getTradeMoney().toString(), trade.getTradeNo(),
+				 * CommonProperties.GJFENG_WEIXIN_NOTIFY_SHOUXIN);
+				 * System.out.println("-----app微信支付返回成功" + map);
+				 * resultVo.setResult(map);
+				 */
+				Map map = WeixinUtil.unifiedorderResultInApp(request, trade.getTradeNo(), "商家让利",
+						trade.getTradeMoney().toString(), CommonProperties.GJFENG_WEIXIN_JSPAY_NOTIFY_URL_SHOUXIN);
+				resultVo.setResult(map);
+			}
+
+			// 支付宝
+			if ("2".equals(type) && resultVo.getCode() == 200) {
+				Map<String, String> resultMap=new HashMap<>();
+				GjfMemberTrade trade = (GjfMemberTrade) resultVo.getResult();
+				Map<String, String> params = OrderInfoUtil2_0.getAppPlayParams(trade.getTradeNo(), "下单成功",
+						String.valueOf(trade.getTradeMoney().doubleValue()), "购买商品", AlipayConfig.trade_notify);
+				String orderParam = OrderInfoUtil2_0.buildOrderParam(params, false);
+				String sign = OrderInfoUtil2_0.getSign(params, AlipayConfig.RSA_PRIVATE);
+				final String orderInfo = orderParam + "&" + sign + "&sign_type=\"RSA\"";
+				resultMap.put("alyString", orderInfo);
+				resultVo.setResult(resultMap);
+			}
+
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+
+	/**
+	 * @描述 商家让利记录
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/benefits", method = RequestMethod.POST)
+	@ResponseBody
+	public Object benefits(Integer pageNo, Integer pageSize, String account) {
+		try {
+			Object o = storeInfoDubbo.findStoreByAccount(account).getResult();
+			if (ObjValid.isNotValid(o)) {
+				return new ResultVo(400, "店铺不存在", null);
+			}
+			StoreInfoVo store = (StoreInfoVo) o;
+			resultVo = tradeDubbo.findStoreBenefit(ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+					ObjValid.isNotValid(pageSize) ? 10 : pageSize, store.getId());
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, TradeContrller.class);
+		}
+		return resultVo;
+	}
+
+}

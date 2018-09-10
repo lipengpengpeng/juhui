@@ -1,0 +1,10 @@
+#ftp user name
+ftpUserName=upload
+#ftp user password
+ftpPassword=c2n2r2
+#ftp server port
+ftpPort=21
+#ftp working directory
+ftpServerWorkingDirectory=/root
+#ftp server host
+ftpUrl=118.123.17.39

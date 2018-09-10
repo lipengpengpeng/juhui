@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<taglib xmlns="http://java.sun.com/xml/ns/j2ee"    
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"    
+  xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-jsptaglibrary_2_0.xsd"    
+  version="2.0">
+	<tlib-version>1.0</tlib-version>
+	<short-name>mtag</short-name>
+	<uri>http://www.messcat.com/taglib/mtag</uri>
+
+	<tag>
+		<name>cutString</name>
+		<tag-class>cc.messcat.gjfeng.tags.CutStringTag</tag-class>
+		<body-content>empty</body-content>
+		<attribute>
+			<name>value</name>
+			<required>true</required>
+			<rtexprvalue>true</rtexprvalue>
+		</attribute>
+		<attribute>
+			<name>size</name>
+			<required>true</required>
+			<rtexprvalue>true</rtexprvalue>
+		</attribute>
+		<attribute>
+			<name>mark</name>
+			<required>false</required>
+			<rtexprvalue>true</rtexprvalue>
+		</attribute>
+	</tag>
+	
+	<tag>
+		<name>date</name>
+		<tag-class>cc.messcat.gjfeng.tags.DateTransTag</tag-class>
+		<body-content>empty</body-content>
+		<attribute>
+			<name>value</name>
+			<required>true</required>
+			<rtexprvalue>true</rtexprvalue>  
+         </attribute>
+         <attribute>
+			<name>type</name>
+			<required>false</required>
+			<rtexprvalue>true</rtexprvalue>  
+         </attribute>
+         <attribute>  
+            <name>pattern</name>  
+            <required>false</required>  
+            <rtexprvalue>true</rtexprvalue>  
+         </attribute>
+         <attribute>  
+            <name>timeType</name>  
+            <required>false</required>  
+            <rtexprvalue>true</rtexprvalue>  
+         </attribute>       
+	</tag>
+	
+	<tag>
+		<name>longToDate</name>
+		<tag-class>cc.messcat.gjfeng.tags.DateHandleTag</tag-class>
+		<body-content>empty</body-content>
+		<attribute>
+			<name>value</name>
+			<required>true</required>
+			<rtexprvalue>true</rtexprvalue>  
+         </attribute>
+         <attribute>  
+            <name>pattern</name>  
+            <required>true</required>  
+            <rtexprvalue>true</rtexprvalue>  
+         </attribute>    
+	</tag>
+	
+	<function>
+		<description>Used to cut a string with your parameter.</description>
+		<name>cutString</name>
+		<function-class>cc.messcat.gjfeng.tags.CutStringTag</function-class>
+		<function-signature>
+			java.lang.String cutString(java.lang.String,int,java.lang.String)
+		</function-signature>
+		<example>${mtag:cutString(str,5,str)}</example>
+	</function>
+</taglib>

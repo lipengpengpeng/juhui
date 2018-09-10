@@ -1,0 +1,115 @@
+﻿<%@ page contentType="text/html;charset=UTF-8"%>
+<%@ include file="/common/taglibs.jsp"%>
+<%@ include file="/common/meta.jsp"%>
+<%@ include file="/common/content.jsp"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<title>让利比例设置</title>
+		<script>
+			$(document).ready(function(){
+				$("#gjfBenefitInfoForm").validate({
+					 rules: { 
+			
+					},
+					success: function(label) {
+						label.html("&nbsp;").addClass("checked");
+			        }	
+				});
+				
+			});		
+		</script>
+	</head>
+	<body>
+		<div class="rhead">
+			<div class="rpos">当前位置: 设置 - 让利比例设置</div>
+			<!-- <div class="ropt"><input type="button" class="defaultButton" value="返回" onclick="history.back();"/></div> -->
+		</div>
+
+		<form action="" method="post" id="gjfBenefitInfoForm" name="gjfBenefitInfoForm" >
+			<table  align="center" class="listTable3" >
+				<tr>
+					<td>比例类型</td>
+					<td>系统占比</td>
+					<td>分红池占比</td>
+					<td>平台商占比</td>
+					<td>代理总占比</td>
+					<td>市代占比</td>
+					<td>区代占比</td>
+					<td>个代占比</td>
+					<td>直推会员占比</td>
+					<td>直推商家占比</td>
+					<td>提现占比</td>
+					<td>责任险占比</td>
+					<td>税收占比</td>
+					<td>额度发放占比</td>
+					<!-- <td>分红单价</td> -->
+					<td>单位</td>
+				</tr>
+				<c:forEach var="bean" items="${gjfBenefitInfos}" varStatus="status">
+				<tr>
+					<td>
+					<c:if test="${bean.ratioType eq '0'}">会员子系统</c:if>
+					<c:if test="${bean.ratioType eq '1'}">商家子系统</c:if>
+					<input type="hidden" name="gjfBenefitInfos[${status.count-1}].id" value="${bean.id}"/>
+					<input type="hidden" name="gjfBenefitInfos[${status.count-1}].ratioType" value="${bean.ratioType}"/>
+					</td>
+					<td><input type="text" size="5" id="sysRatio" name="gjfBenefitInfos[${status.count-1}].sysRatio" value="<fmt:formatNumber value='${bean.sysRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="diviPoolsRatio" name="gjfBenefitInfos[${status.count-1}].diviPoolsRatio" value="<fmt:formatNumber value='${bean.diviPoolsRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="platformRatio" name="gjfBenefitInfos[${status.count-1}].platformRatio" value="<fmt:formatNumber value='${bean.platformRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<c:if test="${bean.ratioType eq '0'}">
+						<td><input type="text" size="5" id="agentRatio" name="gjfBenefitInfos[${status.count-1}].agentRatio" value="<fmt:formatNumber value='${bean.agentRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+						<td><input type="text" size="5" id="agentCityRatio" name="gjfBenefitInfos[${status.count-1}].agentCityRatio" value="<fmt:formatNumber value='${bean.agentCityRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+						<td><input type="text" size="5" id="agentAreaRatio" name="gjfBenefitInfos[${status.count-1}].agentAreaRatio" value="<fmt:formatNumber value='${bean.agentAreaRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+						<td><input type="text" size="5" id="agentIndiRatio" name="gjfBenefitInfos[${status.count-1}].agentIndiRatio" value="<fmt:formatNumber value='${bean.agentIndiRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+						<td><input type="text" size="5" id="directMembersRatio" name="gjfBenefitInfos[${status.count-1}].directMembersRatio" value="<fmt:formatNumber value='${bean.directMembersRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="directMerchantsRatio" name="gjfBenefitInfos[${status.count-1}].directMerchantsRatio" value="<fmt:formatNumber value='${bean.directMerchantsRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					</c:if>
+					<c:if test="${bean.ratioType eq '1'}">
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</c:if>
+					<td><input type="text" size="5" id="withdrawalRatio" name="gjfBenefitInfos[${status.count-1}].withdrawalRatio" value="<fmt:formatNumber value='${bean.withdrawalRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="insuranceRatio" name="gjfBenefitInfos[${status.count-1}].insuranceRatio" value="<fmt:formatNumber value='${bean.insuranceRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="taxRatio" name="gjfBenefitInfos[${status.count-1}].taxRatio" value="<fmt:formatNumber value='${bean.taxRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<td><input type="text" size="5" id="issueRatio" name="gjfBenefitInfos[${status.count-1}].issueRatio" value="<fmt:formatNumber value='${bean.issueRatio}' pattern='##.#####'></fmt:formatNumber>" /></td>
+					<%-- <td><input type="text" size="5" id="unitPrice" name="gjfBenefitInfos[${status.count-1}].unitPrice" value="<fmt:formatNumber value='${bean.unitPrice}' pattern='##.#####'></fmt:formatNumber>" /></td> --%>
+					<td>%</td>
+				</tr>
+				</c:forEach>
+				<tr>
+					<td colspan="11">&nbsp;&nbsp;</td>
+				</tr>
+				<tr>
+					<td colspan="11"><input type="button" onclick="ajaxUpdate()" value='保存' /></td>
+				</tr>
+
+		 	</table>
+		</form>
+		<style>
+			.listTable3 tr td {
+				text-align: center;
+			}
+		</style>
+	</body>
+	<script>
+		function ajaxUpdate(){
+			$.ajax({
+ 				type: "post",
+ 				url: "${ctx}/ajaxBenefitInfoAction!update.action",
+ 				dataType: "json",
+ 				data: $("#gjfBenefitInfoForm").serialize(),
+ 				success:function(data){
+ 					alert(data.msg);
+ 				},
+ 				error:function(){
+ 					alert('网络异常');
+ 				}
+ 			});
+		}
+	</script>
+</html>

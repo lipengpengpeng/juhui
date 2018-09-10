@@ -1,0 +1,27 @@
+body { font-family: arial, 宋体, serif; font-size:12px; }
+* { margin:0px; padding:0px; }
+#newslist_nav { width:268px; line-height: 29px; list-style-type: none; text-align:left; /*定义整个ul菜单的行高和背景色*/
+}
+/*==================一级目录===================*/
+#newslist_nav a { width: 240px; display: block; padding-left:20px; color:#333333; /*Width(一定要)，否则下面的Li会变形*/
+}
+#newslist_nav li { width:268px;border-bottom:#FFF 1px solid; /*下面的一条白边*/ float:left; background: url(newslist_nav_bg.png); font-weight:bold; }
+#newslist_nav a:link { color:#336699; text-decoration:none; }
+#newslist_nav a:visited { color:#336699; text-decoration:none; }
+#newslist_nav a:hover { color:#336699; text-decoration:none; font-weight:bold; }
+/*==================二级目录===================*/
+#newslist_nav li ul { list-style:none; text-align:left; }
+#newslist_nav li ul li { background:#f4f7fb; /*二级目录的背景色*/ font-weight:normal;}
+#newslist_nav li ul a { width:240px;/* padding-left二级目录中文字向右移动，但Width必须重新设置=(总宽度-padding-left)*/
+}
+/*下面是二级目录的链接样式*/
+#newslist_nav li ul a:link { color:#364f56; text-decoration:none; }
+#newslist_nav li ul a:visited { color:#364f56; text-decoration:none; }
+#newslist_nav li ul a:hover { color:#ae0927; text-decoration:none; font-weight:normal; background:#f4f7fb;/* 二级onmouseover的字体颜色、背景色*/
+}
+/*==============================*/
+#newslist_nav li:hover ul { left: auto; }
+#newslist_nav li.sfhover ul { left: auto; }
+#content { clear: left; }
+#newslist_nav ul.collapsed { display: none; }
+#PARENT { width:174px; }

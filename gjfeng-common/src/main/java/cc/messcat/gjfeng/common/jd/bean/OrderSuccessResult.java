@@ -1,0 +1,59 @@
+package cc.messcat.gjfeng.common.jd.bean;
+
+import java.math.BigDecimal;
+
+public class OrderSuccessResult {
+
+	private Long goodsId;
+	
+	private BigDecimal goodsPrice;
+	
+	private Integer goodsNum;
+	
+	private BigDecimal goodsAmount;
+	
+	private BigDecimal tradePrice;
+
+	public Long getGoodsId() {
+		return goodsId;
+	}
+
+	public void setGoodsId(Long goodsId) {
+		this.goodsId = goodsId;
+	}
+
+	public BigDecimal getGoodsPrice() {
+		return goodsPrice;
+	}
+
+	public void setGoodsPrice(BigDecimal goodsPrice) {
+		this.goodsPrice = goodsPrice;
+	}
+
+	public Integer getGoodsNum() {
+		return goodsNum;
+	}
+
+	public void setGoodsNum(Integer goodsNum) {
+		this.goodsNum = goodsNum;
+	}
+
+	public BigDecimal getGoodsAmount() {
+		return goodsAmount;
+	}
+
+	public void setGoodsAmount(BigDecimal goodsAmount) {
+		this.goodsAmount = goodsAmount;
+	}
+
+	public BigDecimal getTradePrice() {
+		return tradePrice;
+	}
+
+	public void setTradePrice(BigDecimal tradePrice) {
+		this.tradePrice = tradePrice;
+	}
+	
+	
+	
+}

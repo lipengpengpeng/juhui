@@ -1,0 +1,227 @@
+package cc.messcat.gjfeng.util;
+
+import java.io.IOException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.NameValuePair;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
+
+import com.aliyun.mns.client.CloudAccount;
+import com.aliyun.mns.client.CloudQueue;
+import com.aliyun.mns.client.CloudTopic;
+import com.aliyun.mns.client.MNSClient;
+import com.aliyun.mns.common.ClientException;
+import com.aliyun.mns.common.ServiceException;
+import com.aliyun.mns.model.BatchSmsAttributes;
+import com.aliyun.mns.model.Message;
+import com.aliyun.mns.model.MessageAttributes;
+import com.aliyun.mns.model.RawTopicMessage;
+import com.aliyun.mns.model.TopicMessage;
+
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.vo.app.SmsVo;
+
+public class SendMNSUtil {
+	
+	public static void main(String[] args) {
+		Map<String,Object> map = new HashMap<String,Object>();
+		map.put("mobile", "15521475060");
+		map.put("templateCode", CommonProperties.MNS_TEMPLATE_IDCARD_SUCC);
+		map.put("variable0", "15521475060");
+		map.put("variable1", "15521475060");
+		SmsVo smsVo = sendMSG(map);
+	}
+
+	/**
+	 * 发送短信模版
+	 * @param mobile
+	 * @param templateCode
+	 * @param templateParam
+	 * @return
+	 */
+	public static SmsVo sendMSG(Map<String,Object> templateParam) {
+		/**
+         * Step 1. 获取主题引用
+         */
+        CloudAccount account = new CloudAccount(CommonProperties.MNS_ACCESSKEYID,
+        		CommonProperties.MNS_ACCESSKEYSECRET, CommonProperties.MNS_ENDPOINT);
+        
+        MNSClient client = account.getMNSClient();
+        CloudTopic topic = client.getTopicRef(CommonProperties.MNS_SMSTOPIC);
+        System.out.println("MNS_ACCESSKEYID:"+CommonProperties.MNS_ACCESSKEYID);
+        System.out.println("MNS_ACCESSKEYSECRET:"+CommonProperties.MNS_ACCESSKEYSECRET);
+        System.out.println("MNS_ENDPOINT:"+CommonProperties.MNS_ENDPOINT);
+        System.out.println("MNS_SMSTOPIC:"+CommonProperties.MNS_SMSTOPIC);
+        /**
+         * Step 2. 设置SMS消息体（必须）
+         *
+         * 注：目前暂时不支持消息内容为空，需要指定消息内容，不为空即可。
+         */
+        RawTopicMessage msg = new RawTopicMessage();
+        msg.setMessageBody("sms-message");
+        /**
+         * Step 3. 生成SMS消息属性	
+         */
+        MessageAttributes messageAttributes = new MessageAttributes();
+        BatchSmsAttributes batchSmsAttributes = new BatchSmsAttributes();
+        
+        // 3.1 设置发送短信的签名（SMSSignName）
+        batchSmsAttributes.setFreeSignName("凤凰云商");
+        System.out.println("setFreeSignName:"+batchSmsAttributes.getFreeSignName());
+        
+        // 3.2 设置发送短信使用的模板（SMSTempateCode）
+        String templateCode = templateParam.get("templateCode").toString();
+        batchSmsAttributes.setTemplateCode(templateCode);
+        System.out.println("setTemplateCode:"+batchSmsAttributes.getTemplateCode());
+        
+        // 3.3 设置发送短信所使用的模板中参数对应的值（在短信模板中定义的，没有可以不用设置）
+        BatchSmsAttributes.SmsReceiverParams smsReceiverParams = new BatchSmsAttributes.SmsReceiverParams();
+        for(Map.Entry<String, Object> entry : templateParam.entrySet()){
+        	if(entry.getKey().startsWith("variable")){
+        		smsReceiverParams.setParam(entry.getKey().toString(), entry.getValue().toString());
+        		System.out.println("Key = " + entry.getKey() + ", Value = " + entry.getValue());  
+        	}
+        }
+        
+        // 3.4 增加接收短信的号码
+        String mobile = (String)templateParam.get("mobile");
+        batchSmsAttributes.addSmsReceiver(mobile, smsReceiverParams);
+//        batchSmsAttributes.addSmsReceiver("$YourReceiverPhoneNumber2", smsReceiverParams);
+        messageAttributes.setBatchSmsAttributes(batchSmsAttributes);
+        
+        TopicMessage ret = null;
+        try {
+            /**
+             * Step 4. 发布SMS消息
+             */
+            ret = topic.publishMessage(msg, messageAttributes);
+            System.out.println("MessageId: " + ret.getMessageId());
+            System.out.println("MessageMD5: " + ret.getMessageBodyMD5());
+        } catch (ServiceException se) {
+            System.out.println(se.getErrorCode() + se.getRequestId());
+            System.out.println(se.getMessage());
+            se.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally{
+        	client.close();
+        }
+		return new SmsVo(mobile, new Date(), templateCode, "2" , "");
+	}
+	
+	/**
+	 * 发送模版短信
+	 * 
+	 * @param mobile
+	 * @param randStr
+	 * @return
+	 */
+	public static void consumer() {
+		CloudAccount account = new CloudAccount(CommonProperties.MNS_ACCESSKEYID,
+        		CommonProperties.MNS_ACCESSKEYSECRET, CommonProperties.MNS_ENDPOINT);
+        //this client need only initialize once
+        MNSClient client = account.getMNSClient(); 
+        //循环消费10条消息
+        try{
+            CloudQueue queue = client.getQueueRef("TestQueue");
+            for (int i = 0; i < 10; i++)
+            {
+                Message popMsg = queue.popMessage();
+                if (popMsg != null){
+                    System.out.println("message handle: " + popMsg.getReceiptHandle());
+                    System.out.println("message body: " + popMsg.getMessageBodyAsString());
+                    System.out.println("message id: " + popMsg.getMessageId());
+                    System.out.println("message dequeue count:" + popMsg.getDequeueCount());
+                    //删除已经消费的消息
+                    queue.deleteMessage(popMsg.getReceiptHandle());
+                    System.out.println("delete message successfully.\n");
+                }
+                else{
+                    System.out.println("message not exist in TestQueue.\n");
+                }
+            }
+        } catch (ClientException ce)
+        {
+            System.out.println("Something wrong with the network connection between client and MNS service."
+                    + "Please check your network and DNS availablity.");
+            ce.printStackTrace();
+        } catch (ServiceException se)
+        {
+            se.printStackTrace();
+//            logger.error("MNS exception requestId:" + se.getRequestId(), se);
+            if (se.getErrorCode() != null) {
+                if (se.getErrorCode().equals("QueueNotExist"))
+                {
+                    System.out.println("Queue is not exist.Please create before use");
+                } else if (se.getErrorCode().equals("TimeExpired"))
+                {
+                    System.out.println("The request is time expired. Please check your local machine timeclock");
+                }
+            /*
+            you can get more MNS service error code from following link:
+            https://help.aliyun.com/document_detail/mns/api_reference/error_code/error_code.html
+            */
+            }
+        } catch (Exception e)
+        {
+            System.out.println("Unknown exception happened!");
+            e.printStackTrace();
+        }
+        client.close();
+
+		
+	}
+
+	/**
+	 * 获取剩余可发信息数量
+	 * 
+	 * @return
+	 * @throws DocumentException
+	 */
+	public static String GetNum() throws DocumentException {
+		HttpClient client = new HttpClient();
+		PostMethod method = new PostMethod(CommonProperties.SMS_HOST + "GetNum");
+		client.getParams().setContentCharset("UTF-8");
+		method.setRequestHeader("ContentType", "application/x-www-form-urlencoded;charset=UTF-8");
+
+		// 多个手机号码请用英文,号隔开
+		// 提交短信
+		NameValuePair[] data = { new NameValuePair("account", CommonProperties.SMS_ACCOUNT),
+			new NameValuePair("password", CommonProperties.SMS_PWD) };
+
+		method.setRequestBody(data);
+		String num = "";
+		try {
+			client.executeMethod(method);
+
+			String GetNumResult = method.getResponseBodyAsString();
+
+			Document doc = DocumentHelper.parseText(GetNumResult);
+			Element root = doc.getRootElement();
+
+			String code = root.elementText("code");
+			String msg = root.elementText("msg");
+			num = root.elementText("num");
+
+			System.out.println("返回值:" + code);
+			System.out.println("查询结果描述:" + msg);
+			System.out.println("剩余短信数量:" + num);
+
+		} catch (HttpException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return num;
+	}
+}

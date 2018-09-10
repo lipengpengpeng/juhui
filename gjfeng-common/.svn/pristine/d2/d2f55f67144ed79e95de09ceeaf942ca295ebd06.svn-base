@@ -1,0 +1,44 @@
+package cc.messcat.gjfeng.common.constant;
+
+public class CommonStatus {
+	
+	public static final String SIGN_KEY = "gjfeng";
+	public static final int SIGN_KEY_NUM = 2017;
+	
+	
+	// 客户端类型
+	public static final String MSG_CLIENTS_SYSTEM = "SYSTEM";
+	public static final String MSG_CLIENTS_USER = "USER";
+	public static final String MSG_CLIENTS_PC = "PC";
+	public static final String MSG_CLIENTS_WECHAT = "WECHAT";
+	public static final String MSG_CLIENTS_IOS = "IOS";
+	public static final String MSG_CLIENTS_ANDROID = "ANDROID";
+	
+	public static final String CLIENT_TYPE_PC_MAMNGER="0";//PC后台
+	public static final String CLIENT_TYPE_WECHAT="1";//微信端
+	public static final String CLIENT_TYPE_PC_FRONT="2";//PC前端
+	public static final String CLIENT_TYPE_APP="3";//APP端
+	
+	
+	/**通用STATUS状态*/
+	public static final String STATUS_ZERO = "0";
+	public static final String STATUS_ONE = "1";
+	public static final String STATUS_TWO = "2";
+	
+	/**
+	 * 软删除状态
+	 */
+	public static final String HAS_DELETE_STATUS="0"; //已删除
+	public static final String NOT_DELETE_STATUS="1"; //未删除
+	
+	/**通用FLAG判断状态*/
+	public static final String FLAG_MINUS_TWO = "-2";
+	public static final String FLAG_MINUS_ONE = "-1";
+	public static final String FLAG_ZERO = "0";
+	public static final String FLAG_ONE = "1";
+	public static final String FLAG_TWO = "2";
+	public static final String FLAG_THREE = "3";
+	public static final String FLAG_FOUR = "4";
+	public static final String FLAG_FIVE = "5";
+	
+}

@@ -1,0 +1,213 @@
+package cc.messcat.gjfeng.entity;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+public class GjfBenefitDay implements java.io.Serializable {
+
+	// Fields
+
+	private static final long serialVersionUID = 1L;
+	private Long id;
+	
+	private String tradeDay;
+	
+	private BigDecimal memberIncomeMoney;
+	
+	private BigDecimal merchantsIncomeMoney;
+	
+	private BigDecimal memberMoney;
+	
+	private BigDecimal merchantsMoney;
+	
+	private BigDecimal memberRealMoney;
+	
+	private BigDecimal merchantsRealMoney;
+	
+	private BigDecimal memberUnitMoney;
+	
+	private BigDecimal merchantsUnitMoney;
+	
+	private BigDecimal memberRealUnitMoney;
+	
+	private BigDecimal merchantsRealUnitMoney;
+	
+	private BigDecimal memberDiviNum;
+	
+	private BigDecimal merchantsDiviNum;
+	
+	private BigDecimal memberRealDiviNum;
+	
+	private BigDecimal merchantsRealDiviNum;
+	
+	private Date addTime;
+	
+	private Date actTime;
+	
+	private Date tradeTime;
+	
+	private String tradeStatus;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getTradeDay() {
+		return tradeDay;
+	}
+
+	public void setTradeDay(String tradeDay) {
+		this.tradeDay = tradeDay;
+	}
+
+	public BigDecimal getMemberMoney() {
+		return memberMoney;
+	}
+
+	public void setMemberMoney(BigDecimal memberMoney) {
+		this.memberMoney = memberMoney;
+	}
+
+	public BigDecimal getMerchantsMoney() {
+		return merchantsMoney;
+	}
+
+	public void setMerchantsMoney(BigDecimal merchantsMoney) {
+		this.merchantsMoney = merchantsMoney;
+	}
+
+	public BigDecimal getMemberRealMoney() {
+		return memberRealMoney;
+	}
+
+	public void setMemberRealMoney(BigDecimal memberRealMoney) {
+		this.memberRealMoney = memberRealMoney;
+	}
+
+	public BigDecimal getMerchantsRealMoney() {
+		return merchantsRealMoney;
+	}
+
+	public void setMerchantsRealMoney(BigDecimal merchantsRealMoney) {
+		this.merchantsRealMoney = merchantsRealMoney;
+	}
+
+	public BigDecimal getMemberUnitMoney() {
+		return memberUnitMoney;
+	}
+
+	public void setMemberUnitMoney(BigDecimal memberUnitMoney) {
+		this.memberUnitMoney = memberUnitMoney;
+	}
+
+	public BigDecimal getMerchantsUnitMoney() {
+		return merchantsUnitMoney;
+	}
+
+	public void setMerchantsUnitMoney(BigDecimal merchantsUnitMoney) {
+		this.merchantsUnitMoney = merchantsUnitMoney;
+	}
+
+	public BigDecimal getMemberRealUnitMoney() {
+		return memberRealUnitMoney;
+	}
+
+	public void setMemberRealUnitMoney(BigDecimal memberRealUnitMoney) {
+		this.memberRealUnitMoney = memberRealUnitMoney;
+	}
+
+	public BigDecimal getMerchantsRealUnitMoney() {
+		return merchantsRealUnitMoney;
+	}
+
+	public void setMerchantsRealUnitMoney(BigDecimal merchantsRealUnitMoney) {
+		this.merchantsRealUnitMoney = merchantsRealUnitMoney;
+	}
+
+	public BigDecimal getMemberDiviNum() {
+		return memberDiviNum;
+	}
+
+	public void setMemberDiviNum(BigDecimal memberDiviNum) {
+		this.memberDiviNum = memberDiviNum;
+	}
+
+	public BigDecimal getMerchantsDiviNum() {
+		return merchantsDiviNum;
+	}
+
+	public void setMerchantsDiviNum(BigDecimal merchantsDiviNum) {
+		this.merchantsDiviNum = merchantsDiviNum;
+	}
+
+	public BigDecimal getMemberRealDiviNum() {
+		return memberRealDiviNum;
+	}
+
+	public void setMemberRealDiviNum(BigDecimal memberRealDiviNum) {
+		this.memberRealDiviNum = memberRealDiviNum;
+	}
+
+	public BigDecimal getMerchantsRealDiviNum() {
+		return merchantsRealDiviNum;
+	}
+
+	public void setMerchantsRealDiviNum(BigDecimal merchantsRealDiviNum) {
+		this.merchantsRealDiviNum = merchantsRealDiviNum;
+	}
+
+	public Date getAddTime() {
+		return addTime;
+	}
+
+	public void setAddTime(Date addTime) {
+		this.addTime = addTime;
+	}
+
+	public Date getActTime() {
+		return actTime;
+	}
+
+	public void setActTime(Date actTime) {
+		this.actTime = actTime;
+	}
+
+	public Date getTradeTime() {
+		return tradeTime;
+	}
+
+	public void setTradeTime(Date tradeTime) {
+		this.tradeTime = tradeTime;
+	}
+
+	public String getTradeStatus() {
+		return tradeStatus;
+	}
+
+	public void setTradeStatus(String tradeStatus) {
+		this.tradeStatus = tradeStatus;
+	}
+
+	public BigDecimal getMemberIncomeMoney() {
+		return memberIncomeMoney;
+	}
+
+	public void setMemberIncomeMoney(BigDecimal memberIncomeMoney) {
+		this.memberIncomeMoney = memberIncomeMoney;
+	}
+
+	public BigDecimal getMerchantsIncomeMoney() {
+		return merchantsIncomeMoney;
+	}
+
+	public void setMerchantsIncomeMoney(BigDecimal merchantsIncomeMoney) {
+		this.merchantsIncomeMoney = merchantsIncomeMoney;
+	}
+
+	
+
+}

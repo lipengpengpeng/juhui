@@ -1,0 +1,1805 @@
+package cc.messcat.gjfeng.service.order;
+
+import java.math.BigDecimal;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.stereotype.Service;
+
+import com.alibaba.fastjson.JSONArray;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonStatus;
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.jd.JdUtil;
+import cc.messcat.gjfeng.common.jd.bean.OrderResult;
+import cc.messcat.gjfeng.common.jd.bean.ProductStock;
+import cc.messcat.gjfeng.common.netFriends.NetFriendUtil;
+import cc.messcat.gjfeng.common.pay.alipay.util.AlipayRefundUtil;
+import cc.messcat.gjfeng.common.pay.wechat.util.RefundUtil;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.BeanUtilsEx;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.RandUtil;
+import cc.messcat.gjfeng.common.util.Sha256;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.OrderAddVo;
+import cc.messcat.gjfeng.common.vo.app.OrderGoodsVo;
+import cc.messcat.gjfeng.common.vo.app.OrderInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.benefit.GjfBenefitInfoDao;
+import cc.messcat.gjfeng.dao.order.GjfOrderInfoDao;
+import cc.messcat.gjfeng.entity.GjfFhTreasureInfo;
+import cc.messcat.gjfeng.entity.GjfMemberAddress;
+import cc.messcat.gjfeng.entity.GjfMemberConsumptiomNum;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfMemberTradeDetail;
+import cc.messcat.gjfeng.entity.GjfMemberTradeLog;
+import cc.messcat.gjfeng.entity.GjfMemberTreasureTrade;
+import cc.messcat.gjfeng.entity.GjfOrderAddress;
+import cc.messcat.gjfeng.entity.GjfOrderGoods;
+import cc.messcat.gjfeng.entity.GjfOrderInfo;
+import cc.messcat.gjfeng.entity.GjfProductAttrStock;
+import cc.messcat.gjfeng.entity.GjfProductInfo;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.service.benefit.GjfBenefitInfoService;
+import cc.messcat.gjfeng.service.member.GjfAddressService;
+import cc.messcat.gjfeng.service.member.GjfMemberInfoService;
+import cc.messcat.gjfeng.service.product.GjfProductAttrService;
+import net.sf.json.JSONObject;
+
+@Service("gjfOrderInfoService")
+public class GjfOrderInfoServiceImpl implements GjfOrderInfoService {
+
+	@Autowired
+	@Qualifier("gjfOrderInfoDao")
+	private GjfOrderInfoDao gjfOrderInfoDao;
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoDao")
+	private GjfBenefitInfoDao gjfBenefitInfoDao;
+
+	@Autowired
+	@Qualifier("gjfMemberInfoService")
+	private GjfMemberInfoService gjfMemberInfoService;
+
+	@Autowired
+	@Qualifier("gjfProductAttrService")
+	private GjfProductAttrService gjfProductAttrService;
+
+	@Autowired
+	@Qualifier("gjfAddressService")
+	private GjfAddressService gjfAddressService;
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoService")
+	private GjfBenefitInfoService gjfBenefitInfoService;
+
+	@Autowired
+	@Qualifier("notifyJmsTemplate")
+	private JmsTemplate notifyJmsTemplate;
+
+	@Value("${gjfeng.client.project.url}")
+	private String projectName;
+
+	/*
+	 * 跳转到下单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#toAddOrder(java.util.
+	 * List)
+	 */
+	public ResultVo toAddOrder(List<OrderAddVo> orderAddVos) {
+		// 创建基本信息map
+		Map<String, Object> dataMap = new HashMap<String, Object>();
+		// 创建商品信息集合
+		List<OrderGoodsVo> goodsVos = new ArrayList<OrderGoodsVo>();
+		// 用于记录总金额
+		BigDecimal totalAmount = new BigDecimal(0.00);
+		// 记录积分需要金额
+		BigDecimal pointNiceAmount = new BigDecimal(0.00);
+		// 是否能使用积分的状态 0 否 1是
+		int isCanUseCou = 0;
+		// 用于记录邮费
+		BigDecimal pos = new BigDecimal(0.00);
+
+		// 迭代商品信息
+		for (OrderAddVo orderAddVo : orderAddVos) {
+			// 创建商品vo对象
+			OrderGoodsVo goodsVo = new OrderGoodsVo();
+			// 创建查询map
+			Map<String, Object> attrs = new HashMap<>();
+			// 查询商品信息
+			attrs.put("id", orderAddVo.getGoodsId());
+			GjfProductInfo proInfo = gjfOrderInfoDao.query(GjfProductInfo.class, attrs);
+			// 如果商品来源是本平台
+			if ("0".equals(proInfo.getSuorceGoods())) {
+				// 移除attrs里面id
+				attrs.remove("id");
+				// 设置查询商品属性的参数
+				attrs.put("productId.id", orderAddVo.getGoodsId());
+				attrs.put("productAttrIds",
+						orderAddVo.getGoodsAttrIds().substring(0, orderAddVo.getGoodsAttrIds().length()));
+				// 查询商品的库存属性
+				GjfProductAttrStock gjfProductAttrStock = gjfOrderInfoDao.query(GjfProductAttrStock.class, attrs);
+				// 获取对于属性的商品库存
+				goodsVo.setGoodsAmount(gjfProductAttrStock.getPrice());
+				// 获取商品属性
+				goodsVo.setGoodsAttr(String
+						.valueOf(gjfProductAttrService.findProAttrByProAttrStock(gjfProductAttrStock).getResult()));
+				// 统计购买商品的总金额
+				BigDecimal bg = new BigDecimal(orderAddVo.getGoodsNum());
+				totalAmount = totalAmount.add(gjfProductAttrStock.getPrice().multiply(bg));
+				// 如果为积分兑换商品
+				if ("1".equals(proInfo.getIsCanUserCou()) && proInfo.getPointNicePrice() != null) {
+					pointNiceAmount = pointNiceAmount.add(proInfo.getPointNicePrice().multiply(bg));
+				}
+				// 如果为责任消费兑换商品
+				if ("2".equals(proInfo.getIsCanUserCou()) && proInfo.getPointNicePrice() != null) {
+					pointNiceAmount = pointNiceAmount.add(proInfo.getPointNicePrice().multiply(bg));
+				}
+			} else {
+				goodsVo.setGoodsAmount(proInfo.getPrice());// 友品集
+				// 统计购买商品的总金额
+				BigDecimal bg = new BigDecimal(orderAddVo.getGoodsNum());
+				totalAmount = totalAmount.add(proInfo.getPrice().multiply(bg));
+			}
+			// 获取商品图片
+			goodsVo.setGoodsImg(proInfo.getImgUrl());
+			// 商品名称
+			goodsVo.setGoodsName(proInfo.getName());
+			// 购买商品数量
+			goodsVo.setGoodsNum(orderAddVo.getGoodsNum());
+			// 添加到商品集合
+			goodsVos.add(goodsVo);
+
+			if ("1".equals(proInfo.getIsCanUserCou())) {
+				isCanUseCou = 1;
+			}
+			if ("2".equals(proInfo.getIsCanUserCou())) {
+				isCanUseCou = 2;
+			}
+			if (proInfo.getPostage() != null) {
+				pos = proInfo.getPostage();
+			}
+		}
+		dataMap.put("isCanUseCou", isCanUseCou);
+		dataMap.put("goodsVos", goodsVos);
+		dataMap.put("totalAmount", totalAmount);
+		dataMap.put("pos", pos);
+		dataMap.put("pointNiceAmount", pointNiceAmount.add(pos));
+		return new ResultVo(200, "操作成功", dataMap);
+	}
+
+	/*
+	 * 用户下单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#addOrder(java.lang.
+	 * String, java.util.List, java.lang.String, java.lang.String,
+	 * java.lang.Double, java.lang.Long, java.lang.Long)
+	 */
+	@Override
+	public ResultVo addOrder(String account, List<OrderAddVo> orderAddVos, String orderType, String payType,
+			String remark, Long couponsId, Long orderAddressId) {
+		if ("1".equals(orderType)) {
+			if (StringUtil.isBlank(account) || null == orderAddVos || 0 == orderAddVos.size()
+					|| StringUtil.isBlank(orderType) || (!"0".equals(orderType) && !"1".equals(orderType))) {
+				throw new MyException(400, "下单失败", null);
+			}
+		}
+
+		GjfMemberAddress gjfMemberAddress;
+		if (orderType.equals("1") && ObjValid.isNotValid(orderAddressId)) {
+			throw new MyException(400, "下单失败", null);
+		} else {
+			// 获取收货地址
+			Map<String, Object> attrs = new HashMap<String, Object>();
+			attrs.put("id", orderAddressId);
+			attrs.put("memberId.mobile", account);
+			gjfMemberAddress = gjfOrderInfoDao.query(GjfMemberAddress.class, attrs);
+		}
+
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+
+		if ("0".equals(gjfMemberInfo.getStatus())) {
+			throw new MyException(400, "用户已停用", null);
+		}
+
+		if (StringUtil.isBlank(payType) || (!payType.equals("0") && !payType.equals("1") && !payType.equals("2")
+				&& !payType.equals("3") && !payType.equals("7") && !payType.equals("8") && !payType.equals("9"))) {
+			throw new MyException(400, "支付方式有误", null);
+		}
+		if (ObjValid.isValid(couponsId)) {
+			// 优惠券 TODO
+		}
+
+		BigDecimal totalAmount = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+		BigDecimal totalStoreBenefitAmount = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+		// 记录邮费
+		BigDecimal pos = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+		// 记录积分商品需要的金额
+		BigDecimal pointAmount = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+
+		// 记录商品来源
+		String suoceGood = "0";
+
+		// 记录商品id
+		String goodsId = "";
+		// 记录参与分红金额
+		BigDecimal benerfitMoney = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+
+		// 友品集商品信息
+		JSONArray array = new JSONArray();
+
+		List<GjfOrderGoods> gjfOrderGoods = new ArrayList<GjfOrderGoods>();
+		if (orderAddVos != null && orderAddVos.size() != 0) {
+			for (OrderAddVo orderAddVo : orderAddVos) {
+				/*
+				 * if (ObjValid.isNotValid(orderAddVo.getGoodsId())) { throw new
+				 * MyException(400, "商品不存在", null); }
+				 */
+				if (ObjValid.isNotValid(orderAddVo.getGoodsNum())) {
+					throw new MyException(400, "商品数量要大于1", null);
+				}
+				GjfOrderGoods orderGoods = new GjfOrderGoods();
+
+				GjfProductInfo gjfProductInfo = null;
+				if (ObjValid.isValid(orderAddVo.getGoodsId())) {
+					Object o1 = gjfOrderInfoDao.get(orderAddVo.getGoodsId(), GjfProductInfo.class.getName());
+					if (ObjValid.isNotValid(orderAddVo.getGoodsId())) {
+						throw new MyException(400, "商品不存在", null);
+					}
+
+					gjfProductInfo = (GjfProductInfo) o1;
+					orderGoods.setGoodsId(gjfProductInfo);
+					// 如果支付方式是积分支付但支付商品不是积分支付商品返回提示
+					if ("7".equals(payType) && "0".equals(gjfProductInfo.getIsCanUserCou())) {
+						throw new MyException(400, gjfProductInfo.getName() + "不能使用积分换购", null);
+					}
+					// 统计用户购买商品的数量
+					int count = gjfOrderInfoDao.countMemberOrder(gjfMemberInfo.getId(), gjfProductInfo.getId());
+					// 如果商品有限定积分兑换次数并且用户的积分兑换次数大于可兑换次数则返回提示
+					if (gjfProductInfo.getPointNum() != null && count >= gjfProductInfo.getPointNum()
+							&& gjfProductInfo.getPointNum() != 0) {
+						throw new MyException(400, "您兑换商品的次数已经达到最大次数", null);
+					}
+					// 记录邮费
+					pos = gjfProductInfo.getPostage();
+
+					// 商品来源
+					suoceGood = gjfProductInfo.getSuorceGoods();
+
+					if ("2".equals(suoceGood)) {
+						goodsId += gjfProductInfo.getNetProId().toString() + ",";
+						if (gjfProductInfo.getPostage().doubleValue() != 0) {
+							pos = pos.subtract(gjfProductInfo.getPostage());
+						}
+					}
+				}
+				// 判断商品属性是否存在
+				GjfProductAttrStock attrStock = null;
+				if (ObjValid.isValid(orderAddVo.getGoodsAttrStockId())
+						|| StringUtil.isNotBlank(orderAddVo.getGoodsAttrIds())) {
+					Object o2 = null;
+					if (ObjValid.isValid(orderAddVo.getGoodsAttrStockId())) {
+						o2 = gjfOrderInfoDao.get(orderAddVo.getGoodsAttrStockId(), GjfProductAttrStock.class.getName());
+					} else {
+						Map<String, Object> attrs = new HashMap<String, Object>();
+						attrs.put("productAttrIds",
+								orderAddVo.getGoodsAttrIds().substring(0, orderAddVo.getGoodsAttrIds().length()));
+						attrs.put("productId.id", gjfProductInfo.getId());
+						o2 = gjfOrderInfoDao.query(GjfProductAttrStock.class, attrs);
+					}
+					if (ObjValid.isNotValid(o2)) {
+						throw new MyException(400, "商品属性不存在", null);
+					}
+					attrStock = (GjfProductAttrStock) o2;
+					// 判断下单数量是否大于库存
+					if (orderAddVo.getGoodsNum().longValue() > attrStock.getRepertory().longValue()) {
+						throw new MyException(400, "该商品库存不足", null);
+					}
+					attrStock.setRepertory(attrStock.getRepertory() - orderAddVo.getGoodsNum());
+					orderGoods.setGoodsAttr(
+							String.valueOf(gjfProductAttrService.findProAttrByProAttrStock(attrStock).getResult()));
+				}
+				BigDecimal totalGoodsAmount = new BigDecimal(0.00);
+				// 判断下单类型 1 网上商城
+				if ("1".equals(orderType)) {
+					// 判断商品的来源 0 平台自营 1友集网
+					if ("0".equals(gjfProductInfo.getSuorceGoods())) {
+						// 商品库存
+						orderGoods.setGoodsAttrStockId(attrStock.getId());
+						// 商品单价
+						orderGoods.setGoodsAmount(attrStock.getPrice());
+						// 商品支付金额
+						orderGoods.setGoodsPayAmount(attrStock.getPrice());
+						// 商品总金额
+						totalGoodsAmount = new BigDecimal(attrStock.getPrice().doubleValue() * orderAddVo.getGoodsNum())
+								.setScale(2, BigDecimal.ROUND_UP);
+						// 如果为积分的商品
+						if ("1".equals(attrStock.getProductId().getIsCanUserCou())
+								&& attrStock.getProductId().getPointNicePrice() != null) {
+							pointAmount = pointAmount
+									.add(new BigDecimal(attrStock.getProductId().getPointNicePrice().doubleValue()
+											* orderAddVo.getGoodsNum()).setScale(2, BigDecimal.ROUND_UP));
+						}
+						if ("2".equals(attrStock.getProductId().getIsCanUserCou())
+								&& attrStock.getProductId().getPointNicePrice() != null) {
+							pointAmount = pointAmount
+									.add(new BigDecimal(attrStock.getProductId().getPointNicePrice().doubleValue()
+											* orderAddVo.getGoodsNum()).setScale(2, BigDecimal.ROUND_UP));
+						}
+						// 记录商品让利金额
+						if (BeanUtil.isValid(gjfProductInfo.getBenerfitMoney())) {
+							benerfitMoney = benerfitMoney.add(new BigDecimal(
+									gjfProductInfo.getBenerfitMoney().doubleValue() * orderAddVo.getGoodsNum())
+											.setScale(2, BigDecimal.ROUND_UP));
+						}
+
+						// 更新商品库存数量
+						gjfOrderInfoDao.update(attrStock);
+
+					} else if ("1".equals(gjfProductInfo.getSuorceGoods())) {// 有品集
+						JSONObject good = new JSONObject();
+						good.put("gid", gjfProductInfo.getNetProId());
+						good.put("quantity", orderAddVo.getGoodsNum());
+						good.put("oid", 0);
+						good.put("shop", 0);
+						array.add(good);
+
+						// 记录商品让利金额
+						if (BeanUtil.isValid(gjfProductInfo.getBenerfitMoney())
+								&& gjfProductInfo.getBenerfitMoney().doubleValue() != 0) {
+							benerfitMoney = benerfitMoney.add(new BigDecimal(
+									gjfProductInfo.getBenerfitMoney().doubleValue() * orderAddVo.getGoodsNum())
+											.setScale(2, BigDecimal.ROUND_UP));
+						} else {
+							benerfitMoney = benerfitMoney.add(new BigDecimal(
+									gjfProductInfo.getGcostPrice().doubleValue() * orderAddVo.getGoodsNum()).setScale(2,
+											BigDecimal.ROUND_UP));
+						}
+
+						orderGoods.setGoodsAmount(gjfProductInfo.getGcostPrice());
+						orderGoods.setGoodsPayAmount(gjfProductInfo.getGcostPrice());
+						totalGoodsAmount = new BigDecimal(
+								gjfProductInfo.getPrice().doubleValue() * orderAddVo.getGoodsNum()).setScale(2,
+										BigDecimal.ROUND_UP);
+					} else {
+						if ("0".equals(gjfProductInfo.getStatus())) {
+							throw new MyException(400, "商品已下架", null);
+						}
+						// 记录商品让利金额
+						if (BeanUtil.isValid(gjfProductInfo.getBenerfitMoney())
+								&& gjfProductInfo.getBenerfitMoney().doubleValue() != 0) {
+							benerfitMoney = benerfitMoney.add(new BigDecimal(
+									gjfProductInfo.getBenerfitMoney().doubleValue() * orderAddVo.getGoodsNum())
+											.setScale(2, BigDecimal.ROUND_UP));
+						} else {
+							benerfitMoney = benerfitMoney.add(new BigDecimal(
+									gjfProductInfo.getGcostPrice().doubleValue() * orderAddVo.getGoodsNum()).setScale(2,
+											BigDecimal.ROUND_UP));
+						}
+						orderGoods.setGoodsAmount(gjfProductInfo.getGcostPrice());
+						orderGoods.setGoodsPayAmount(gjfProductInfo.getGcostPrice());
+						totalGoodsAmount = new BigDecimal(
+								gjfProductInfo.getPrice().doubleValue() * orderAddVo.getGoodsNum()).setScale(2,
+										BigDecimal.ROUND_UP);
+					}
+
+					orderGoods.setGoodsName(gjfProductInfo.getName());
+					orderGoods.setGoodsNum(orderAddVo.getGoodsNum());
+					orderGoods.setGoodsImageUrl(gjfProductInfo.getImgUrl());
+					orderGoods.setGoodsType("1");
+					// orderGoods.setPromotionsId(promotionsId);
+
+				} else {
+
+					orderGoods.setGoodsName("店铺支付");
+					orderGoods.setGoodsNum(orderAddVo.getGoodsNum());
+					// orderGoods.setGoodsImageUrl(gjfProductInfo.getImgUrl());
+					orderGoods.setGoodsType("1");
+					orderGoods.setGoodsAmount(new BigDecimal(remark).setScale(2, BigDecimal.ROUND_UP));
+					orderGoods.setGoodsNum(1L);
+					orderGoods.setGoodsPayAmount(new BigDecimal(remark).setScale(2, BigDecimal.ROUND_UP));
+					// orderGoods.setPromotionsId(promotionsId);
+					totalGoodsAmount = new BigDecimal(remark).setScale(2, BigDecimal.ROUND_UP);
+				}
+				orderGoods.setStoreBenefitAmount(
+						totalGoodsAmount.multiply(new BigDecimal(0.12)).setScale(2, BigDecimal.ROUND_UP));
+				orderGoods.setStoreRecAmount(
+						totalGoodsAmount.subtract(orderGoods.getStoreBenefitAmount()).setScale(2, BigDecimal.ROUND_UP));
+				gjfOrderGoods.add(orderGoods);
+				totalAmount = totalAmount.add(totalGoodsAmount);
+				totalStoreBenefitAmount = totalStoreBenefitAmount.add(orderGoods.getStoreBenefitAmount());
+			}
+		} else {
+			totalAmount = new BigDecimal(remark).setScale(2, BigDecimal.ROUND_UP);
+		}
+
+		// 如果是京东商品则查询商品是否还有库存
+		if ("2".equals(suoceGood)) {
+			// 处理收货地址省市区
+			String areaStr = "";
+			// 如果省份不为空
+			if (BeanUtil.isValid(gjfMemberAddress.getProviceId())) {
+				areaStr += gjfMemberAddress.getProviceId().getProvinceId().toString();
+			}
+			// 如果城市不为空
+			if (BeanUtil.isValid(gjfMemberAddress.getCityId())) {
+				areaStr += "," + gjfMemberAddress.getCityId().getCityId();
+			}
+			// 如果区域不为空
+			if (BeanUtil.isValid(gjfMemberAddress.getAreaId())) {
+				areaStr += "," + gjfMemberAddress.getAreaId().getAreaId();
+			}
+			// 如果镇不为空
+			if (BeanUtil.isValid(gjfMemberAddress.getTownId())) {
+				areaStr += "," + gjfMemberAddress.getTownId().getTownId();
+			} else {
+				areaStr += ",0";
+			}
+			if (BeanUtil.isValid(goodsId)) {
+				goodsId = goodsId.substring(0, goodsId.length() - 1);
+			}
+			// 查询商品库存信息
+			List<ProductStock> stockList = JdUtil.getProductStore(goodsId, areaStr);
+			if (!BeanUtil.isValid(stockList)) {
+				throw new MyException(400, "商品无库存", null);
+			}
+			Iterator<ProductStock> it = stockList.iterator();
+			while (it.hasNext()) {
+				ProductStock productStock = it.next();
+				if (productStock.getGoodsNumber() == 2) {
+					throw new MyException(400, "商品无库存", null);
+				}
+				if (productStock.getIsOnSale() == 0) {
+					throw new MyException(400, "商品已下架", null);
+				}
+			}
+		}
+
+		GjfOrderInfo gjfOrderInfo = new GjfOrderInfo();
+		gjfOrderInfo.setOrderSn(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfOrderInfo.setPickupCode(RandUtil.getRandomStr(6));
+		gjfOrderInfo.setMemberId(gjfMemberInfo);
+		gjfOrderInfo.setSuoceGood(suoceGood);
+		// 添加店铺
+		if ("0".equals(orderType) && couponsId != 0) {
+			Map<String, Object> storeMap = new HashMap<>();
+			storeMap.put("id", couponsId);
+			GjfStoreInfo storeInfo = gjfOrderInfoDao.query(GjfStoreInfo.class, storeMap);
+			gjfOrderInfo.setStoreId(storeInfo);
+		} else {
+			gjfOrderInfo.setStoreId(gjfOrderGoods.get(0).getGoodsId().getStoreId());
+		}
+
+		// 支付明细流水
+		GjfMemberTradeLog gjfMemberTradeLog = new GjfMemberTradeLog();
+		gjfMemberTradeLog.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfMemberTradeLog.setLinkTradeNo(gjfOrderInfo.getOrderSn());
+		gjfMemberTradeLog.setStoreId(gjfOrderInfo.getStoreId());
+		gjfMemberTradeLog.setMemberId(gjfOrderInfo.getMemberId());
+		gjfMemberTradeLog.setAddTime(new Date());
+
+		// 如果是京东商品
+		if ("2".equals(suoceGood)) {
+			// 添加京东订单信息
+			OrderResult orderResult = JdUtil.addJdOrder(gjfMemberAddress, gjfOrderInfo, gjfOrderGoods);
+			// 如果京东订单信息添加失败，则返回提示
+			if (!BeanUtil.isValid(orderResult)) {
+				return new ResultVo(400, "数据对接失败", null);
+			}
+			// 记录京东订单信息
+			gjfOrderInfo.setJdOrderSn(orderResult.getOrderNo());
+			String totalDeliveryFee = orderResult.getTotalDeliveryFee();
+			com.alibaba.fastjson.JSONObject jsonObject = (com.alibaba.fastjson.JSONObject) com.alibaba.fastjson.JSONObject
+					.parse(totalDeliveryFee);
+			// 京东邮费
+			String jdFee = jsonObject.getString("jd");
+			if (BeanUtil.isValid(jdFee)) {
+				com.alibaba.fastjson.JSONObject jdJsonObject = (com.alibaba.fastjson.JSONObject) com.alibaba.fastjson.JSONObject
+						.parse(jdFee);
+				pos = pos.add(new BigDecimal(jdJsonObject.getDoubleValue("deliveryFee")));
+			}
+			// 苏宁
+			String snFee = jsonObject.getString("sn");
+			if (BeanUtil.isValid(snFee)) {
+				com.alibaba.fastjson.JSONObject jdJsonObject = (com.alibaba.fastjson.JSONObject) com.alibaba.fastjson.JSONObject
+						.parse(snFee);
+				pos = pos.add(new BigDecimal(jdJsonObject.getDoubleValue("deliveryFee")));
+			}
+			// 一号店
+			String yhdFee = jsonObject.getString("yhd");
+			if (BeanUtil.isValid(yhdFee)) {
+				com.alibaba.fastjson.JSONObject jdJsonObject = (com.alibaba.fastjson.JSONObject) com.alibaba.fastjson.JSONObject
+						.parse(yhdFee);
+				pos = pos.add(new BigDecimal(jdJsonObject.getDoubleValue("deliveryFee")));
+			}
+
+			// 如果京东下单返回的需要支付总额不等于平台商品支付总额
+			/*
+			 * if(totalAmount.doubleValue()!=orderResult.getOrderAmount().
+			 * doubleValue()){ totalAmount=orderResult.getOrderAmount();
+			 * gjfOrderInfo.setGoodsTotalAmount(orderResult.getOrderAmount());
+			 * gjfOrderInfo.setOrderTotalAmount(orderResult.getOrderAmount());
+			 * gjfOrderInfo.setRealPayAmount(orderResult.getOrderAmount()); }
+			 */
+			// 如果总运费不一致
+			/*
+			 * if(pos.doubleValue()!=orderResult.getTotalDeliveryFee().
+			 * doubleValue()){ pos=orderResult.getTotalDeliveryFee(); }
+			 */
+
+		}
+		// 如果是友品集商品
+		if ("1".equals(suoceGood)) {
+			JSONObject netJson = NetFriendUtil.addNetFriendOrder(gjfMemberInfo.getToken().substring(0, 50),
+					String.valueOf(totalAmount.doubleValue()), "0", array, "", "2", remark,
+					gjfMemberAddress.getNetAddressId(), "");
+			System.out.println(netJson);
+			int errcode = (int) netJson.get("errcode");
+			String errmsg = (String) netJson.get("errmsg");
+			if (errcode != 0) {
+				return new ResultVo(400, errmsg, null);
+			}
+			JSONObject data = netJson.getJSONObject("data");
+			gjfOrderInfo.setJdOrderSn(data.getString("ordersn"));
+			pos = pos.add(new BigDecimal(data.getDouble("freight")));
+		}
+
+		gjfOrderInfo.setGoodsTotalAmount(totalAmount.add(pos).add(pointAmount));
+		gjfOrderInfo.setOrderTotalAmount(totalAmount.add(pos).add(pointAmount));
+		gjfOrderInfo.setRealPayAmount(totalAmount.add(pos).add(pointAmount));
+		gjfOrderInfo.setBenerfitMoney(benerfitMoney);
+
+		// 当选择支付方式为待领消费金额
+		if (payType.equals("7")) {
+			if (gjfMemberInfo.getConsumptionMoney().doubleValue() < totalAmount.doubleValue()) {
+				return new ResultVo(400, "积分不足，请选择其他支付方式", null);
+			}
+			gjfOrderInfo.setOnlinePayAmount(totalAmount);
+			gjfOrderInfo.setOfflinePayAmount(pos.add(pointAmount));
+
+			gjfOrderInfo.setPayType("7");
+			// 如果线下支付金额为0，则直接扣减积分并且订单状态为已支付
+			if (gjfOrderInfo.getOfflinePayAmount().doubleValue() == 0) {
+				gjfMemberInfo.setConsumptionMoney(gjfMemberInfo.getConsumptionMoney().subtract(totalAmount));
+				gjfOrderInfo.setOrderStatus("1");
+				gjfMemberTradeLog.setTradeStatus("1");
+
+				// 查詢用戶消費記錄
+				List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao
+						.findMemberCousumptionNum(gjfOrderInfo.getMemberId().getId());
+				// 如果不為空則直接加一
+				if (BeanUtil.isValid(list)) {
+					GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+					gjfMemberConsumptiomNum.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() + 1);
+					gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+				} else {
+					GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+					consumptiomNum.setBenefitNum(0);
+					consumptiomNum.setShopConsumptionNum(1);
+					consumptiomNum.setMemberId(gjfOrderInfo.getMemberId().getId());
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+					String date = sdf.format(new Date());
+					ParsePosition ps = new ParsePosition(0);
+					consumptiomNum.setAddTime(sdf.parse(date, ps));
+					gjfOrderInfoDao.save(consumptiomNum);
+				}
+
+				// 判断用户最早消费时间是否为空
+				if (!BeanUtil.isValid(gjfOrderInfo.getMemberId().getFirstConsumptionTime())) {
+					GjfMemberInfo member = gjfOrderInfo.getMemberId();
+					member.setFirstConsumptionTime(new Date());
+				}
+			} else {
+				gjfOrderInfo.setOrderStatus("0");
+				gjfMemberTradeLog.setTradeStatus("0");
+			}
+
+			gjfOrderInfo.setPayTime(new Date());
+			gjfMemberTradeLog.setTradeType("1");
+			gjfMemberTradeLog.setTradeTime(new Date());
+			gjfMemberTradeLog.setTradeMoney(totalAmount);
+			gjfMemberTradeLog.setTradeTrmo("待领消费金额支付--网上商城下单");
+
+		}
+
+		// 当选择支付方式为责任消费金额
+		if (payType.equals("8")) {
+			if (gjfMemberInfo.getInsuranceMoney().doubleValue() < totalAmount.doubleValue()) {
+				return new ResultVo(400, "责任消费险金额不足,请选择其他支付方式", null);
+			}
+			gjfOrderInfo.setOnlinePayAmount(totalAmount);
+			gjfOrderInfo.setOfflinePayAmount(pos.add(pointAmount));
+			gjfOrderInfo.setPayType("8");
+
+			// 如果线下支付金额为0，则直接扣减积分并且订单状态为已支付
+			if (gjfOrderInfo.getOfflinePayAmount().doubleValue() == 0) {
+				gjfMemberInfo.setInsuranceMoney(gjfMemberInfo.getInsuranceMoney().subtract(totalAmount));
+				gjfOrderInfo.setOrderStatus("1");
+				gjfMemberTradeLog.setTradeStatus("1");
+			} else {
+				gjfOrderInfo.setOrderStatus("0");
+				gjfMemberTradeLog.setTradeStatus("0");
+			}
+
+			gjfMemberTradeLog.setTradeType("2");
+			gjfOrderInfo.setPayTime(new Date());
+			gjfMemberTradeLog.setTradeTime(new Date());
+			gjfMemberTradeLog.setTradeMoney(totalAmount);
+			gjfMemberTradeLog.setTradeTrmo("责任消费金额支付--网上商城下单");
+			gjfMemberTradeLog.setTradeStatus("1");
+
+			GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+					gjfOrderInfo.getOrderSn() + "-3", totalAmount, new Date(), new Date(), "3", "0", "网上商城下单");
+			gjfOrderInfoDao.save(detail1);
+		}
+
+		// 当选择支付方式为责任消费金额
+		if (payType.equals("9")) {
+			// 查询用户凤凰宝信息
+			Map<String, Object> fhAttrs = new HashMap<>();
+			fhAttrs.put("mobile", gjfMemberInfo.getMobile());
+			GjfFhTreasureInfo fhInfo = gjfOrderInfoDao.query(GjfFhTreasureInfo.class, fhAttrs);
+			if (!BeanUtil.isValid(fhInfo)) {
+				return new ResultVo(400, "凤凰宝金额不足,请选择其他支付方式", null);
+			}
+			if (fhInfo.getFhTreasureMoney().doubleValue() < totalAmount.add(pos).doubleValue()) {
+				return new ResultVo(400, "凤凰宝金额不足,请选择其他支付方式", null);
+			}
+			gjfOrderInfo.setOfflinePayAmount(new BigDecimal(0.00));
+			gjfOrderInfo.setPayType("9");
+
+			// 余额支付计算税费
+			gjfOrderInfo.setOnlinePayAmount(totalAmount.add(pos));
+			gjfOrderInfo.setOrderStatus("1");
+			gjfOrderInfo.setPayTime(new Date());
+
+			gjfMemberTradeLog.setTradeType("8");
+			gjfMemberTradeLog.setTradeTime(new Date());
+			gjfMemberTradeLog.setTradeMoney(totalAmount);
+			gjfMemberTradeLog.setTradeTrmo("凤凰宝支付--网上商城下单");
+			gjfMemberTradeLog.setTradeStatus("1");
+
+			// 查詢用戶消費記錄
+			List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao
+					.findMemberCousumptionNum(gjfOrderInfo.getMemberId().getId());
+			// 如果不為空則直接加一
+			if (BeanUtil.isValid(list)) {
+				GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+				gjfMemberConsumptiomNum.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() + 1);
+				gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+			} else {
+				GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+				consumptiomNum.setBenefitNum(0);
+				consumptiomNum.setShopConsumptionNum(1);
+				consumptiomNum.setMemberId(gjfOrderInfo.getMemberId().getId());
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				String date = sdf.format(new Date());
+				ParsePosition ps = new ParsePosition(0);
+				consumptiomNum.setAddTime(sdf.parse(date, ps));
+				gjfOrderInfoDao.save(consumptiomNum);
+			}
+
+			// 判断用户最早消费时间是否为空
+			if (!BeanUtil.isValid(gjfOrderInfo.getMemberId().getFirstConsumptionTime())) {
+				GjfMemberInfo member = gjfOrderInfo.getMemberId();
+				member.setFirstConsumptionTime(new Date());
+			}
+
+			GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+					gjfOrderInfo.getOrderSn() + "-1", totalAmount, new Date(), new Date(), "0", "0", "网上商城下单");
+			GjfMemberTradeDetail detail2 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+					gjfOrderInfo.getOrderSn() + "-2", totalAmount, new Date(), new Date(), "1", "0", "网上商城下单");
+			gjfOrderInfoDao.save(detail1);
+			gjfOrderInfoDao.save(detail2);
+
+			// 添加凤凰宝交易记录
+			GjfMemberTreasureTrade treasuer = new GjfMemberTreasureTrade();
+			treasuer.setMemberId(gjfMemberInfo.getId());
+			treasuer.setMemberName(gjfMemberInfo.getName());
+			treasuer.setMemebrMobile(gjfMemberInfo.getMobile());
+			treasuer.setMemberTreasureMoneyBf(fhInfo.getFhTreasureMoney());
+			treasuer.setMemberTreasureMoneyAf(fhInfo.getFhTreasureMoney().subtract(totalAmount.add(pos)));
+			treasuer.setMemberTreasureTradeMoney(totalAmount.add(pos));
+			treasuer.setAddTime(new Date());
+			treasuer.setTradeNo(gjfOrderInfo.getOrderSn());
+			treasuer.setTradeType("5");
+			treasuer.setTradeStatus("1");
+			gjfOrderInfoDao.save(treasuer);
+			// 扣减用户凤凰宝金额
+			fhInfo.setFhTreasureMoney(fhInfo.getFhTreasureMoney().subtract(totalAmount.add(pos)));
+			gjfOrderInfoDao.update(fhInfo);
+		}
+
+		if (payType.equals("0")) {
+			if (gjfMemberInfo.getBalanceMoney().doubleValue() >= totalAmount.add(pos).doubleValue()) {
+
+				gjfOrderInfo.setOfflinePayAmount(new BigDecimal(0.00));
+				gjfOrderInfo.setPayType("0");
+
+				// 余额支付计算税费
+				BigDecimal taxMoney = totalAmount.multiply(new BigDecimal(0.1)).setScale(2, BigDecimal.ROUND_DOWN);
+				gjfOrderInfo.setOnlinePayAmount(totalAmount.add(pos).add(taxMoney));
+				gjfOrderInfo.setTaxMoney(taxMoney);
+
+				gjfOrderInfo.setOrderStatus("1");
+				gjfOrderInfo.setPayTime(new Date());
+
+				gjfMemberTradeLog.setTradeType("0");
+				gjfMemberTradeLog.setTradeTime(new Date());
+				gjfMemberTradeLog.setTradeMoney(totalAmount);
+				gjfMemberTradeLog.setTradeTrmo("余额支付--网上商城下单");
+				gjfMemberTradeLog.setTradeStatus("1");
+
+				// 如果为京东商品
+				if ("2".equals(suoceGood)) {
+
+					OrderResult orderResult = JdUtil.cofirmOrder(gjfOrderInfo.getOrderSn(),
+							gjfOrderInfo.getJdOrderSn());
+					if (!BeanUtil.isValid(orderResult)) {
+						return new ResultVo(400, "数据对接失败", null);
+					}
+					gjfOrderInfo.setOrderStatus("2");
+					gjfMemberTradeLog.setTradeStatus("2");
+				}
+
+				// 查詢用戶消費記錄
+				List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao
+						.findMemberCousumptionNum(gjfOrderInfo.getMemberId().getId());
+				// 如果不為空則直接加一
+				if (BeanUtil.isValid(list)) {
+					GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+					gjfMemberConsumptiomNum.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() + 1);
+					gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+				} else {
+					GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+					consumptiomNum.setBenefitNum(0);
+					consumptiomNum.setShopConsumptionNum(1);
+					consumptiomNum.setMemberId(gjfOrderInfo.getMemberId().getId());
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+					String date = sdf.format(new Date());
+					ParsePosition ps = new ParsePosition(0);
+					consumptiomNum.setAddTime(sdf.parse(date, ps));
+					gjfOrderInfoDao.save(consumptiomNum);
+				}
+
+				// 判断用户最早消费时间是否为空
+				if (!BeanUtil.isValid(gjfOrderInfo.getMemberId().getFirstConsumptionTime())) {
+					GjfMemberInfo member = gjfOrderInfo.getMemberId();
+					member.setFirstConsumptionTime(new Date());
+				}
+				// 扣减用户余额
+				gjfMemberInfo.setBalanceMoney(
+						gjfMemberInfo.getBalanceMoney().subtract(totalAmount).subtract(pos).subtract(taxMoney));
+				gjfMemberInfo.setWithdrawalMoney(
+						gjfMemberInfo.getWithdrawalMoney().subtract(totalAmount).subtract(pos).subtract(taxMoney));
+
+				GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+						gjfOrderInfo.getOrderSn() + "-1", totalAmount, new Date(), new Date(), "0", "0", "网上商城下单");
+				GjfMemberTradeDetail detail2 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+						gjfOrderInfo.getOrderSn() + "-2", totalAmount, new Date(), new Date(), "1", "0", "网上商城下单");
+				gjfOrderInfoDao.save(detail1);
+				gjfOrderInfoDao.save(detail2);
+			} else {
+				return new ResultVo(400, "余额不足,请选择其他支付方式", null);
+			}
+		} else if (Integer.parseInt(payType) != 7 && Integer.parseInt(payType) != 8 && Integer.parseInt(payType) != 9) {
+			if (gjfMemberInfo.getBalanceMoney().doubleValue() > 0) {
+				/*
+				 * if (orderType.equals("1")) {
+				 * gjfOrderInfo.setOnlinePayAmount(gjfMemberInfo.getBalanceMoney
+				 * ()); if (payType.equals("1")) { gjfOrderInfo.setPayType("4");
+				 * } else if (payType.equals("2")) {
+				 * gjfOrderInfo.setPayType("5"); } else if (payType.equals("3"))
+				 * { gjfOrderInfo.setPayType("6"); }
+				 * gjfOrderInfo.setOfflinePayAmount(totalAmount.subtract(
+				 * gjfOrderInfo.getOnlinePayAmount()).add(pos));
+				 * 
+				 * } else {
+				 */
+
+				gjfOrderInfo.setPayType(payType);
+				gjfOrderInfo.setOfflinePayAmount(totalAmount.add(pos));
+				gjfOrderInfo.setOnlinePayAmount(new BigDecimal(0.00));
+				/*
+				 * gjfMemberInfo.setBalanceMoney(new BigDecimal(0.00));
+				 * gjfMemberInfo.setWithdrawalMoney(new BigDecimal(0.00));
+				 */
+				/* } */
+
+				// 回调时候再修改
+				// gjfMemberInfo.setBalanceMoney(new BigDecimal(0.00));
+				// gjfMemberInfo.setWithdrawalMoney(new BigDecimal(0.00));
+			} else {
+				gjfOrderInfo.setOnlinePayAmount(new BigDecimal(0.00));
+				gjfOrderInfo.setPayType(payType);
+				gjfOrderInfo.setOfflinePayAmount(totalAmount.add(pos));
+				gjfOrderInfo.setOnlinePayAmount(new BigDecimal(0.00));
+				gjfMemberInfo.setBalanceMoney(new BigDecimal(0.00));
+				gjfMemberInfo.setWithdrawalMoney(new BigDecimal(0.00));
+			}
+			gjfOrderInfo.setOrderStatus("0");
+
+			if (payType.equals("1")) {
+				gjfMemberTradeLog.setTradeType("3");
+				gjfMemberTradeLog.setTradeTrmo("微信支付--网上商城下单");
+			} else if (payType.equals("2")) {
+				gjfMemberTradeLog.setTradeType("4");
+				gjfMemberTradeLog.setTradeTrmo("支付宝支付--网上商城下单");
+			} else if (payType.equals("3")) {
+				gjfMemberTradeLog.setTradeType("5");
+				gjfMemberTradeLog.setTradeTrmo("银联支付--网上商城下单");
+			}
+			gjfMemberTradeLog.setTradeStatus("0");
+			gjfMemberTradeLog.setTradeMoney(gjfOrderInfo.getOfflinePayAmount());
+		}
+
+		gjfOrderInfo.setBenerfitMoney(benerfitMoney);
+		gjfOrderInfo.setStoreBenefitAmount(totalStoreBenefitAmount);
+		gjfOrderInfo.setStoreRecAmount(totalAmount.subtract(totalStoreBenefitAmount));
+		gjfOrderInfo.setRefundAmount(new BigDecimal(0.00));
+		// gjfOrderInfo.setCouponsId(couponsId);
+		gjfOrderInfo.setRemark(remark);
+		gjfOrderInfo.setAddTime(new Date());
+		gjfOrderInfo.setOrderType(orderType);
+		gjfOrderInfo.setEvaluationStatus("0");
+		gjfOrderInfo.setRefundStatus("0");
+		gjfOrderInfo.setIsDel("1");
+		gjfOrderInfo.setOrderPostage(pos);
+		gjfOrderInfo.setToken(
+				Sha256.getSha256Hash(gjfOrderInfo.getOrderSn(), gjfOrderInfo.getPayType(), CommonStatus.SIGN_KEY_NUM));
+		gjfOrderInfoDao.save(gjfOrderInfo);
+
+		for (GjfOrderGoods orderGoods : gjfOrderGoods) {
+			orderGoods.setOrderId(gjfOrderInfo);
+			gjfOrderInfoDao.save(orderGoods);
+		}
+
+		gjfOrderInfoDao.update(gjfMemberInfo);
+
+		// 添加订单发货信息
+		if (orderType.equals("1")) {
+			GjfOrderAddress gjfOrderAddress = new GjfOrderAddress();
+			gjfOrderAddress.setReciverAreaId(gjfMemberAddress.getAreaId());
+			gjfOrderAddress.setReciverCityId(gjfMemberAddress.getCityId());
+			gjfOrderAddress.setReciverProvinceId(gjfMemberAddress.getProviceId());
+			gjfOrderAddress.setReciverName(gjfMemberAddress.getConsigneeName());
+			gjfOrderAddress.setReciverMobile(gjfMemberAddress.getMobile());
+			gjfOrderAddress.setReciverDetailAddress(gjfMemberAddress.getAddressDetail());
+			gjfOrderAddress.setOrderId(gjfOrderInfo);
+			gjfOrderInfoDao.save(gjfOrderAddress);
+		}
+
+		// 添加保存支付明细日志
+		gjfMemberTradeLog.setToken(Sha256.getSha256Hash(gjfMemberTradeLog.getTradeNo(),
+				gjfMemberTradeLog.getTradeType(), CommonStatus.SIGN_KEY_NUM));
+		gjfOrderInfoDao.save(gjfMemberTradeLog);
+
+		// 订单加入延迟队列
+		/*
+		 * OrderDelayQueue orderDelayQueue = new OrderDelayQueue();
+		 * orderDelayQueue.addItem(gjfOrderInfo.getOrderSn(), 1380, 1);// 提醒用户付款
+		 * orderDelayQueue.addItem(gjfOrderInfo.getOrderSn(), 1440, 2);// 取消订单
+		 * orderDelayQueue.start();
+		 */
+
+		// 短信或站内信推送 TODO
+		return new ResultVo(200, "下单成功", gjfOrderInfo);
+	}
+
+	/*
+	 * 后台--修改订单的状态
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#updateOrderStatus(
+	 * java.lang.String, java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo updateOrderStatus(String orderSn, String payOrderSn, String orderStatus, String account,
+			String token, String client) {
+		if (StringUtil.isBlank(orderSn)) {
+			throw new MyException(400, "订单不存在", null);
+		}
+		/*
+		 * if (StringUtil.isBlank(orderStatus) || (!"1".equals(orderStatus) ||
+		 * !"2".equals(orderStatus) || !"3".equals(orderStatus)
+		 * !"4".equals(orderStatus) && !"5".equals(orderStatus) &&
+		 * !"6".equals(orderStatus))) { throw new MyException(400, "订单状态有误",
+		 * null); }
+		 */
+		System.out.println("----订单状态----" + orderStatus);
+		GjfOrderInfo gjfOrderInfo = null;
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		if (client.equals("0")) {
+			attrs.put("token", token);
+		}
+		gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+
+		if (ObjValid.isNotValid(gjfOrderInfo)) {
+			throw new MyException(400, "订单不存在", null);
+		}
+
+		if ("1".equals(orderStatus)) {// 已支付
+			if (gjfOrderInfo.getOrderStatus().equals("1")) {
+				throw new MyException(400, "订单已经付款，无需重复", null);
+			} else if (!gjfOrderInfo.getOrderStatus().equals("0")) {
+				throw new MyException(400, "订单不是待付款状态，不能进行支付", null);
+			}
+		} else if ("2".equals(orderStatus)) {// 已发货
+			if (!gjfOrderInfo.getOrderStatus().equals("1")) {
+				throw new MyException(400, "订单未付款，请先支付", null);
+			}
+		} else if ("3".equals(orderStatus)) {// 已收货
+			if (!gjfOrderInfo.getOrderStatus().equals("2") && gjfOrderInfo.getOrderType().equals("1")) {
+				throw new MyException(400, "订单未发货，请耐心等待", null);
+			}
+		} else if ("4".equals(orderStatus)) {// 已过期--目前有定时器进行操作，该判断不进行处理
+			if (!gjfOrderInfo.getOrderStatus().equals("1")) {
+				throw new MyException(400, "不能进行此操作", null);
+			}
+		} else if ("5".equals(orderStatus)) {// 已取消
+			if (!gjfOrderInfo.getOrderStatus().equals("0")) {
+				throw new MyException(400, "不能取消该订单", null);
+			}
+		} else if ("6".equals(orderStatus)) {// 已退款
+			if (!gjfOrderInfo.getOrderStatus().equals("3")) {
+				throw new MyException(400, "订单未确认收货，请先确认收货", null);
+			}
+		}
+		if ("3".equals(orderStatus)) {
+			gjfOrderInfo.setFinishedTime(new Date());
+		}
+		String payType = gjfOrderInfo.getPayType();
+		if (orderStatus.equals("1") && payType.equals("4") || payType.equals("5") || payType.equals("6")) {
+			GjfMemberInfo memberInfo = gjfOrderInfo.getMemberId();
+			memberInfo.setBalanceMoney(memberInfo.getBalanceMoney().subtract(gjfOrderInfo.getOnlinePayAmount())
+					.setScale(2, BigDecimal.ROUND_DOWN));
+			memberInfo.setWithdrawalMoney(memberInfo.getWithdrawalMoney().subtract(gjfOrderInfo.getOnlinePayAmount())
+					.setScale(2, BigDecimal.ROUND_DOWN));
+			gjfOrderInfoDao.update(memberInfo);
+
+			GjfMemberTradeDetail detail1 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+					gjfOrderInfo.getOrderSn() + "-1", gjfOrderInfo.getOnlinePayAmount(), new Date(), new Date(), "0",
+					"0", "网上商城下单");
+			GjfMemberTradeDetail detail2 = new GjfMemberTradeDetail(null, gjfOrderInfo.getMemberId(),
+					gjfOrderInfo.getOrderSn() + "-2", gjfOrderInfo.getOnlinePayAmount(), new Date(), new Date(), "1",
+					"0", "网上商城下单");
+			gjfOrderInfoDao.save(detail1);
+			gjfOrderInfoDao.save(detail2);
+		}
+
+		// 如果支付方式为积分支付
+		if (orderStatus.equals("1") && "7".equals(payType)) {
+			GjfMemberInfo memberInfo = gjfOrderInfo.getMemberId();
+			memberInfo
+					.setConsumptionMoney(memberInfo.getConsumptionMoney().subtract(gjfOrderInfo.getOnlinePayAmount()));
+			gjfOrderInfo.setOrderStatus("1");
+		}
+		// 如果支付方式为责任消费
+		if (orderStatus.equals("1") && "8".equals(payType)) {
+			GjfMemberInfo memberInfo = gjfOrderInfo.getMemberId();
+			memberInfo.setInsuranceMoney(memberInfo.getInsuranceMoney().subtract(gjfOrderInfo.getOnlinePayAmount()));
+			gjfOrderInfo.setOrderStatus("1");
+		}
+
+		if ("0".equals(gjfOrderInfo.getOrderType())) {
+			gjfOrderInfo.setOrderStatus("3");
+			gjfOrderInfo.setFinishedTime(new Date());
+		} else {
+			gjfOrderInfo.setOrderStatus(orderStatus);
+		}
+
+		// 查询订单商品详情信息
+		attrs.remove("orderSn");
+		attrs.put("orderId.id", gjfOrderInfo.getId());
+		List<GjfOrderGoods> goods = gjfOrderInfoDao.queryList(GjfOrderGoods.class, "id", "asc", attrs);
+		String goodSource = "0";
+		for (GjfOrderGoods orderGood : goods) {
+			goodSource = orderGood.getGoodsId().getSuorceGoods();
+		}
+		// 如果为京东商品
+		if ("2".equals(goodSource) && "1".equals(orderStatus) && (payType.equals("1") || payType.equals("2")
+				|| payType.equals("3") || payType.equals("4") || payType.equals("5") || payType.equals("6"))) {
+			OrderResult result = JdUtil.cofirmOrder(gjfOrderInfo.getOrderSn(), gjfOrderInfo.getJdOrderSn());
+			if (BeanUtil.isValid(result)) {
+				gjfOrderInfo.setOrderStatus("2");
+			} else {
+				if ("1".equals(payType)) {
+					ResultVo rseultVo = RefundUtil.refundWeixinPay(gjfOrderInfo.getOrderSn(),
+							String.valueOf(gjfOrderInfo.getOfflinePayAmount().doubleValue()));
+					if (rseultVo.getCode() == 200) {
+						gjfOrderInfo.setOrderStatus("6");
+					}
+				}
+				if ("2".equals(payType)) {
+					ResultVo rseultVo = AlipayRefundUtil.aliRefund(gjfOrderInfo.getOrderSn(),
+							String.valueOf(gjfOrderInfo.getOfflinePayAmount().doubleValue()), "商品无库存");
+					if (rseultVo.getCode() == 200) {
+						gjfOrderInfo.setOrderStatus("6");
+					}
+				}
+			}
+
+		}
+
+		gjfOrderInfoDao.update(gjfOrderInfo);
+
+		if (client.equals("1")) {
+			Map<String, Object> attrsTradeLog = new HashMap<String, Object>();
+			Map<String, Object> propsTradeLog = new HashMap<String, Object>();
+			attrsTradeLog.put("linkTradeNo", orderSn);
+			propsTradeLog.put("payTradeNo", payOrderSn);
+			propsTradeLog.put("tradeTime", new Date());
+			propsTradeLog.put("tradeStatus", "1".equals(orderStatus) ? "1" : "0");
+			gjfOrderInfoDao.update(GjfMemberTradeLog.class, propsTradeLog, attrsTradeLog);
+		}
+
+		// 記錄用戶消費次數
+		if (gjfOrderInfo.getOrderStatus().equals("1")
+				&& (payType.equals("0") || payType.equals("1") || payType.equals("2") || payType.equals("3")
+						|| payType.equals("4") || payType.equals("5") || payType.equals("6") || payType.equals("7"))) {
+			// 查詢用戶消費記錄
+			List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao
+					.findMemberCousumptionNum(gjfOrderInfo.getMemberId().getId());
+			// 如果不為空則直接加一
+			if (BeanUtil.isValid(list)) {
+				GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+				gjfMemberConsumptiomNum.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() + 1);
+				gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+			} else {
+				GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+				consumptiomNum.setBenefitNum(0);
+				consumptiomNum.setShopConsumptionNum(1);
+				consumptiomNum.setMemberId(gjfOrderInfo.getMemberId().getId());
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				String date = sdf.format(new Date());
+				ParsePosition ps = new ParsePosition(0);
+				consumptiomNum.setAddTime(sdf.parse(date, ps));
+				gjfOrderInfoDao.save(consumptiomNum);
+			}
+
+			// 判断用户最早消费时间是否为空
+			if (!BeanUtil.isValid(gjfOrderInfo.getMemberId().getFirstConsumptionTime())) {
+				GjfMemberInfo member = gjfOrderInfo.getMemberId();
+				member.setFirstConsumptionTime(new Date());
+			}
+
+		}
+
+		// 確認訂單
+		if (gjfOrderInfo.getOrderStatus().equals("3") && (payType.equals("0") || payType.equals("1")
+				|| payType.equals("2") || payType.equals("3") || payType.equals("4") || payType.equals("5")
+				|| payType.equals("6") || payType.equals("7") || payType.equals("8"))
+				&& gjfOrderInfo.getBenerfitMoney().doubleValue() != 0) {
+
+			// 确认收货，则计算用户分红权
+			gjfBenefitInfoService.updateMemberDividendsNumNotify(gjfOrderInfo.getMemberId().getMobile(),
+					gjfOrderInfo.getStoreId().getMemberId().getMobile(), gjfOrderInfo.getBenerfitMoney().doubleValue(),
+					orderSn);
+		}
+
+		return new ResultVo(200, "修改成功", null);
+	}
+
+	/*
+	 * 删除订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#delOrder(java.lang.
+	 * String, java.lang.String)
+	 */
+	@Override
+	public ResultVo delOrder(String orderSn, String account, String token, int isNeedMember) {
+		GjfOrderInfo gjfOrderInfo = null;
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		attrs.put("token", token);
+		if (isNeedMember == 1) {
+			attrs.put("memberId.mobile", account);
+		}
+		gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfOrderInfo)) {
+			throw new MyException(400, "订单不存在", null);
+		}
+		gjfOrderInfo.setIsDel("0");
+		gjfOrderInfoDao.update(gjfOrderInfo);
+		return new ResultVo(200, "删除成功", null);
+	}
+
+	/*
+	 * 根据订单号查询订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderBySn(java.
+	 * lang.String)
+	 */
+	@Override
+	public ResultVo findOrderBySn(String orderSn, String account, int isNeedMember) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		if (isNeedMember == 1) {
+			attrs.put("memberId.mobile", account);
+		}
+		attrs.put("isDel", "1");
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		return new ResultVo(200, "查询成功", gjfOrderInfo);
+	}
+
+	/*
+	 * 查询用户订单详情
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderDetail(java.
+	 * lang.String, java.lang.String)
+	 */
+	@SuppressWarnings("unchecked")
+	public ResultVo findOrderDetail(String orderSn, String account) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		attrs.put("memberId.mobile", account);
+		attrs.put("isDel", "1");
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfOrderInfo)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		OrderInfoVo orderInfoVo = BeanUtilsEx.copyBean(OrderInfoVo.class, gjfOrderInfo);
+		attrs.remove("orderSn");
+		attrs.remove("memberId.mobile");
+		attrs.remove("isDel");
+		attrs.put("orderId.id", gjfOrderInfo.getId());
+		List<GjfOrderGoods> gjfOrderGoods = gjfOrderInfoDao.queryList(GjfOrderGoods.class, "id", "asc", attrs);
+		GjfOrderAddress gjfOrderAddress = gjfOrderInfoDao.query(GjfOrderAddress.class, attrs);
+		List<OrderGoodsVo> goodsVos = new ArrayList<OrderGoodsVo>();
+		for (GjfOrderGoods goods : gjfOrderGoods) {
+			OrderGoodsVo orderGoodsVo = new OrderGoodsVo();
+			if ("1".equals(gjfOrderInfo.getOrderType())) {
+				orderGoodsVo.setGoodsId(goods.getGoodsId().getId());
+			}
+			orderGoodsVo.setGoodsAmount(goods.getGoodsAmount());
+			orderGoodsVo.setGoodsName(goods.getGoodsName());
+			orderGoodsVo.setGoodsAttr(goods.getGoodsAttr());
+			orderGoodsVo.setGoodsNum(goods.getGoodsNum());
+			goodsVos.add(orderGoodsVo);
+		}
+		orderInfoVo.setGoodsVos(goodsVos);
+		orderInfoVo.setGjfOrderAddress(gjfOrderAddress);
+		return new ResultVo(200, "查询成功", orderInfoVo);
+	}
+
+	/*
+	 * 根据订单号和token查询订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderBySn(java.
+	 * lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findOrderBySn(String orderSn, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		attrs.put("token", token);
+		attrs.put("isDel", "1");
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		return new ResultVo(200, "查询成功", gjfOrderInfo);
+	}
+
+	/*
+	 * 根据账户和订单状态查询订单
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfOrderInfoService#findMyOrder(int,
+	 * int, java.lang.String, java.lang.String)
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Override
+	public ResultVo findMyOrder(int pageNo, int pageSize, String account, String status) {
+		// 分页查询所有订单
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("memberId.mobile", account);
+		if (StringUtil.isNotBlank(status) && Integer.parseInt(status) != 7) {
+			attrs.put("orderStatus", status);
+		}
+		List<GjfOrderInfo> list = gjfOrderInfoDao.queryList(GjfOrderInfo.class, (pageNo - 1) * pageSize, pageSize,
+				"addTime", "desc", attrs);
+		List orderList = new ArrayList<>();
+		for (GjfOrderInfo order : list) {
+			Map orderMap = new HashMap<>();
+			orderMap.put("payType", order.getPayType());
+			orderMap.put("evaluationStatus", order.getEvaluationStatus());
+			orderMap.put("orderStatus", order.getOrderStatus());
+			orderMap.put("orderSn", order.getOrderSn());
+			orderMap.put("orderType", order.getOrderType());
+			orderMap.put("storeName", order.getStoreId().getStoreName());
+			orderMap.put("goodsTotalAmount", order.getGoodsTotalAmount());
+			orderMap.put("token", order.getToken());
+			orderMap.put("goodSoure", order.getSuoceGood());
+			orderMap.put("benefitMoney", order.getBenerfitMoney());
+
+			// 如果是友品集商品
+			if ("1".equals(order.getSuoceGood()) && "0".equals(order.getOrderStatus())
+					&& BeanUtil.isValid(order.getJdOrderSn())) {
+				// 获取用户信息
+				Map<String, Object> memMap = new HashMap<>();
+				memMap.put("mobile", account);
+				GjfMemberInfo mem = gjfOrderInfoDao.query(GjfMemberInfo.class, memMap);
+				// 查询订单信息
+				JSONObject json = NetFriendUtil.findOrderDetail(mem.getToken().substring(0, 50), order.getJdOrderSn());
+				System.out.println(json);
+				if (Integer.valueOf(json.get("errcode").toString()) == 0) {
+					JSONObject object = json.getJSONObject("data");
+					if ("1".equals(object.getString("status"))) {
+						orderMap.put("orderStatus", "2");
+						order.setOrderSn("2");
+						gjfOrderInfoDao.update(order);
+					}
+				}
+			}
+
+			orderMap.put("jdOrderSn", order.getJdOrderSn());
+			Map<String, Object> attr = new HashMap<>();
+			attr.put("orderId.id", order.getId());
+			List<GjfOrderGoods> goodslist = gjfOrderInfoDao.queryList(GjfOrderGoods.class, "id", "asc", attr);
+			List goodList = new ArrayList<>();
+			for (GjfOrderGoods goods : goodslist) {
+				Map goodMap = new HashMap<>();
+				if (!ObjValid.isNotValid(goods.getGoodsId())) {
+					goodMap.put("goodsId", goods.getGoodsId().getId());
+				}
+				goodMap.put("goodsName", goods.getGoodsName());
+				goodMap.put("goodsAmount", goods.getGoodsAmount());
+				goodMap.put("goodsPayAcmount", goods.getGoodsPayAmount());
+				goodMap.put("goodNum", goods.getGoodsNum());
+				if ("1".equals(order.getOrderType())) {
+					goodMap.put("goodsImg", goods.getGoodsImageUrl());
+				} else {
+					goodMap.put("goodsImg", order.getStoreId().getStoreBanner());
+				}
+
+				goodList.add(goodMap);
+			}
+			orderMap.put("goods", goodList);
+			orderList.add(orderMap);
+		}
+		return new ResultVo(200, "查询成功", orderList);
+
+		// return new ResultVo(200, "查询成功",
+		// gjfOrderInfoDao.findOrderByStatus(pageNo, pageSize, account,
+		// status));
+	}
+
+	/*
+	 * 查询店铺的订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findStoreOrder(int,
+	 * int, java.lang.String, java.lang.String)
+	 */
+	public ResultVo findStoreOrder(int pageNo, int pageSize, String account, String status) {
+		return null;
+	}
+
+	/*
+	 * 分页查询用户订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findAllOrder(int,
+	 * int, java.lang.String, java.lang.String, java.lang.String,
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findAllOrder(int pageNo, int pageSize, String orderSn, String storeName, String goodsName,
+			String name, String nickName, String orderStatus, String payType, String orderType, String startDate,
+			String endDate, String ste, String jdOrderSn, String goodSource) {
+		return new ResultVo(200, "查询成功", gjfOrderInfoDao.findAllOrder(pageNo, pageSize, orderSn, storeName, goodsName,
+				name, nickName, orderStatus, payType, orderType, startDate, endDate, ste, jdOrderSn, goodSource));
+
+	}
+
+	/*
+	 * 根据用户Id查询用户订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderByMemberId(
+	 * int, int, java.lang.Long)
+	 */
+	@Override
+	public ResultVo findOrderByMemberId(int pageNo, int pageSize, Long memberId, String startTime, String endTime) {
+		return new ResultVo(200, "查询成功",
+				gjfOrderInfoDao.findOrderByMemberId(pageNo, pageSize, memberId, startTime, endTime));
+	}
+
+	/*
+	 * 添加订单地址
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#addOrderAddress(cc.
+	 * messcat.gjfeng.entity.GjfOrderAddress, java.lang.Long)
+	 */
+	@Override
+	public ResultVo addOrderAddress(GjfOrderAddress address, Long orderId) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("id", orderId);
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		gjfOrderInfo.setOrderStatus("2");
+		gjfOrderInfo.setDeliveryTime(new Date());
+		gjfOrderInfoDao.update(gjfOrderInfo);
+		Map<String, Object> attrs0 = new HashMap<String, Object>();
+		attrs0.put("id", address.getId());
+		GjfOrderAddress gjfOrderAddress = gjfOrderInfoDao.query(GjfOrderAddress.class, attrs0);
+		try {
+			gjfOrderAddress = BeanUtil.setBeanByOtherBeanWithoutNull(gjfOrderAddress, address);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		gjfOrderInfoDao.update(gjfOrderAddress);
+		return new ResultVo(200, "查询成功", null);
+	}
+
+	/*
+	 * 查询订单明细
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderDetailInBack
+	 * (java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findOrderDetailInBack(String orderSn, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		attrs.put("token", token);
+		attrs.put("isDel", "1");
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		Map<String, Object> attrs0 = new HashMap<String, Object>();
+		attrs0.put("orderId.id", gjfOrderInfo.getId());
+		GjfOrderGoods gjfOrderGoods = gjfOrderInfoDao.query(GjfOrderGoods.class, attrs0);
+
+		GjfOrderAddress gjfOrderAddress = gjfOrderInfoDao.query(GjfOrderAddress.class, attrs0);
+		Map<String, Object> info = new HashMap<String, Object>();
+		info.put("gjfOrderInfo", gjfOrderInfo);
+		info.put("gjfOrderGoods", gjfOrderGoods);
+		info.put("gjfOrderAddress", gjfOrderAddress);
+		return new ResultVo(200, "查询成功", info);
+	}
+
+	/*
+	 * 查询订单地址明细
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfOrderInfoService#
+	 * findOrderAddressDetail(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findOrderAddressDetail(String orderSn, String token) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderId.orderSn", orderSn);
+		attrs.put("orderId.token", token);
+		attrs.put("orderId.isDel", "1");
+		GjfOrderAddress gjfOrderAddress = gjfOrderInfoDao.query(GjfOrderAddress.class, attrs);
+		return new ResultVo(200, "获取成功", gjfOrderAddress);
+	}
+
+	/*
+	 * 查找分销商品
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfOrderInfoService#
+	 * findLowersOrderGoodsById(int, int, java.lang.Long)
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
+	public ResultVo findLowersOrderGoodsById(int pageNo, int pageSize, Long id) {
+		if (ObjValid.isNotValid(id)) {
+			return new ResultVo(400, "查询失败", null);
+		}
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("superId", id);
+		List result = new ArrayList<>();
+		// 下级
+		List<GjfMemberInfo> gjfMemberInfos = gjfOrderInfoDao.queryList(GjfMemberInfo.class, "id", "asc", attrs);
+		for (GjfMemberInfo gjfMemberInfo : gjfMemberInfos) {
+			result.addAll(gjfOrderInfoDao.findLowersOrderGoodsById(gjfMemberInfo.getId()));
+		}
+		Pager pager = new Pager(pageSize, pageNo, result.size(), result);
+		return new ResultVo(200, "查询成功", pager);
+	}
+
+	/*
+	 * 根据订单Id查找订单的商品
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfOrderInfoService#
+	 * findOrderGoodsByOrderId(java.lang.Long)
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findOrderGoodsByOrderId(Long id) {
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderId", id);
+		return new ResultVo(200, "查询成功", gjfOrderInfoDao.queryList(GjfOrderGoods.class, "id", "asc", attrs));
+	}
+
+	/*
+	 * 查询商家O2O订单
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.order.GjfOrderInfoService#findOrderByCondition(
+	 * int, int, java.lang.Long, java.lang.String, java.lang.String,
+	 * java.lang.String)
+	 */
+	@Override
+	public ResultVo findOrderByCondition(int pageNo, int pageSize, Long id, String token, String startTime,
+			String endTime) {
+		return new ResultVo(200, "查询成功",
+				gjfOrderInfoDao.findOrderByCondition(pageNo, pageSize, id, token, startTime, endTime));
+	}
+
+	/*
+	 * 查询商家O2O订单:当前条件统计
+	 * 
+	 * @see cc.messcat.gjfeng.service.order.GjfOrderInfoService#
+	 * findCountOrderByCondition(java.lang.Long, java.lang.String,
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public ResultVo findCountOrderByCondition(Long id, String token, String startTime, String endTime) {
+		return new ResultVo(200, "查询成功", gjfOrderInfoDao.findCountOrderByCondition(id, token, startTime, endTime));
+	}
+
+	@Override
+	public ResultVo updateOrderPayMoney(String orderSn, Double onlinePay, Double offlinePay, String newOrderSn) {
+
+		Map<String, Object> attrs = new HashMap<String, Object>();
+		attrs.put("orderSn", orderSn);
+		GjfOrderInfo gjfOrderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfOrderInfo)) {
+			return new ResultVo(400, "订单不存在", null);
+		}
+		gjfOrderInfo.setOnlinePayAmount(new BigDecimal(onlinePay));
+		gjfOrderInfo.setOfflinePayAmount(new BigDecimal(offlinePay));
+		gjfOrderInfo.setOrderSn(newOrderSn);
+		return new ResultVo(200, "修改成功", gjfOrderInfoDao.update(gjfOrderInfo));
+	}
+
+	@Override
+	public ResultVo addO2oOrderInfo(String account, Double payMoney, Long storeId, String orderType, String payType,
+			String remark, Long couponsId) {
+		// 获取用户信息
+		GjfMemberInfo gjfMemberInfo = gjfMemberInfoService.findMember(account);
+		if (ObjValid.isNotValid(gjfMemberInfo)) {
+			throw new MyException(400, "用户不存在", null);
+		}
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("id", storeId);
+		GjfStoreInfo gjfStoreInfo = gjfOrderInfoDao.query(GjfStoreInfo.class, attrs);
+		if (ObjValid.isNotValid(gjfStoreInfo)) {
+			throw new MyException(400, "店铺不存在", null);
+		}
+		// 添加订单信息
+		GjfOrderInfo gjfOrderInfo = new GjfOrderInfo();
+		gjfOrderInfo.setOrderSn(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfOrderInfo.setPickupCode(RandUtil.getRandomStr(6));
+		gjfOrderInfo.setMemberId(gjfMemberInfo);
+		gjfOrderInfo.setStoreId(gjfStoreInfo);
+		gjfOrderInfo.setGoodsTotalAmount(new BigDecimal(payMoney));
+		gjfOrderInfo.setOrderTotalAmount(new BigDecimal(payMoney));
+		gjfOrderInfo.setRealPayAmount(new BigDecimal(payMoney));
+		gjfOrderInfo.setOnlinePayAmount(new BigDecimal(0.00));
+		gjfOrderInfo.setOfflinePayAmount(new BigDecimal(payMoney));
+		gjfOrderInfo.setPayType("1");
+		gjfOrderInfo.setOrderStatus("0");
+		gjfOrderInfo.setPayTime(new Date());
+		gjfOrderInfo.setStoreBenefitAmount(
+				new BigDecimal(payMoney).multiply(new BigDecimal(0.12)).setScale(2, BigDecimal.ROUND_UP));
+		gjfOrderInfo.setStoreRecAmount(new BigDecimal(payMoney).subtract(gjfOrderInfo.getStoreBenefitAmount())
+				.setScale(2, BigDecimal.ROUND_UP));
+		gjfOrderInfo.setRefundAmount(new BigDecimal(0.00));
+		// gjfOrderInfo.setCouponsId(couponsId);
+		gjfOrderInfo.setRemark(remark);
+		gjfOrderInfo.setAddTime(new Date());
+		gjfOrderInfo.setOrderType(orderType);
+		gjfOrderInfo.setEvaluationStatus("0");
+		gjfOrderInfo.setRefundStatus("0");
+		gjfOrderInfo.setIsDel("1");
+		gjfOrderInfo.setToken(
+				Sha256.getSha256Hash(gjfOrderInfo.getOrderSn(), gjfOrderInfo.getPayType(), CommonStatus.SIGN_KEY_NUM));
+
+		// 支付明细流水
+		GjfMemberTradeLog gjfMemberTradeLog = new GjfMemberTradeLog();
+		gjfMemberTradeLog.setTradeNo(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+		gjfMemberTradeLog.setLinkTradeNo(gjfOrderInfo.getOrderSn());
+		gjfMemberTradeLog.setStoreId(gjfOrderInfo.getStoreId());
+		gjfMemberTradeLog.setMemberId(gjfOrderInfo.getMemberId());
+		gjfMemberTradeLog.setAddTime(new Date());
+		gjfMemberTradeLog.setTradeType("3");
+		gjfMemberTradeLog.setTradeTime(new Date());
+		gjfMemberTradeLog.setTradeMoney(new BigDecimal(payMoney));
+		gjfMemberTradeLog.setTradeTrmo("微信扫码支付");
+		gjfMemberTradeLog.setTradeStatus("0");
+		gjfMemberTradeLog.setToken(Sha256.getSha256Hash(gjfMemberTradeLog.getTradeNo(),
+				gjfMemberTradeLog.getTradeType(), CommonStatus.SIGN_KEY_NUM));
+		gjfOrderInfoDao.save(gjfOrderInfo);
+		gjfOrderInfoDao.save(gjfMemberTradeLog);
+		return new ResultVo(200, "添加成功", gjfOrderInfo);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResultVo findO2oOrderInfo(String status, Long storeId, String beginTime, String endTime, Integer pageNo,
+			Integer pageSize) {
+		Map<String, Object> attr = new HashMap<>();
+		attr.put("storeId.id", storeId);
+		attr.put("orderType", "0");
+		if (Integer.parseInt(status) != 7) {
+			attr.put("orderStatus", status);
+		}
+		return new ResultVo(200, "添加成功", gjfOrderInfoDao.queryList(GjfOrderInfo.class, (pageNo - 1) * pageSize,
+				pageSize, "addTime", "desc", attr));
+	}
+
+	// @Override
+	// public ResultVo backOrderByOrderId(Long orderId,String orderSn,String
+	// token){
+	// Map<String,Object> attrs = new HashMap<String,Object>();
+	// attrs.put("id", orderId);
+	// attrs.put("orderSn", orderSn);
+	// attrs.put("token", token);
+	// GjfOrderInfo orderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class,
+	// attrs);
+	//
+	// if(ObjValid.isNotValid(orderInfo)){
+	// return new ResultVo(404,"订单不存在！");
+	// }
+	// String orderStatus = orderInfo.getOrderStatus();
+	// if(ObjValid.isNotValid(orderStatus) || !"1".equals(orderStatus)){
+	// if("6".equals(orderStatus))
+	// return new ResultVo(404,"订单状态已退款");
+	// return new ResultVo(404,"订单状态不为已付款");
+	// }
+	// String orderType = orderInfo.getOrderType();
+	// if("0".equals(orderType)){
+	// //余额支付
+	// refundBalanceMoney(orderInfo);
+	// }else if ("1".equals(orderType)) {
+	// refundWeixinPay(orderInfo);
+	// }
+	//
+	// return new ResultVo();
+	// }
+
+	@Override
+	public ResultVo refundOnlineMoney(GjfOrderInfo orderInfo) {
+		GjfMemberInfo memberInfo = orderInfo.getMemberId();
+		BigDecimal onlineMoney = orderInfo.getOnlinePayAmount();
+		String payType = orderInfo.getPayType();
+		if ("0".equals(payType)) {
+			// 余额
+			memberInfo.setBalanceMoney(memberInfo.getBalanceMoney().add(onlineMoney));
+		} else if ("7".equals(payType)) {
+			// 待领消费金额
+			memberInfo.setConsumptionMoney(memberInfo.getConsumptionMoney().add(onlineMoney));
+		} else if ("8".equals(payType)) {
+			// 责任消费金额
+			memberInfo.setInsuranceMoney(memberInfo.getInsuranceMoney().add(onlineMoney));
+		}
+
+		// 更新订单状态
+		BigDecimal refundAmount = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+		if ("0".equals(payType) || "7".equals(payType) || "8".equals(payType)) {
+			// 余额 待领消费金额 责任消费金额
+			refundAmount = orderInfo.getOnlinePayAmount();
+		} else if ("1".equals(payType) || "2".equals(payType) || "3".equals(payType)) {
+			// 微信支付宝银联
+			refundAmount = orderInfo.getOfflinePayAmount();
+		}
+		orderInfo.setOrderStatus("6");
+		orderInfo.setRefundStatus("2");
+		orderInfo.setRefundTime(new Date());
+		orderInfo.setRefundAmount(refundAmount);
+		gjfOrderInfoDao.update(memberInfo);
+		gjfOrderInfoDao.update(orderInfo);
+		return new ResultVo(200, "操作成功");
+	}
+
+	@Override
+	public ResultVo updateRefundStatus(GjfOrderInfo orderInfo) {
+		String payType = orderInfo.getOrderType();
+		BigDecimal refundAmount = new BigDecimal(0.00).setScale(2, BigDecimal.ROUND_UP);
+		if ("0".equals(payType) || "7".equals(payType) || "8".equals(payType)) {
+			// 余额 待领消费金额 责任消费金额
+			refundAmount = orderInfo.getOnlinePayAmount();
+		} else if ("1".equals(payType) || "2".equals(payType) || "3".equals(payType)) {
+			// 微信支付宝银联
+			refundAmount = orderInfo.getOfflinePayAmount();
+		}
+		orderInfo.setOrderStatus("6");
+		orderInfo.setRefundStatus("2");
+		orderInfo.setRefundTime(new Date());
+		orderInfo.setRefundAmount(refundAmount);
+		gjfOrderInfoDao.update(orderInfo);
+		return new ResultVo(200, "操作成功");
+	}
+
+	/**
+	 * 天猫订单处理
+	 */
+	@Override
+	public ResultVo addTianmaoOrder(String item_title, String pay_price, String commission, String trade_id, String uid,
+			String status, String apitype) {
+		// 查询订单是否存在
+		Map<String, Object> attrs = new HashMap<>();
+		attrs.put("jdOrderSn", trade_id);
+		GjfOrderInfo orderInfo = gjfOrderInfoDao.query(GjfOrderInfo.class, attrs);
+		if (!BeanUtil.isValid(orderInfo)) {// 如果订单不存在，则添加订单
+			// 查询用户信息
+			attrs.remove("jdOrderSn");
+			String str = uid.substring(4, uid.length());
+			attrs.put("id", Long.valueOf(str));
+			GjfMemberInfo memberInfo = gjfOrderInfoDao.query(GjfMemberInfo.class, attrs);
+			if (!BeanUtil.isValid(memberInfo)) {
+				return new ResultVo(400, "用户不存在", null);
+			}
+
+			attrs.remove("id");
+			attrs.put("storeIsOwnShop", "1");
+			GjfStoreInfo storeInfo = gjfOrderInfoDao.query(GjfStoreInfo.class, attrs);
+
+			// 订单金额
+			BigDecimal orderMoney = new BigDecimal(pay_price);
+			BigDecimal zore = new BigDecimal(0);
+			// 创建订单信息
+			GjfOrderInfo order = new GjfOrderInfo();
+			order.setAddTime(new Date());
+			order.setBenerfitMoney(new BigDecimal(commission));
+			order.setCancelReason("");
+			order.setCancelTime(null);
+			order.setCouponsId(0L);
+			order.setDeliveryTime(null);
+			order.setEvaluationStatus("0");
+			order.setFinishedTime(null);
+			order.setGoodsTotalAmount(orderMoney);
+			order.setIsDel("1");
+			order.setJdOrderSn(trade_id);
+			order.setMemberId(memberInfo);
+			order.setOfflinePayAmount(zore);
+			order.setOnlinePayAmount(orderMoney);
+			order.setOrderPostage(zore);
+			order.setRemark("积分会在交易成功16天后进行发放");
+			order.setOrderSn(DateHelper.dataToString(new Date(), "yyyyMMddHHmmss" + RandUtil.getRandomStr(6)));
+			if ("taobao".equals(apitype) || apitype == null) {
+				if ("1".equals(status)) {
+					order.setOrderStatus("0");
+				} else if ("4".equals(status)) {
+					order.setOrderStatus("5");
+				} else if ("3".equals(status)) {
+					order.setOrderStatus("3");
+				} else if ("2".equals(status)) {
+					order.setOrderStatus("2");
+				} else {
+					order.setOrderStatus("7");
+				}
+			} else {
+				if ("1".equals(status)) {
+					order.setOrderStatus("7");
+				} else {
+					order.setOrderStatus("8");
+				}
+			}
+
+			order.setOrderTotalAmount(orderMoney);
+			order.setOrderType("1");
+			order.setPayTime(new Date());
+			order.setPayType("9");
+			order.setRealPayAmount(orderMoney);
+			order.setRefundAmount(zore);
+			order.setRefundStatus("0");
+			order.setStoreBenefitAmount(orderMoney.multiply(new BigDecimal(0.12)).setScale(2, BigDecimal.ROUND_DOWN));
+			order.setStoreRecAmount(orderMoney.multiply(new BigDecimal(0.12)).setScale(2, BigDecimal.ROUND_DOWN));
+			order.setSuoceGood("3");
+			order.setStoreId(storeInfo);
+			order.setTaxMoney(zore);
+			order.setToken(Sha256.getSha256Hash(order.getOrderSn(), order.getOrderType(), CommonStatus.SIGN_KEY_NUM));
+			gjfOrderInfoDao.save(order);
+			// 订单商品信息
+			GjfOrderGoods orderGoods = new GjfOrderGoods();
+			orderGoods.setGoodsAmount(orderMoney);
+			orderGoods.setGoodsName(item_title);
+			orderGoods.setOrderId(order);
+			orderGoods.setGoodsType("1");
+			orderGoods.setGoodsPayAmount(orderMoney);
+			orderGoods.setGoodsNum(1L);
+			orderGoods.setPromotionsId(0L);
+			orderGoods.setStoreBenefitAmount(zore);
+			orderGoods.setStoreRecAmount(zore);
+			orderGoods.setGoodsImageUrl(projectName + "/common/image/wx/online-shop/proImageNo.jpg");
+			gjfOrderInfoDao.save(orderGoods);
+
+			// 查詢用戶消費記錄
+			List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao.findMemberCousumptionNum(Long.valueOf(str));
+			// 如果不為空則直接加一
+			if (BeanUtil.isValid(list)) {
+				GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+				gjfMemberConsumptiomNum.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() + 1);
+				gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+			} else {
+				GjfMemberConsumptiomNum consumptiomNum = new GjfMemberConsumptiomNum();
+				consumptiomNum.setBenefitNum(0);
+				consumptiomNum.setShopConsumptionNum(1);
+				consumptiomNum.setMemberId(Long.valueOf(str));
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				String date = sdf.format(new Date());
+				ParsePosition ps = new ParsePosition(0);
+				consumptiomNum.setAddTime(sdf.parse(date, ps));
+				gjfOrderInfoDao.save(consumptiomNum);
+			}
+
+		} else {
+			if ("taobao".equals(apitype) || apitype == null) {
+				if ("1".equals(status)) {
+					orderInfo.setOrderStatus("0");
+				} else if ("4".equals(status)) {
+					String str = uid.substring(4, uid.length());
+
+					// 查詢用戶消費記錄
+					List<GjfMemberConsumptiomNum> list = gjfBenefitInfoDao.findMemberCousumptionNum(Long.valueOf(str));
+					// 如果不為空則直接加一
+					if (BeanUtil.isValid(list)) {
+						GjfMemberConsumptiomNum gjfMemberConsumptiomNum = list.get(0);
+						gjfMemberConsumptiomNum
+								.setShopConsumptionNum(gjfMemberConsumptiomNum.getShopConsumptionNum() - 1);
+						gjfOrderInfoDao.update(gjfMemberConsumptiomNum);
+					}
+
+					orderInfo.setOrderStatus("5");
+				} else if ("3".equals(status)) {
+					orderInfo.setOrderStatus("3");
+				} else if ("2".equals(status)) {
+					orderInfo.setOrderStatus("2");
+				} else {
+					orderInfo.setOrderStatus("7");
+					orderInfo.setFinishedTime(new Date());
+				}
+			} else {
+				if ("1".equals(status)) {
+					orderInfo.setOrderStatus("7");
+				} else {
+					orderInfo.setOrderStatus("8");
+				}
+			}
+			gjfOrderInfoDao.update(orderInfo);
+		}
+		return new ResultVo(200, "回调成功", null);
+	}
+
+	/**
+	 * 结算订单积分
+	 */
+	@Override
+	public ResultVo updateOrderBenefit() {
+		List<GjfOrderInfo> orList = gjfOrderInfoDao.findSettlementOrder();
+		if (BeanUtil.isValid(orList)) {
+			for (GjfOrderInfo order : orList) {
+				if (order.getBenerfitMoney().doubleValue() > 0) {
+					// 确认收货，则计算用户分红权
+					gjfBenefitInfoService.updateMemberDividendsNumNotify(order.getMemberId().getMobile(),
+							order.getStoreId().getMemberId().getMobile(), order.getBenerfitMoney().doubleValue(),
+							order.getOrderSn());
+				}
+			}
+		}
+		return new ResultVo(200, "结算成功", null);
+	}
+}

@@ -1,0 +1,268 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-o2o-top.jsp" %>
+<script type="text/javascript" src="https://res.wx.qq.com/open/js/jweixin-1.0.0.js"></script>
+
+<body>
+    <div class="container">
+       <!--  <form class="buy-bonus-form"> -->
+            <div class="bonus-wrap">
+                <div class="shouxin-now">现有授信额度:${shouXinMenoy}</div>
+                <div class="bonus-item clearfix">
+                    <label class="bonus-label left">充值额度：</label>
+                    <input type="number" name="" placeholder="请输入您要充值的授信额度" class="bonus-input right" id="bonus-num">
+                </div>
+            </div>
+            <div class="bonus-pay">
+                <div class="bonusPay-top clearfix">
+                    <label class="bonusPay-label left">应付金额</label>
+                    <div class="bonusPay-money right" id="nicePay">0</div>
+                </div>
+                <input type="hidden" name="type" id="type"/>
+                <ul class="bonusPay-ul">
+                    <li class="bonusPay-li clearfix" data-id="1" >
+                        <label class="bonusPay-left left"  style="height: 100%;">
+                            <img src="${imagePath}/wx/o2o-shop/weixin.png" class="bonusPay-img">
+                            <span class="bonusPay-words">微信支付</span>
+                        </label>
+                        <div class="bonusPay-right right">
+                            <i class="icon-circle"></i>
+                        </div>
+                    </li>
+                   <%-- <li class="bonusPay-li clearfix" data-id="2" >
+                        <label class="bonusPay-left left" style="height: 100%;">
+                            <img src="${imagePath}/wx/o2o-shop/yinglian.png" class="bonusPay-img">
+                            <span class="bonusPay-words" >银联在线支付</span>
+                        </label>
+                        <div class="bonusPay-right right">
+                            <i class="icon-circle"></i>
+                        </div>
+                    </li>--%>
+                   <li class="bonusPay-li clearfix" data-id="3" >
+                        <label class="bonusPay-left left" style="height: 100%;">
+                            <img src="${imagePath}/wx/o2o-shop/授信额度支付.png" class="bonusPay-img">
+                            <span class="bonusPay-words" >余额支付</span>
+                        </label>
+                        <div class="bonusPay-right right">
+                            <i class="icon-circle"></i>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="btn-box">
+                <button type="button" class="btn" id="saveToPay">确认购买</button>
+            </div>
+            <div class="loading-middle hidden">
+              <img src="${imagePath}/wx/o2o-shop/load.gif" class="loadImg">
+           </div>
+        <!-- </form> -->
+    </div>
+    <script type="text/javascript">
+        $(function(){
+        	document.title = "授信额度";
+            $(".icon-circle").on("click",function(){
+                var that = $(this);
+                $(".icon-circle").removeClass('icon-circle-active');
+                that.addClass("icon-circle-active");
+            });
+            
+            $("#bonus-num").blur(function(){
+            	$("#nicePay").html($("#bonus-num").val()*0.12)
+            })
+
+            $("#saveToPay").on("click",function(){
+                var num = $(".icon-circle-active").parents("li").attr("data-id");
+                var bonusNum = $("#bonus-num").val();//分权数值，字符串类型
+                var intBonus = parseInt(bonusNum);//转整型
+                var reg = /^(([1-9]\d*)|([0-9]))$/;
+                if(bonusNum == "" || bonusNum == undefined){
+                    layer.open({
+                        content:'请填写授信额度',
+                        btn:'我知道了'
+                    })
+                }else{
+                    if(!reg.test(bonusNum) || intBonus===0){
+                        layer.open({
+                            content:'授信额度为非负非零整数',
+                            btn:'我知道了'
+                        })
+                    }else{
+                        if(num=="1"){
+                        	  layer.open({
+                                content:'微信支付功能暂未开放，敬请期待',
+                                btn:'我知道了'
+                            })       
+                        	addShouXin("1")
+                            //微信支付
+                        }else if(num=="2"){
+                        	 /*  if($("#nicePay").html()<600){
+                        		 layer.open({
+                                     content:'网银支付金额不能少于600元',
+                                     btn:'我知道了'
+                                 })
+                        	}else{  */    
+                        		addShouXinByH5("3");
+                        	/* } */  
+                          /*  layer.open({
+                               content:'网银支付功能暂未开放，敬请期待',
+                               btn:'我知道了'
+                           })  */
+                        	
+                            //银联
+                        }else if(num=="3"){
+                        	addShouXin("0")
+                        }else{
+                            layer.open({
+                                content:'请选择支付方式',
+                                btn:'我知道了'
+                            })
+                        }
+                    }
+                    
+                }
+                
+            })
+        })
+        
+        //微信余额
+        function addShouXin(type){
+        	layer.open({
+                content: '是否确认充值',
+                btn: ['确定', '取消'],
+                yes: function(index){//点击去认证页面，index为该特定层的索引
+                	if(type=="1"){//微信
+                		$(".loading-middle").removeClass("hidden");
+                        $(".btn").attr("disabled","disabled");
+                    	$.ajax({
+                    		url:"${ctx}/wx/member/addShouXin",
+                    		method:"POST",
+                    		data:{
+                    			type:type,
+                    			tradeMoney:$("#bonus-num").val(),
+                    			shouType:"0",
+                    			fileImage:"",
+                    		},
+                    		success:function(data){
+                    			//聚合付
+                    			/* if(data.code==200){
+                    				window.location.href="https://pay.swiftpass.cn/pay/jspay?token_id="+data.result;
+            	            	}else{
+            	            		$(".loading-middle").addClass("hidden");
+ 		                            $(".btn").removeAttr("disabled");
+            	            		layer.open({
+                                        content:data.msg,
+                                        btn:'我知道了'
+                                    })
+            	            	}   */
+            	               //利楚  
+                    			 wx.config({
+                    			    debug: false, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+                    			    appId: data.result.appId, // 必填，公众号的唯一标识
+                    			    timestamp: data.result.timeStamp, // 必填，生成签名的时间戳
+                    			    nonceStr: data.result.nonceStr, // 必填，生成签名的随机串
+                    			    signature:data.result.paySign,// 必填，签名，见附录1
+                    			    jsApiList: ['chooseWXPay'] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+                    			}); 
+            	            	
+                    			wx.ready(function(){
+                    				wx.chooseWXPay({
+                    				    timestamp: data.result.timeStamp, // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
+                    				    nonceStr: data.result.nonceStr, // 支付签名随机串，不长于 32 位
+                    				    package: data.result.package_,
+                    				    //package: data.result.package_str, // 统一支付接口返回的prepay_id参数值，提交格式如：prepay_id=***）
+                    				    signType: "MD5", // 签名方式，默认为'SHA1'，使用新版支付需传入'MD5'
+                    				    paySign: data.result.paySign, // 支付签名
+                    				    success: function (res) {
+                    				        // 支付成功后的回调函数   
+                    				    	if(res.errMsg == "chooseWXPay:ok" ) {
+                       				    	 layer.open({
+                       				                content: '支付成功',
+                       				                btn: ['我知道了'],
+                       				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+                       				                	window.location.href="${ctx}/wx/member/myWallet"
+                       				                    layer.close(index);
+                       				                }                   				               
+                       				           });	                       				     
+                       				        } 
+                    				    	if(res.errMsg == "chooseWXPay:cancel" ) {
+                        				    	 layer.open({
+                        				                content: '取消支付',
+                        				                btn: ['我知道了'],
+                        				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+                        				                   $(".loading-middle").addClass("hidden");
+                        		                            $(".btn").removeAttr("disabled");
+                        				                    layer.close(index);
+                        				                }                   				               
+                        				           });	                       				     
+                        				     }
+                    				    	if(res.errMsg == "chooseWXPay:fail" ) {
+                       				    	 layer.open({
+                       				                content: '支付失败',
+                       				                btn: ['我知道了'],
+                       				                yes: function(index){//点击去认证页面，index为该特定层的索引                  				                	
+                       				                	$(".loading-middle").addClass("hidden");
+                       		                            $(".btn").removeAttr("disabled");
+                       				                    layer.close(index);
+                       				                }                   				               
+                       				           });	
+                    				    	}
+                    				    	}, 
+                    				    
+                    				});
+                    			});  
+
+                    		}
+                    	})
+                        layer.close(index);
+                	}else if(type=="0"){//余额
+                		$.ajax({
+                    		url:"${ctx}/wx/member/addShouXin",
+                    		method:"POST",
+                    		data:{
+                    			type:type,
+                    			tradeMoney:$("#bonus-num").val(),
+                    			shouType:"0",
+                    			fileImage:"",
+                    		},
+                    		success:function(data){
+                    			if(data.code==200){
+                    				window.location.href="${ctx}/wx/member/myWallet";
+            	            	}else{ 
+            	            		layer.open({
+                                        content:data.msg,
+                                        btn:'我知道了'
+                                    })
+            	            	 } 
+                    		}
+                    	})
+                        layer.close(index);
+                	}
+                	
+                },
+                no:function(index){
+                    layer.close(index);
+                }
+            });	        
+        	
+        }
+        
+        //h5
+         function addShouXinByH5(type){
+        	layer.open({
+                content: '是否确认充值',
+                btn: ['确定', '取消'],
+                yes: function(index){//点击去认证页面，index为该特定层的索引
+                	$(".loading-middle").removeClass("hidden");
+                    $(".btn").attr("disabled","disabled");
+                	window.location.href="${ctx}/wx/member/addShouXinByH5?type="+type+"&tradeMoney="+$("#bonus-num").val()
+                    layer.close(index);
+                },
+                no:function(index){
+                    layer.close(index);
+                }
+            });	        
+        	
+        }
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+package cc.messcat.gjfeng.service;
+
+import java.sql.SQLException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import cc.messcat.gjfeng.common.exception.MyException;
+import cc.messcat.gjfeng.common.util.DateHelper;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.dao.GjfBenefitInfoDao;
+import cc.messcat.gjfeng.entity.GjfBenefitDay;
+import cc.messcat.gjfeng.entity.GjfErrorInfo;
+
+@Service("gjfBenefitNotifyService")
+public class GjfBenefitNotifyServiceImpl implements GjfBenefitNotifyService {
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoDao")
+	private GjfBenefitInfoDao gjfBenefitInfoDao;
+
+	@Autowired
+	@Qualifier("gjfBenefitInfoService")
+	private GjfBenefitInfoService gjfBenefitInfoService;
+
+
+	/*
+	 * 每天24点计算返回所有用户所获得的分红，已供于手动和自动发放
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#
+	 * updateMemberBenefitNotify(java.lang.String, java.lang.String,
+	 * java.lang.Double, java.lang.Double)
+	 */
+	@Override
+	public ResultVo updateMemberBenefitNotify() throws NumberFormatException, SQLException {
+		// 调用存储过程
+		System.out.println("调用“每天24点计算返回所有用户所获得的分红”存储过程");
+		gjfBenefitInfoDao.updateBenefit();
+		return new ResultVo(200, "统计成功", null);
+	}
+
+	/*
+	 * 每天定时24点计算当天代理所获得的分红
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitInfoService#
+	 * updateAgentBenefitByDayNotify()
+	 */
+	@Override
+	public ResultVo updateAgentBenefitByDayNotify() throws NumberFormatException, SQLException {
+		// 调用存储过程
+		gjfBenefitInfoDao.updateAgentBenefitNotify();
+		return new ResultVo(200, "统计成功", null);
+	}
+
+	/*
+	 * 手动或自动发放会员或商家分红
+	 * 
+	 * @see cc.messcat.gjfeng.service.GjfBenefitNotifyService#updateBenefit()
+	 */
+	@Override
+	public ResultVo updateBenefit() {
+		// 1.判断是否今天已经发放了昨天的，如果没有则进行发放
+		synchronized ("updateBenefit") {
+			Map<String, Object> attrs = new HashMap<>();
+			attrs.put("tradeDay", DateHelper.dataToString(DateHelper.getDateByCalculateDays(new Date(), -1), "yyyyMMdd"));
+			GjfBenefitDay benefitDay = gjfBenefitInfoDao.query(GjfBenefitDay.class, attrs);
+			if (ObjValid.isNotValid(benefitDay)) {
+				return new ResultVo(400, "发放失败,没有统计数据", null);
+			}
+			if (benefitDay.getTradeStatus().equals("1")) {
+				return new ResultVo(400, "发放失败,昨天分红已经发放成功了", null);
+			}
+			//查询总报表和福利派发报表统计记录，以便于修改
+			gjfBenefitInfoDao.updateMemberBenefit(benefitDay);
+		}
+		return new ResultVo(200, "发放成功", null);
+	}
+
+	/*
+	 * 手动结算发放代理分红
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.GjfBenefitNotifyService#updateAgentBenefit()
+	 */
+	@Override
+	public ResultVo updateAgentBenefit(Long memberId, String token) {
+		synchronized (token) {
+			// 每天的统计时间禁止发放操作
+			try {
+				/*DateHelper.getMinBetween(DateHelper.stringToDate("2017-3-3 00:01:10", "yyyy-MM-dd HH:mm:ss"),
+					DateHelper.stringToDate("2017-3-2 23:59:10", "yyyy-MM-dd HH:mm:ss"));*/
+				return gjfBenefitInfoDao.updateAgentBenefit(memberId, token);
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new MyException(400, "方法失败", null);
+			}
+
+		}
+	}
+
+	/*
+	 * 保存错误信息
+	 * 
+	 * @see
+	 * cc.messcat.gjfeng.service.GjfBenefitNotifyService#saveErrMsg(cc.messcat.
+	 * gjfeng.entity.GjfErrorInfo)
+	 */
+	@Override
+	public ResultVo saveErrMsg(GjfErrorInfo errorInfo) {
+		gjfBenefitInfoDao.save(errorInfo);
+		return new ResultVo(200, "保存成功", null);
+	}
+}

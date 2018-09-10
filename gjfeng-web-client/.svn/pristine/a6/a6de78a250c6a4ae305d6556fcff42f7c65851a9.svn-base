@@ -1,0 +1,238 @@
+<%@ page contentType="text/html;charset=utf-8"%>
+<%@include file="/common/wx-o2o-top.jsp" %>
+<body>   
+    <div class="container">
+       <form class="set-form" id="set-form" > 
+            <div class="form-item">
+                <label for="" class="label-item"><i class="main-sprite lock-icon-mobile"></i></label>
+                <input type="text" name="mobile" class="pwd-input phone-input" placeholder="请输入手机号码">
+            </div>
+            <div class="form-codeItem clearfix">
+                <div class="form-item code-item-1 left">
+                    <label for="" class="label-item"><i class="main-sprite lock-icon-code"></i></label>
+                    <input type="text" name="code" class="pwd-input code-input" placeholder="请输入验证码">
+                </div>
+                <div class="form-item code-item-2 left">
+                    <button type="button" class="code-btn">获取验证码</button>
+                </div>
+            </div>             
+             <div style="padding-bottom: 20px">
+                <input type="checkbox" name="memService" style="margin-left: 25px;box-shadow: none;margin-top: 20px;"><a href="${ctx}/wx/rule/memService" style="margin-left:6px;font-size:13px">《凤凰云商o2o用户注册协议》</a>
+             </div>                
+       
+            <div class="btn-box">
+                <button type="submit" class="btn">完成</button>               
+            </div>
+         </form> 
+    </div>   
+    <script type="text/javascript">
+	    var mobile_send = "";//手机号码储存 
+	    var count = 60; //间隔函数，1秒执行
+	    var curCount;//当前剩余秒数
+	    var code = ""; //验证码
+	    var codeLength = 4;//验证码长度
+	    document.title = "绑定手机";
+        $(function() {
+	        $(".code-btn").on("click",function (event){
+	            event.preventDefault();
+	            curCount = count;
+	            /* || !checkMobile($(".phone-input").val() )*/
+	            if($(".phone-input").val() == null || $(".phone-input").val() == ""|| !checkMobile($(".phone-input").val() ) ){
+	            	var msg="手机号码格式错误";
+	            	if($(".phone-input").val() == null){
+	            		msg="请输入手机号码";
+	            	}
+	                var str = '<div for="phone" class="error">'+msg+'</div>';
+	                var item = $(".set-form").find(".form-item").eq(0).hasClass('has-error');
+	                if(!item){
+	                    $(".set-form").find(".form-item").eq(0).next(".error").remove();
+	                    $(".set-form").find(".form-item").eq(0).after(str);
+	                    return false;
+	                }else{
+	                    return true;
+	                }
+	            }
+	            //设置button效果，开始计时
+	            $(".code-input").val("");
+	            $(".code-btn").attr("disabled",true);
+	            $(".code-btn").html(curCount + "秒");
+	            $(".code-btn").addClass("code-grey-btn");
+	            semdSms();
+	            InterValObj = window.setInterval(SetRemainTime, 1000); //启动计时器，1秒执行一次
+	        });
+	        $(".phone-input").on("input",function(){
+	            if($(".phone-input").val()!=""){
+	                $(".form-item").eq(0).next(".error").remove();
+	            }
+	        })
+
+            jQuery.validator.addMethod("isPhone",function(value,element){
+            	alert();
+                var length = value.length;
+                //支持13 15 17 18(056789)开头,同时支持xxx-xxxx-xxxx格式手机输入
+                var mobile = /^13\d{9}$|15\d{9}$|17\d{9}$|18\d{1}\d{8}|13\d{1}-\d{4}-\d{4}$|15\d{1}-\d{4}-\d{4}$|17\d{1}-\d{4}-\d{4}$|18\d{1}-\d{4}-\d{4}$/; 
+                var result = this.optional(element) || (mobile.test(value));
+                if(result && mobile_send != ''){//发送过验证码之后
+                    if(mobile_send != value){//手机号码不等于之前的手机号码的话
+                        //$("#pro-code").val("");
+                    	result = "false";
+                    }
+                }
+                return result;
+            },"请输入正确的手机号码");
+            $(".set-form").validate({
+                rules:{
+                    phone:{
+                        required:true,
+                        isPhone:true,
+                    },
+                       code:{
+                        required:true,
+                        remote:{
+	                		async:false,
+	    	        	    url: "${ctx}/sms/validate",     //后台处理程序
+	    	        	    type: "get",               		//数据发送方式
+	    	        	    dataType: "json",           	//接受数据格式   
+	    	        	    data: {                   		//要传递的数据
+	    	        	    	"code": function() {
+	    		        			return $(".code-input").val();
+	    		        		},					
+	    		        		"mobile": function() {
+	    	        	        	return $(".phone-input").val();
+	    		        		}
+	    		        	}
+	    	        	 }
+	    	        },
+	    	        memService:{
+	    	        	required:true
+	    	        }
+                },
+                messages:{
+                    phone:{
+                        required:"请输入手机号码",
+                        isPhone:"请输入正确的手机号码",
+                    },
+                      code:{
+                        required:"请输入验证码",
+                        remote:"验证码不正确" 
+                    },
+                    memService:{
+	    	        	required:"请选择服务协议"
+	    	        }
+                },
+                highlight: function (e) {
+                    $(e).parent().addClass('has-error');
+                },
+                success: function (e) {
+                    $(e).parents(".form-item").removeClass('has-error');
+                    $(e).remove();
+                },
+                submitHandler: function (e) {
+                	bindMobile();
+                },
+                errorElement:'div',
+                errorPlacement:function(error,element) {  
+                    if(element.hasClass("code-input")){
+                        error.insertAfter(element.parents(".form-codeItem"));
+                        error.addClass('error-code');
+                    }else{
+                        error.insertAfter(element.parent());
+                    }
+                }
+            });
+        });
+             
+        //发送短信
+        function semdSms(){
+        	//向后台发送处理数据
+            $.ajax({
+                type: "post", //用POST方式传输
+                dataType: "json", //数据格式:JSON
+                url: '${ctx}/sms/send', //目标地址
+                data: {
+                    'mobile':$(".phone-input").val(),
+                },
+                success: function (data){
+                	if(null == data || "" == data){
+                		layer.open({
+                            content:"发送失败",
+                            btn:'我知道了'
+                       });
+                		curCount=0;
+                        SetRemainTime();
+                		return false;
+                	}
+                    if(data.code=="2"){
+                        mobile_send = $(".phone-input").val();
+                    }else{
+                    	curCount=0;
+                        SetRemainTime();
+                    }
+                   	layer.open({
+                           content:data.msg,
+                           btn:'我知道了'
+                      });
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                	curCount=0;
+                    SetRemainTime();
+                	layer.open({
+                        content:"发送失败，请重新发送",
+                        btn:'我知道了'
+                   });
+                }
+            });
+        }
+        
+        //绑定手机
+        function bindMobile(){
+        	$.ajax({
+    			url:"${ctx}/wx/member/bindMobile",
+    			type: "get", //用POST方式传输
+                dataType: "json", //数据格式:JSON
+                data:$('#set-form').serialize(),
+     			success:function(data){   				                 
+    				layer.open({
+                        content: data.msg,
+                        btn: ['确定', '取消'],
+                        yes: function(index){//跳转到个人中心
+                        	if(data.code==200){                        		
+                        		window.location.href="http://a.app.qq.com/o/simple.jsp?pkgname=cn.gjfeng_yunnan"
+                        		
+                        	}
+                            layer.close(index);
+                        },
+                        no:function(index){
+                            layer.close(index);
+                        }
+                    }); 
+    			},
+    			error:function(xhr,type ,e){
+    				layer.open({
+                        content:"网络异常，请重试",
+                        btn:'我知道了'
+                   });
+    			}
+    		})
+        }
+        
+        function checkMobile(value) {
+            return (value.length == 11 && /^13\d{9}$|15\d{9}$|17\d{9}$|18\d{1}\d{8}|13\d{1}-\d{4}-\d{4}$|15\d{1}-\d{4}-\d{4}$|17\d{1}-\d{4}-\d{4}$|18\d{1}-\d{4}-\d{4}$/.test(value));
+        }
+        	
+        function SetRemainTime() {
+            if (curCount == 0) {
+                window.clearInterval(InterValObj);//停止计时器
+                $(".code-btn").removeAttr("disabled");//启用按钮
+                $(".code-btn").html("获取验证码");
+                $(".code-btn").removeClass("code-grey-btn");
+                code = ""; //清除验证码。如果不清除，过时间后，输入收到的验证码依然有效
+            }
+            else {
+                curCount--;
+                $(".code-btn").html(curCount + "秒");
+            }
+        };
+    </script>
+</body>
+</html>

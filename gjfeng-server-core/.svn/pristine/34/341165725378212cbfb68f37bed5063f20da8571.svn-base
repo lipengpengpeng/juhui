@@ -1,0 +1,310 @@
+package cc.messcat.gjfeng.service.member;
+
+import java.text.ParseException;
+import java.util.Date;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.entity.GjfAccessToken;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+
+public interface GjfMemberInfoService {
+	
+	//前端查询
+	
+	/**
+	 * @描述 我的个人信息
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @return
+	 */
+	public ResultVo findMemberByMobile(String account);
+	
+	/**
+	 * @描述 我的钱包
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @return
+	 */
+	public ResultVo findMyWallet(String account);
+	
+	/**
+	 * @描述  查询我的收藏
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @param collectType 0:收藏的店铺 1:收藏的商品
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	public ResultVo findMyCollect(String account,String collectType,int pageNo,int pageSize);
+	
+	/**
+	 * @描述 添加我的收藏
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @param collectType 0:收藏店铺 1:收藏商品
+	 * @param id 店铺id或商品id
+	 * @return
+	 */
+	public ResultVo addMyCollect(String account,String collectType,Long id);
+	
+	/**
+	 * 取消收藏
+	 */	
+	public ResultVo removeMyCollect(Long colId);
+	
+	/**
+	 * @描述 修改用户资料--微信端
+	 * @author Karhs
+	 * @date 2017年3月16日
+	 * @param gjfMemberInfo
+	 * @return
+	 */
+	public ResultVo updateMemberByWxOrApp(GjfMemberInfo gjfMemberInfo);
+	
+	/**
+	 * @描述 修改用户资料--后台
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param gjfMemberInfo
+	 * @return
+	 */
+	public ResultVo updateMember(GjfMemberInfo gjfMemberInfo);
+	
+	/**
+	 * @描述 身份证实名认证
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @param idCardName
+	 * @param idCardNo
+	 * @param idCardBefImg
+	 * @param idCardBehImg
+	 * @return
+	 */
+	public ResultVo updateMemberIdCard(String account,String idCardName,String idCardNo,String idCardBefImg,String idCardBehImg,String idCardHeadhild,String fileName);
+	
+	//后台查询
+	/**
+	 * @描述 身份证审核
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param account
+	 * @param status
+	 * @param token
+	 * @return
+	 */
+	public ResultVo updateMemberIdCardStatus(String account,String status,String token);
+	
+	/**
+	 * @描述 后台根据手机号查询个人资料
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param mobile
+	 * @param token
+	 * @return
+	 */
+	public GjfMemberInfo findMember(String account);
+	
+	/**
+	 * @描述 查询用户根据unionId
+	 * @author Karhs
+	 * @date 2017年1月11日
+	 * @param unionId
+	 * @return
+	 */
+	public GjfMemberInfo findMemberByUnionId(String unionId);
+	
+	/**
+	 * @描述 后台根据手机号和token查询个人资料
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param mobile
+	 * @param token
+	 * @return
+	 */
+	public GjfMemberInfo findMemberByMobile(String account,String token);
+	
+	/**
+	 * @描述 后台分页查询个人资料
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param pageNo
+	 * @param pageSize
+	 * @param likeValue
+	 * @return
+	 */
+	public Pager findMembersByPager(int pageNo,int pageSize,String name,String userName,String mobile,String type,String identity,String realNameState);
+	
+	/**
+	 * 后台删除用户信息
+	 * @param id
+	 * @return
+	 */
+	public ResultVo modifyMember(Long id);
+	
+	/**
+	 * 根据用户id获取用户信息
+	 * @param memId
+	 * @return
+	 */
+	public ResultVo findMemberById(Long memId);
+
+	/**
+	 * 根据条件模糊查询用户
+	 * @param pageNo
+	 * @param pageSize
+	 * @param name
+	 * @param nickName
+	 * @param type
+	 * @return
+	 */
+	public ResultVo findMemberByCondition(int pageNo, int pageSize, String name, String nickName,String mobile, String type);
+
+	/**
+	 * 根据用户Id查找用户下级
+	 * @param memberId
+	 * @return
+	 */
+	public ResultVo findLowLevelByMemberId(int pageNo,int pageSize,Long memberId);
+
+	/**
+	 * 查找所有代理商
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	public ResultVo findAllAgents(int pageNo, int pageSize,String name,String startDate,String identity, String status );
+	
+	/**
+	 * 我的钱包首页获取统计数据
+	 * @param type
+	 * @return
+	 */
+	public ResultVo findMemberCountInfo(String type,String account);
+	
+	
+	/**
+	 * 接入用户数据
+	 * @param url
+	 * @return
+	 */
+	public ResultVo addMemberData(String url,String type,String status);
+	
+	/**
+	 * 获取用户信息
+	 * @param info
+	 * @return
+	 */
+	public ResultVo addMemberDataGetUnId(GjfMemberInfo info);
+	
+	/**
+	 * 修改用户代理情况
+	 * @param area
+	 * @param pri
+	 * @param city
+	 * @param gjfMemberInfo
+	 * @return
+	 */
+	public ResultVo updateMemberAgent(Long area, Long pri, Long city, GjfMemberInfo gjfMemberInfo,String type,Date startTime,Date endTime) throws ParseException;
+	
+	/**
+	 * 添加用户二维码
+	 * @param memberInfo
+	 * @return
+	 */
+	public ResultVo updateMemberCode(GjfMemberInfo memberInfo);
+	
+	/**
+	 *添加access_token
+	 * @param accessToken
+	 * @return
+	 */
+	public ResultVo addAccessToken(GjfAccessToken accessToken);
+	
+	/**
+	 * 获取access_token
+	 * @date 2017年3月1日
+	 * @return
+	 */
+	public ResultVo getAccessTonken(String type);
+	
+	
+	/**
+	 * 獲取用戶的下级
+	 * @param superId
+	 * @return
+	 */
+	public ResultVo getMemberLowerLevel(Long superId,Integer pageNo,Integer pageSize);
+	
+	/**
+	 * 
+	 * @return
+	 */
+	public ResultVo findMemberTradeByH5();
+	
+	/**
+	 * 查询用户信息
+	 * @param id
+	 * @param token
+	 * @return
+	 */
+	public ResultVo findMemberByIdAndToken(Long id, String token);
+	
+	/**
+	 * 取消代理身份
+	 * @param id
+	 * @param token
+	 * @return
+	 */
+	public ResultVo updateAgent(Long id, String token);
+
+	/**
+	 * 获取所有会员
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	ResultVo findAllMembers(int pageNo, int pageSize);
+	
+	/**
+	 * 根据身份证号码获取用户信息
+	 * @param idCard
+	 * @return
+	 */
+	public ResultVo findmemberInfoByIdCard(String idCard);
+	
+	/**
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public ResultVo findSetBaseInfoByKey(String key);
+	
+	/**
+	 * 获取所有控制信息
+	 * @param pageNo
+	 * @param pageSize
+	 * @return
+	 */
+	public ResultVo findAllSetBaseInfo(Integer pageNo,Integer pageSize);
+	
+	/**
+	 * 修改控制启用和禁用
+	 * @param id
+	 * @return
+	 */
+	public ResultVo updateSetBaseInfo(Long id);
+	
+	/**
+	 * 用户是否收藏
+	 */
+	public ResultVo findIsCollect(String account,Long id,String type);
+		
+	
+}

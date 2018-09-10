@@ -1,0 +1,96 @@
+package cc.messcat.gjfeng.dao.store;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.vo.app.StoreInfoVo;
+import cc.messcat.gjfeng.dao.BaseHibernateDao;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+
+public interface GjfStoreInfoDao extends BaseHibernateDao<Serializable> {
+
+	/**
+	 * @描述 分页查询店铺
+	 * @author Karhs
+	 * @date 2017年1月4日
+	 * @param pageNo
+	 * @param pageSize
+	 * @param likeValue
+	 * @return
+	 */
+	public Pager findStoreByPager(int pageNo, int pageSize, String likeValue, String storePro, String storeType,
+		String storeStatus);
+	
+	/**
+	 * @描述 根据代理查询某个城市、区县或个代的总的店铺让利金额
+	 * @author Karhs
+	 * @date 2017年2月20日
+	 * @param addressId
+	 * @return
+	 */
+	public BigDecimal findTotalStoreBenefit(Long addressId,String agentType);
+	
+	/**
+	 * @描述 根据代理查询某个城市、区县或个代的总的店铺待结算让利金额
+	 * @author Karhs
+	 * @date 2017年2月20日
+	 * @param addressId
+	 * @param agentId
+	 * @return
+	 */
+	public BigDecimal findNotActTotalStoreBenefit(Long addressId,String agentType);
+	
+	/**
+	 * 查询授信充值记录
+	 * @param pageNo
+	 * @param pageSize
+	 * @param tradeNo
+	 * @param memberId
+	 * @param addTime
+	 * @param payType
+	 * @param tradeStatus
+	 * @return
+	 */
+	public Pager findRechargeLineCreditByPage(int pageNo, int pageSize, String tradeNo, String name,
+			String addTime,String endTime, String payType, String tradeStatus,String ste);
+	
+	/**
+	 * 汇总当前查询条件授信充值列表
+	 * @return
+	 */
+	public List findRechargeLineCredit(String tradeNo,String  name,String addTime,String endTime,String payType,String tradeStatus);
+	
+	/**
+	 * 查询旗下代理店铺
+	 * @param gjfStoreInfo
+	 * @param identity
+	 * @return
+	 */
+	public Pager findStoreByAgent(int pageNo,int pageSize,GjfMemberInfo memberInfo, String identity);
+	
+	/**
+	 * 查询代理下商家让利流水
+	 * @param pageNo
+	 * @param pageSize
+	 * @param memberInfo
+	 * @param identity
+	 * @return
+	 */
+	public Pager findStoreBenefitByAgent(int pageNo,int pageSize,GjfMemberInfo memberInfo, String identity);
+	
+	/**
+	 * 根据分类查询附近店铺
+	 * @param param
+	 * @return
+	 */
+	public List<StoreInfoVo> findStoreByColumn(Long columnId, Map<String, Object> param);
+	/**
+	 * 根据条件查询店铺
+	 * @param param
+	 * @return
+	 */
+	public List<StoreInfoVo> findStores(Map<String, Object> param);
+}

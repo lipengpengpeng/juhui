@@ -1,0 +1,319 @@
+package cc.messcat.gjfeng.dao.store;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.hibernate.Query;
+import org.hibernate.SQLQuery;
+import org.hibernate.transform.Transformers;
+import org.hibernate.type.DoubleType;
+import org.hibernate.type.LongType;
+import org.hibernate.type.StringType;
+import org.springframework.stereotype.Repository;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.util.StringUtil;
+import cc.messcat.gjfeng.common.vo.app.StoreInfoVo;
+import cc.messcat.gjfeng.dao.BaseHibernateDaoImpl;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+
+@Repository("gjfStoreInfoDao")
+public class GjfStoreInfoDaoImpl extends BaseHibernateDaoImpl<Serializable> implements GjfStoreInfoDao {
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public Pager findStoreByPager(int pageNo, int pageSize, String likeValue, String storePro, String storeType,
+		String storeStatus,String isActivityStore) {
+		Map<String, Object> arrMap=new HashMap<String, Object>();
+		StringBuffer hql = new StringBuffer("select s from GjfStoreInfo s where s.isDel=1 ");
+		if (StringUtil.isNotBlank(storePro)) {
+			arrMap.put("storePro", storePro);
+			hql.append(" and s.storePro=:storePro");
+		}
+		if (StringUtil.isNotBlank(isActivityStore)) {
+			arrMap.put("isActivityStore", isActivityStore);
+			hql.append(" and s.isActivityStore=:isActivityStore");
+		}
+		if (StringUtil.isNotBlank(storeType)) {
+			arrMap.put("storeType", storeType);
+			hql.append(" and s.storeType=:storeType");
+		}
+		if (StringUtil.isNotBlank(storeStatus)) {
+			arrMap.put("storeStatus", storeStatus);
+			hql.append(" and s.storeStatus=:storeStatus");
+		}
+		if (StringUtil.isNotBlank(likeValue)) {
+			arrMap.put("likeValue", "%"+likeValue+"%");
+			hql.append(" and (s.storeName like :likeValue or s.storeNum like :likeValue or s.memberId.mobile like :likeValue or s.memberId.nickName like :likeValue");
+			hql.append(" or s.memberId.name like :likeValue or s.sellerName like :likeValue or s.sellerMobile like :likeValue or s.sellerEmail like :likeValue)");
+		}
+		String hqlCount=hql.toString().replace("select s from", "select count(s) from");
+		hql.append(" order by s.storeAddTime desc");
+		List<GjfStoreInfo> gjfStoreInfos=getCurrentSession().createQuery(hql.toString()).setProperties(arrMap).setFirstResult((pageNo-1)*pageSize).setMaxResults(pageSize).list();
+		return new Pager(pageSize, pageNo, Integer.parseInt(String.valueOf(getCurrentSession().createQuery(hqlCount).setProperties(arrMap).uniqueResult())), gjfStoreInfos);
+	}
+
+	@Override
+	public BigDecimal findTotalStoreBenefit(Long addressId, String agentType) {
+		return null;
+	}
+
+	@Override
+	public BigDecimal findNotActTotalStoreBenefit(Long addressId, String agentType) {
+		return null;
+	}
+
+	/**
+	 * 授信充值记录分页，导出
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
+	public Pager findRechargeLineCreditByPage(int pageNo, int pageSize, String tradeNo, String name,String addTime,String endTime,
+			String payType, String tradeStatus,String ste)  {
+		Map<String, Object> arrMap = new HashMap<String, Object>();
+		String hql = "select g.TRADE_NO_,g.APPLY_MONEY_,g.TRADE_MONEY_,g.TAX_MONEY_,g.INSURANCE_MONEY_,g.ADD_TIME_,g.DEAL_TIME_,g.TRADE_TIME_,g.TRADE_TYPE_,g.TRADE_STATUS_,g.PAY_TYPE_,g.TOKEN_,m.NAME_ "
+				+ " from gjf_member_trade g left join gjf_member_info m on g.MEMBER_ID_ = m.ID_ where TRADE_TYPE_ = '0' ";
+		if (StringUtil.isNotBlank(tradeNo)) {
+			arrMap.put("tradeNo", "%"+tradeNo+"%");
+			hql += " and g.TRADE_NO_ like :tradeNo ";
+		}
+		if (StringUtil.isNotBlank(name)) {
+			arrMap.put("name", "%"+name+"%");
+			hql += " and m.NAME_ like :name ";
+		}
+		if (ObjValid.isValid(addTime)) {
+			arrMap.put("addTime", addTime);
+			hql += " and g.ADD_TIME_ >= :addTime  ";
+		}
+		if (ObjValid.isValid(endTime)) {
+			arrMap.put("endTime", endTime);
+			hql += " and g.ADD_TIME_ <= :endTime  ";
+		}
+		if (StringUtil.isNotBlank(payType)) {
+			arrMap.put("payType", payType);
+			hql += " and g.PAY_TYPE_ = :payType ";
+		}
+		if (StringUtil.isNotBlank(tradeStatus)) {
+			arrMap.put("tradeStatus", tradeStatus);
+			hql += " and g.TRADE_STATUS_ = :tradeStatus ";
+		}
+		hql += " order by g.ADD_TIME_ desc ";
+		List list = null;
+		if ("1".equals(ste)) {
+			list = getCurrentSession().createSQLQuery(hql).setProperties(arrMap).list();
+		}else {
+			list = getCurrentSession().createSQLQuery(hql).setProperties(arrMap).setFirstResult((pageNo-1)*pageSize).setMaxResults(pageSize).list();
+		}
+		String[] param = {"tradeNo","applyMoney","tradeMoney","taxMoney","insuranceMoney","addTime","dealTime","tradeTime","tradeType","tradeStatus","payType","token","name"};
+		list = BeanUtil.changeObjectArrayToMaps(list, param);
+		String hql0 = hql.toString().replace("select g.TRADE_NO_,g.APPLY_MONEY_,g.TRADE_MONEY_,g.TAX_MONEY_,g.INSURANCE_MONEY_,g.ADD_TIME_,g.DEAL_TIME_,g.TRADE_TIME_,g.TRADE_TYPE_,g.TRADE_STATUS_,g.PAY_TYPE_,g.TOKEN_,m.NAME_", "select count(1)");
+		return new Pager(pageSize,pageNo,((BigInteger)getCurrentSession().createSQLQuery(hql0).setProperties(arrMap).uniqueResult()).intValue(),list);
+	}
+	
+	/**
+	 * 汇总当前查询条件授信充值列表
+	 * @return
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public List findRechargeLineCredit(String tradeNo,String  name,String addTime,String endTime,String payType,String tradeStatus) {
+		Map<String, Object> arrMap = new HashMap<String, Object>();
+		String hql = "select IFNULL(SUM(APPLY_MONEY_),0),IFNULL(SUM(TRADE_MONEY_),0) from gjf_member_trade g left join gjf_member_info m on g.MEMBER_ID_ = m.ID_ where TRADE_TYPE_ = '0' ";
+		if (StringUtil.isNotBlank(tradeNo)) {
+			arrMap.put("tradeNo", "%"+tradeNo+"%");
+			hql += " and g.TRADE_NO_ like :tradeNo ";
+		}
+		if (StringUtil.isNotBlank(name)) {
+			arrMap.put("name", "%"+name+"%");
+			hql += " and m.NAME_ like :name ";
+		}
+		if (ObjValid.isValid(addTime)) {
+			arrMap.put("addTime", addTime);
+			hql += " and g.ADD_TIME_ >= :addTime ";
+		}
+		if (ObjValid.isValid(endTime)) {
+			arrMap.put("endTime", endTime);
+			hql += " and g.ADD_TIME_ <= :endTime ";
+		}
+		if (StringUtil.isNotBlank(payType)) {
+			arrMap.put("payType", payType);
+			hql += " and g.PAY_TYPE_ = :payType ";
+		}
+		if (StringUtil.isNotBlank(tradeStatus)) {
+			arrMap.put("tradeStatus", tradeStatus);
+			hql += " and g.TRADE_STATUS_ = :tradeStatus ";
+		}
+		List list = getCurrentSession().createSQLQuery(hql).setProperties(arrMap).list();
+		String[] param = {"totalApplyMoney","totalTradeMoney"};
+		list = BeanUtil.changeObjectArrayToMaps(list, param);
+		return list;
+	}
+
+	/**
+	 * 查询代理下店铺
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
+	public Pager findStoreByAgent(int pageNo,int pageSize,GjfMemberInfo memberInfo, String identity) {
+		StringBuffer sql = new StringBuffer();
+		if ("3".equals(identity)) {
+			sql.append("select s.STORE_NAME_,s.STORE_NUM_,s.STORE_ADD_TIME_,s.STORE_SALE_TOTAL_MONEY_,s.STORE_BENEFIT_TOTAL_MONEY_,s.STORE_DIVIDENDS_NUM_,s.STORE_STATUS_,p.PROVINCE_,c.CITY_,a.AREA_ "
+					+ " from gjf_store_info s left join gjf_address_province p on s.PROVINCE_ID_=p.ID_ left join gjf_address_city c on s.CITY_ID_ = c.ID_ "
+					+ "left join gjf_address_area a on s.AREA_ID_ = a.ID_ where s.CITY_ID_ =").append(memberInfo.getCityId().getId());
+		}else if ("2".equals(identity)) {
+			sql.append("select s.STORE_NAME_,s.STORE_NUM_,s.STORE_ADD_TIME_,s.STORE_SALE_TOTAL_MONEY_,s.STORE_BENEFIT_TOTAL_MONEY_,s.STORE_DIVIDENDS_NUM_,s.STORE_STATUS_,p.PROVINCE_,c.CITY_,a.AREA_ "
+					+ " from gjf_store_info s left join gjf_address_province p on s.PROVINCE_ID_=p.ID_ left join gjf_address_city c on s.CITY_ID_ = c.ID_ "
+					+ "left join gjf_address_area a on s.AREA_ID_ = a.ID_ where s.AREA_ID_=").append(memberInfo.getAreaId().getId());
+		}else if ("1".equals(identity)) {
+			sql.append("select s.STORE_NAME_,s.STORE_NUM_,s.STORE_ADD_TIME_,s.STORE_SALE_TOTAL_MONEY_,s.STORE_BENEFIT_TOTAL_MONEY_,s.STORE_DIVIDENDS_NUM_,s.STORE_STATUS_,p.PROVINCE_,c.CITY_,a.AREA_"
+					+ " from gjf_store_info s left join gjf_member_info m on s.MEMBER_ID_ = m.ID_  left join gjf_address_province p on s.PROVINCE_ID_=p.ID_ left join gjf_address_city c on s.CITY_ID_ = c.ID_ "
+					+ "left join gjf_address_area a on s.AREA_ID_ = a.ID_ where m.TYPE_ = '1' and  m.SUPER_ID_ = ").append(memberInfo.getId());
+		}
+		List list = getCurrentSession().createSQLQuery(sql.toString()).setFirstResult((pageNo-1)*pageSize).setMaxResults(pageSize).list();
+		String[] param = {"storeName","storeNum","addTime","saleTotalMoney","benefitTotalMoney","diviNum","storeStatus","province","city","area"};
+		list = BeanUtil.changeObjectArrayToMaps(list, param);
+		String sql0 = sql.toString().replace("select s.STORE_NAME_,s.STORE_NUM_,s.STORE_ADD_TIME_,s.STORE_SALE_TOTAL_MONEY_,s.STORE_BENEFIT_TOTAL_MONEY_,s.STORE_DIVIDENDS_NUM_,s.STORE_STATUS_,p.PROVINCE_,c.CITY_,a.AREA_", "select count(1)");
+		return new Pager(pageSize,pageNo,((BigInteger)getCurrentSession().createSQLQuery(sql0).uniqueResult()).intValue(),list);
+	}
+
+	/**
+	 * 查询代理下店铺流水
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
+	public Pager findStoreBenefitByAgent(int pageNo, int pageSize, GjfMemberInfo memberInfo, String identity) {
+		StringBuffer sql = new StringBuffer();
+		if ("3".equals(identity)) {
+			sql.append("select m.NAME_,s.STORE_NAME_,g.TRADE_NO_,g.TRADE_MONEY_,g.BENEFIT_MONEY_,g.ADD_TIME_,g.PAY_TYPE_,g.TRADE_STATUS_  "
+					+ " from gjf_member_trade_benefit g left join gjf_member_info m on g.MEMBER_ID_ = m.ID_ left join gjf_store_info s on g.STORE_ID_ = s.ID_ "
+					+" where s.CITY_ID_ =").append(memberInfo.getCityId().getId());
+		}else if ("2".equals(identity)) {
+			sql.append("select m.NAME_,s.STORE_NAME_,g.TRADE_NO_,g.TRADE_MONEY_,g.BENEFIT_MONEY_,g.ADD_TIME_,g.PAY_TYPE_,g.TRADE_STATUS_  "
+					+ " from gjf_member_trade_benefit g left join gjf_member_info m on g.MEMBER_ID_ = m.ID_ left join gjf_store_info s on g.STORE_ID_ = s.ID_ "
+					+" where s.AREA_ID_ =").append(memberInfo.getAreaId().getId());
+		}else if ("1".equals(identity)) {
+			sql.append("select m.NAME_,s.STORE_NAME_,g.TRADE_NO_,g.TRADE_MONEY_,g.BENEFIT_MONEY_,g.ADD_TIME_,g.PAY_TYPE_,g.TRADE_STATUS_  "
+					+ " from gjf_member_trade_benefit g left join gjf_store_info s on g.STORE_ID_ = s.ID_ left join gjf_member_info m on s.MEMBER_ID_ = m.ID_"
+					+" where m.TYPE_ = '1' and m.SUPER_ID_ = ").append(memberInfo.getId());
+		}
+		List list = getCurrentSession().createSQLQuery(sql.toString()).setFirstResult((pageNo-1)*pageSize).setMaxResults(pageSize).list();
+		String[] param = {"name","storeName","tradeNo","tradeMoney","benefitMoney","addTime","payType","tradeStatus"};
+		list = BeanUtil.changeObjectArrayToMaps(list, param);
+		String sql0 = sql.toString().replace("select m.NAME_,s.STORE_NAME_,g.TRADE_NO_,g.TRADE_MONEY_,g.BENEFIT_MONEY_,g.ADD_TIME_,g.PAY_TYPE_,g.TRADE_STATUS_", "select count(1)");
+		return new Pager(pageSize,pageNo,((BigInteger)getCurrentSession().createSQLQuery(sql0).uniqueResult()).intValue(),list);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<StoreInfoVo> findStoreByColumn(Long columnId, Map<String, Object> param) {
+		Integer pageNo = (Integer)param.get("pageNo");
+		Integer pageSize = (Integer)param.get("pageSize");
+		String orderType = (String)param.get("orderType");
+		String likeValue = (String)param.get("likeValue");
+		Double longitude = (Double)param.get("longitude");
+		Double latitude = (Double)param.get("latitude");
+		String cityName = (String)param.get("cityName");
+		
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		StringBuffer sql = new StringBuffer();
+		parMap.put("latitude", latitude);
+		parMap.put("longitude", longitude);
+
+		sql.append(
+				"SELECT s.ID_ as id,s.STORE_NAME_ AS storeName,s.STORE_LOGO_URL_ AS storeLogoUrl,s.ADDRESS_DETAIL_ as addressDetail,s.STORE_BANNER_ as storeBanner,");
+		sql.append(
+				"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-s.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(s.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-s.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance");
+		sql.append(
+				" FROM gjf_product_column pc LEFT JOIN gjf_product_info p ON pc.PRODUCT_ID_ = p.ID_ LEFT JOIN gjf_store_info s ON p.STORE_ID_=s.ID_ LEFT JOIN gjf_address_city c ON s.CITY_ID_=c.ID_ WHERE p.ADUIT_STATUS_='1' AND p.STATUS_='1' "
+						+ "AND s.IS_DEL_='1' AND s.STORE_STATUS_='1' AND s.STORE_PRO_='0'");
+
+		if (ObjValid.isValid(columnId)) {
+			parMap.put("columnId", columnId);
+			sql.append(" AND pc.COLUMN_ID_=:columnId");
+		}
+
+		if (ObjValid.isValid(cityName)) {
+			parMap.put("cityName", cityName);
+			sql.append(" AND c.CITY_=:cityName");
+		}
+		if (StringUtil.isNotBlank(likeValue)) {
+			parMap.put("likeValue", "%" + likeValue.replace("%", "\\%") + "%");
+			sql.append(
+					" AND (p.NAME_ LIKE :likeValue OR p.KEYWORDS_ LIKE :likeValue OR p.DESCRIPTION_ LIKE :likeValue OR s.STORE_NAME_ LIKE :likeValue)");
+		}
+		sql.append(" group by s.ID_,s.STORE_NAME_,s.STORE_LOGO_URL_,distance");
+		// 所有排序都要以距离为基础
+		if (StringUtil.isBlank(orderType) || orderType.equals("1")) {
+			// 距离近
+			sql.append(" ORDER BY distance ASC");
+		} else if (orderType.equals("2")) {
+			// 人气高
+			sql.append(" ORDER BY distance ASC,p.SALES_NUM_ DESC");
+		} else if (orderType.equals("3")) {
+			// 价格低
+			sql.append(" ORDER BY distance,p.PRICE_ ASC");
+		} else if (orderType.equals("4")) {
+			// 最新发布
+			sql.append(" ORDER BY distance ASC,p.ADD_TIME_ DESC");
+		} else {
+			sql.append(" ORDER BY distance ASC");
+		}
+		List<StoreInfoVo> list = getCurrentSession().createSQLQuery(sql.toString()).addScalar("id", LongType.INSTANCE)
+				.addScalar("id", LongType.INSTANCE)
+				.addScalar("storeName", StringType.INSTANCE)
+				.addScalar("storeLogoUrl", StringType.INSTANCE)
+				.addScalar("addressDetail", StringType.INSTANCE)
+				.addScalar("storeBanner", StringType.INSTANCE)
+				.addScalar("distance", DoubleType.INSTANCE)
+				.setResultTransformer(Transformers.aliasToBean(StoreInfoVo.class)).setProperties(parMap)
+				.setFirstResult((pageNo - 1) * pageSize).setMaxResults(pageSize).list();
+		return list;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<StoreInfoVo> findStores(Map<String, Object> param) {
+		Long id = (Long)param.get("id");
+		Integer pageNo = (Integer)param.get("pageNo");
+		Integer pageSize = (Integer)param.get("pageSize");
+		Double latitude = (Double)param.get("latitude");
+		Double longitude = (Double)param.get("longitude");
+		
+		Map<String, Object> parMap = new HashMap<String, Object>();
+		parMap.put("latitude", latitude);
+		parMap.put("longitude", longitude);
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select t.ID_ as id,t.STORE_NAME_ as storeName,t.ADDRESS_DETAIL_ as addressDetail,t.STORE_BANNER_ as storeBanner,SELLER_MOBILE_ as sellerMobile,");
+		sb.append(
+				"ROUND(6378.138*2*ASIN(SQRT(POW(SIN((:latitude*PI()/180-t.LATITUDE_*PI()/180)/2),2)+COS(:latitude*PI()/180)*COS(t.LATITUDE_*PI()/180)*POW(SIN((:longitude*PI()/180-t.LONGITUDE_*PI()/180)/2),2)))*1000) AS distance ");
+		sb.append("from gjf_store_info t where 1 = 1 ");
+		if(id != null){
+			sb.append(" and t.ID_ = :id");
+			parMap.put("id", id);
+		}
+		
+		SQLQuery sqlQuery = getCurrentSession().createSQLQuery(sb.toString());
+		Query query = sqlQuery.addScalar("id", LongType.INSTANCE)
+				.addScalar("storeName", StringType.INSTANCE)
+				.addScalar("addressDetail", StringType.INSTANCE)
+				.addScalar("sellerMobile", StringType.INSTANCE)
+				.addScalar("distance", DoubleType.INSTANCE)
+				.addScalar("storeBanner",StringType.INSTANCE)
+				.setResultTransformer(Transformers.aliasToBean(StoreInfoVo.class))
+				.setProperties(parMap);
+		if(pageNo != null){
+			query = query.setFirstResult((pageNo - 1) * pageSize);
+		}
+		if(pageSize != null){
+			query = query.setMaxResults(pageSize);
+		}
+		return query.list();
+	}
+}

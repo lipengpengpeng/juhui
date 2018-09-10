@@ -1,0 +1,189 @@
+package cc.messcat.gjfeng.common.vo.app;
+
+import java.math.BigDecimal;
+
+public class NetFriendProductInfoVo {
+	
+	private Long id;
+	
+	private String title;//标题
+	
+	private String short_title;//短标题
+	
+	private String goodslabel;//商品标签
+	
+	private String pro_type;//产品类型1.保税2.直邮3.完税4.现货
+	
+	private String country;//国家图片
+	
+	private BigDecimal marketprice;//销售价
+	
+	private BigDecimal start;//蚂蚁经销商进货价
+	
+	private Long total;//库存
+	
+	private String content;//商品详情
+	
+	private String description;//商品描述
+	
+	private String thumb;//商品图片
+	
+	private String thumb_url;
+	
+	private String issendfree;//包邮：1包邮 0不包邮
+	
+	private String weight;//商品重量
+	
+	private Long sales;//销量
+	
+	private String country_name;//货源国家
+	
+	private String pro_type_name;//产品类型名称
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
+	public String getShort_title() {
+		return short_title;
+	}
+
+	public void setShort_title(String short_title) {
+		this.short_title = short_title;
+	}
+
+	public String getGoodslabel() {
+		return goodslabel;
+	}
+
+	public void setGoodslabel(String goodslabel) {
+		this.goodslabel = goodslabel;
+	}
+
+	public String getPro_type() {
+		return pro_type;
+	}
+
+	public void setPro_type(String pro_type) {
+		this.pro_type = pro_type;
+	}
+
+	public String getCountry() {
+		return country;
+	}
+
+	public void setCountry(String country) {
+		this.country = country;
+	}
+
+	public BigDecimal getMarketprice() {
+		return marketprice;
+	}
+
+	public void setMarketprice(BigDecimal marketprice) {
+		this.marketprice = marketprice;
+	}
+
+	public BigDecimal getStart() {
+		return start;
+	}
+
+	public void setStart(BigDecimal start) {
+		this.start = start;
+	}
+
+	public Long getTotal() {
+		return total;
+	}
+
+	public void setTotal(Long total) {
+		this.total = total;
+	}
+
+	public String getContent() {
+		return content;
+	}
+
+	public void setContent(String content) {
+		this.content = content;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	public String getThumb() {
+		return thumb;
+	}
+
+	public void setThumb(String thumb) {
+		this.thumb = thumb;
+	}
+
+	public String getThumb_url() {
+		return thumb_url;
+	}
+
+	public void setThumb_url(String thumb_url) {
+		this.thumb_url = thumb_url;
+	}
+
+	public String getIssendfree() {
+		return issendfree;
+	}
+
+	public void setIssendfree(String issendfree) {
+		this.issendfree = issendfree;
+	}
+
+	public String getWeight() {
+		return weight;
+	}
+
+	public void setWeight(String weight) {
+		this.weight = weight;
+	}
+
+	public Long getSales() {
+		return sales;
+	}
+
+	public void setSales(Long sales) {
+		this.sales = sales;
+	}
+
+	public String getCountry_name() {
+		return country_name;
+	}
+
+	public void setCountry_name(String country_name) {
+		this.country_name = country_name;
+	}
+
+	public String getPro_type_name() {
+		return pro_type_name;
+	}
+
+	public void setPro_type_name(String pro_type_name) {
+		this.pro_type_name = pro_type_name;
+	}
+	
+	
+
+}

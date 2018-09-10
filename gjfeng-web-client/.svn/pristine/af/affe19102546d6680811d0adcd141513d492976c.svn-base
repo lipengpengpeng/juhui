@@ -1,0 +1,428 @@
+package cc.messcat.gjfeng.web.app.v1;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.h5pay.api.H5PayUtil;
+import com.wechat.popular.api.QrcodeAPI;
+import com.wechat.popular.api.TokenAPI;
+import com.wechat.popular.bean.QrcodeTicket;
+import com.wechat.popular.bean.Token;
+
+import cc.messcat.gjfeng.common.exception.LoggerPrint;
+import cc.messcat.gjfeng.common.util.BeanUtil;
+import cc.messcat.gjfeng.common.util.GenerateQrCodeUtil;
+import cc.messcat.gjfeng.common.util.JsonUtil;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.vo.app.MemberInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.common.web.BaseController;
+import cc.messcat.gjfeng.config.WaixiConfig;
+import cc.messcat.gjfeng.dubbo.core.GjfAddressDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfCartInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfLoginDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfMemberInfoDubbo;
+import cc.messcat.gjfeng.dubbo.core.GjfTradeDubbo;
+import cc.messcat.gjfeng.entity.GjfAccessToken;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.upload.UploadFileUtil;
+import cc.messcat.gjfeng.util.SessionUtil;
+import cc.messcat.gjfeng.web.wechat.MemberController;
+
+@Controller
+@RequestMapping(value="app/member/",headers="app-version=v1.0")
+public class MemberControllerV1 extends BaseController {
+
+	@Value("${gjfeng.client.project.url}")
+	private String projectName;
+
+	@Value("${upload.member.head.path}")
+	private String uploadFilePath;
+
+	@Value("${upload.member.idcard.path}")
+	private String imageFolderName;
+
+	@Value("${dubbo.application.web.client}")
+	private String projectNames;
+
+	@Value("${upload.member.code.path}")
+	private String imageFolderNames;
+
+	@Autowired
+	@Qualifier("request")
+	private HttpServletRequest request;
+
+	@Autowired
+	@Qualifier("response")
+	private HttpServletResponse response;
+
+	@Autowired
+	@Qualifier("memberInfoDubbo")
+	private GjfMemberInfoDubbo memberInfoDubbo;
+
+	@Autowired
+	@Qualifier("loginDubbo")
+	private GjfLoginDubbo loginDubbo;
+
+	@Autowired
+	@Qualifier("addressDubbo")
+	private GjfAddressDubbo addressDubbo;
+
+	@Autowired
+	@Qualifier("tradeDubbo")
+	private GjfTradeDubbo tradeDubbo;
+	
+	@Autowired
+	@Qualifier("cartInfoDubbo")
+	private GjfCartInfoDubbo cartInfoDubbo;
+	
+	/**
+	 * @描述 我的信息
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/my", method = RequestMethod.POST)
+	@ResponseBody
+	public Object myInfo(String account) {	
+		try {			
+			resultVo = memberInfoDubbo.findMemberByMobile(account);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * @描述 编辑我的信息
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/update", method = RequestMethod.POST)
+	@ResponseBody
+	public Object update(GjfMemberInfo gjfMemberInfo, String fileContent,String fileName,String account) {		
+		try {		
+			if (ObjValid.isNotValid(gjfMemberInfo)) {
+				gjfMemberInfo = new GjfMemberInfo();
+				gjfMemberInfo.setMobile(account);
+			}			
+			String url="";
+			if (fileContent!=null&&!"".equals(fileContent)) {
+				String[] str = fileContent.split(",");
+				String fils = UploadFileUtil.uploadBase63(fileName, str[1], request, uploadFilePath);
+				url = projectName + uploadFilePath + "/" + fils;
+				gjfMemberInfo.setImgHeadUrl(url);
+			}						
+			gjfMemberInfo.setMobile(account);
+			memberInfoDubbo.updateMember(gjfMemberInfo);
+			resultVo = memberInfoDubbo.findMemberByMobile(account);			
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);			
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * @描述 跳转到我的二维码
+	 * @author Karhs
+	 * @date 2017年1月12日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/myQr", method = RequestMethod.POST)
+	@ResponseBody
+	public Object myQr(String account) {
+		try{
+
+			MemberInfoVo memberInfoVo = (MemberInfoVo) memberInfoDubbo.findMemberByMobile(account).getResult();
+			System.out.println("app二维码url"+memberInfoVo.getImgAppQrUrl());
+			if(!BeanUtil.isValid(memberInfoVo.getImgAppQrUrl())){
+				System.out.println("进入生成二维码");
+				String path = "";
+				
+				String	url = GenerateQrCodeUtil.generateQrcode(request, projectName+"/wx/member/toMemberRegister?superId="+memberInfoVo.getId(), projectNames, imageFolderNames);
+				
+				if (BeanUtil.isValid(url)) {
+					path = projectName + imageFolderNames + "/" + url;
+				}
+				memberInfoVo.setImgQrUrl(path);
+				GjfMemberInfo info = memberInfoDubbo.findMember(memberInfoVo.getMobile());
+				info.setImgAppQrUrl(path);
+				memberInfoDubbo.updateMemberCode(info);
+			}
+			resultVo=memberInfoDubbo.findMemberByMobile(account);
+
+		}catch(Exception e){
+			e.printStackTrace();
+		}		
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 我的钱包首页数据统计
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/countMemberInfo", method = RequestMethod.POST)
+	@ResponseBody
+	public Object countMemberInfo(String type,String account) {
+		try {			
+			resultVo = memberInfoDubbo.findMemberCountInfo(type, account);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Map<String, Object> map = new HashMap<>();
+			map.put("benefitYesterdayMoney", 0.00); // 今日收益
+			map.put("cumulativeMoney", 0.00);
+			map.put("balanceMoney", 0.00);
+			map.put("dividendsTotalMoney", 0.00);
+			map.put("consumptionMoney", 0.00);
+			map.put("canMoney", 0.00);
+			map.put("canParticipate", 0.00);
+			map.put("saleTotalMoney", 0.00);
+			resultVo = new ResultVo(400, "网络异常,请重试", map);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * @描述 设置支付密码
+	 * @author Karhs
+	 * @date 2017年1月9日
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/setPay", method = RequestMethod.POST)
+	@ResponseBody
+	public Object setPay(@RequestParam("pwd1") String pwd1, @RequestParam("pwd2") String pwd2,
+		@RequestParam("mobile") String mobile) {
+		try {						
+			resultVo = loginDubbo.updatePayPwd(mobile, pwd1, pwd2);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * @描述 查询我的收藏信息
+	 * @author Karhs
+	 * @date 2017年2月6日
+	 * @param pageNo
+	 * @param pageSize
+	 * @param collectType
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/myCollect", method = RequestMethod.POST)
+	@ResponseBody
+	public Object myCollect(Integer pageNo, Integer pageSize, @RequestParam("collectType") String collectType,String account) {		
+		try {
+			resultVo=memberInfoDubbo.findMyCollect(account, collectType, ObjValid.isNotValid(pageNo) ? 1 : pageNo,
+				ObjValid.isNotValid(pageSize) ? 10 : pageSize);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);			
+		}		
+		return resultVo;
+	}
+	
+	
+	/**
+	 * @描述 获取用户下级
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/getMemberLowerLevel", method = RequestMethod.POST)
+	@ResponseBody
+	public Object getMemberLowerLevel(Long superId, Integer pageNo, Integer pageSize) {		
+		try {
+			resultVo = memberInfoDubbo.getMemberLowerLevel(superId, pageNo, pageSize);			
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);			
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 实名认证
+	 * @param idCardNo
+	 * @param idCardImg1
+	 * @param idCardName
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/realNameByBankCrad", method = RequestMethod.POST)
+	@ResponseBody
+	public Object realNameByBankCrad(String account,String idCardNo, String idCardImg1, String idCardName) {		
+		Map<String, String> map = new HashMap<>();
+		try {			
+			String xml = H5PayUtil.realName(idCardImg1.trim(), idCardName.trim(), idCardNo.toUpperCase().trim());
+			System.out.println(xml);
+			String[] str = xml.split("&");
+			for (int j = 0; j < str.length; j++) {
+				String str0 = str[j];
+				String[] str1 = str0.split("=");
+				if (str1.length == 1) {
+					map.put(str1[0], "");
+				} else {
+					for (int k = 0; k < str1.length; k++) {
+						map.put(str1[0], str1[1]);
+					}
+				}
+			}
+			System.out.println(map);
+			if ("000000".equals(map.get("retCode")) && Integer.parseInt(map.get("status")) == 0) {
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "1", "2", "", "");
+				resultVo.setCode(200);
+				resultVo.setMsg("审核成功");
+				
+			} else if ("000000".equals(map.get("retCode")) && Integer.parseInt(map.get("status")) == 1) {
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg(map.get("retMsg"));
+				
+			}else{
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg("网络异常，请稍后重试");
+				
+			}
+
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 实名认证（yly）
+	 * 
+	 * @param idCardNo
+	 * @param idCardImg1
+	 * @param idCardName
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/realNameByAly", method = RequestMethod.POST)
+	@ResponseBody
+	public Object realNameByAly(String idCardNo, String idCardName,String account) {		
+		try {		
+			String xml = H5PayUtil.olyrealName(idCardName.trim(),idCardNo.trim());
+			Map<String, Object> map=JsonUtil.parseJSON2Map(xml);
+			if("1".equals(map.get("isok").toString())&&"1".equals(map.get("code").toString())){
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "1", "2", "", "");
+				resultVo.setCode(200);
+				resultVo.setMsg("审核成功");				
+			}
+			if("1".equals(map.get("isok").toString())&&"2".equals(map.get("code").toString())){
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg("信息不一致");			
+			}
+			if("1".equals(map.get("isok").toString())&&"3".equals(map.get("code").toString())){
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg("无此身份证号码");				
+			}
+			if("0".equals(map.get("isok").toString())&&"11".equals(map.get("code").toString())){
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg("参数不正确");				
+			}
+			if("0".equals(map.get("isok").toString())&&"20".equals(map.get("code").toString())){
+				resultVo = memberInfoDubbo.updateMemberIdCard(account, idCardName, idCardNo, "0", "3", "", "");
+				resultVo.setCode(400);
+				resultVo.setMsg("身份证中心维护中");				
+			}
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 获取授信额度记录
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/goAllShouXin", method = RequestMethod.POST)
+	@ResponseBody
+	public Object goAllShouXin(String account,Integer pageNo, Integer pageSize) {		
+		try {			
+			resultVo = tradeDubbo.getAllShouXin(pageNo, pageSize, account);			
+		} catch (Exception e) {
+			LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	
+	/**
+	 * 添加收藏
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/addMyCollect", method = RequestMethod.POST)
+	@ResponseBody
+	public Object addMyCollect(String account,String collectType,Long id) {		
+		try {			
+			resultVo = memberInfoDubbo.addMyCollect(account, collectType, id);			
+		} catch (Exception e) {
+			LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 取消收藏
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/delectMyCollect", method = RequestMethod.POST)
+	@ResponseBody
+	public Object delectMyCollect(Long colId) {		
+		try {			
+			resultVo = memberInfoDubbo.removeMyCollect(colId);			
+		} catch (Exception e) {
+			LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	/**
+	 * 根据手机号码获取用户信息
+	 * 
+	 * @param memId
+	 * @return
+	 */
+	@RequestMapping(value = "v1_0/findMemberByMoblie", method = RequestMethod.POST)
+	@ResponseBody
+	public Object findMemberByMoblie(String mobile,String account) {
+		try {
+			if (mobile.equals(account)) {
+				return new ResultVo(400, "消费会员不能是自己", null);
+			}
+			resultVo = memberInfoDubbo.findMemberByMobile(mobile);
+		} catch (Exception e) {
+			resultVo = LoggerPrint.getResult(e, MemberController.class);
+		}
+		return resultVo;
+	}
+	
+	
+}

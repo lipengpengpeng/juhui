@@ -1,0 +1,1270 @@
+package cc.messcat.web.subsystem;
+
+import java.io.File;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.struts2.ServletActionContext;
+
+import cc.messcat.gjfeng.common.bean.Pager;
+import cc.messcat.gjfeng.common.constant.CommonProperties;
+import cc.messcat.gjfeng.common.util.ObjValid;
+import cc.messcat.gjfeng.common.vo.app.MemberInfoVo;
+import cc.messcat.gjfeng.common.vo.app.ResultVo;
+import cc.messcat.gjfeng.entity.GjfAddressArea;
+import cc.messcat.gjfeng.entity.GjfAddressCity;
+import cc.messcat.gjfeng.entity.GjfAddressProvince;
+import cc.messcat.gjfeng.entity.GjfMemberInfo;
+import cc.messcat.gjfeng.entity.GjfStoreInfo;
+import cc.messcat.gjfeng.entity.GjfSetBaseInfo;
+import cc.modules.commons.PageAction;
+import cc.modules.constants.ActionConstants;
+import cc.modules.util.CommonUpload;
+import cc.modules.util.PropertiesFileReader;
+import net.sf.json.JSONObject;
+
+public class MemberInfoAction extends PageAction {
+
+	private static final long serialVersionUID = 1L;
+	
+	private String likeValue;
+	
+	private String mobile;
+	
+	private String token;
+	
+	private Long id;
+
+	/**
+	 * 查找所有会员
+	 * @return
+	 */
+	private String unionId;
+	
+	private String name;
+	
+	private String password;
+	
+	private String payPassword;
+	
+	private String nickName;
+	
+	private String sex;
+	
+	private String email;
+
+	private String idCard;
+
+	private String imgIdCardBeforeUrl;
+
+	private String imgIdCardBehindUrl;
+
+	private String imgHeadUrl;
+
+	private String imgQrUrl;
+
+	private Long superId; //上级Id
+	
+	private String superName;//上级名称
+	
+	private String superMobile;//上级电话
+
+	private GjfAddressProvince proviceId;
+	
+	private GjfAddressCity cityId;
+	
+	private GjfAddressArea areaId;
+	
+	private String adrress;
+	
+	private String remark;
+	
+	private BigDecimal balanceMoney;
+	
+	private BigDecimal consumptionMoney;
+	
+	private BigDecimal cumulativeMoney;
+	
+	private BigDecimal withdrawalMoney;
+	
+	private BigDecimal dividendsMoney;
+	
+	private BigDecimal dividendsMoneyBla;
+	
+	private BigDecimal dividendsTotalMoney;
+	
+	private BigDecimal dividendsNum;
+	
+	private Date addTime;
+	
+	private Date editTime;
+	
+	private Date lastLoginTime;
+	
+	private String isReadName;
+	
+	private String type;
+	
+	private String identity;
+	
+	private String isReport;
+	
+	private String isBuy;
+	
+	private String isMessage;
+	
+	private String isComments;
+	
+	private String status;
+	
+	private String isDel;
+	
+	private GjfMemberInfo member;
+	
+	private String uploadImageFileName;
+	
+	private File uploadImage;
+	
+	private String realNameState;
+	
+	private CommonUpload comUpload = new CommonUpload(); //上传图片、视频通用类
+	
+	private String savePath = "/upload/enterprice/" ;
+	
+	private List<GjfMemberInfo> superiors;//上级集合
+	
+	private BigDecimal storeSaleTotalMoney;
+	
+	private BigDecimal withdrawHistoryMoney;
+	
+	private Long pri;
+	
+	private Long city;
+	
+	private Long area;
+	
+	private Date startTime;
+	
+	private Date endTime;
+	
+	private String startDate;
+	
+	private BigDecimal agentMoney;
+	
+	private String tradeType;
+	
+	private String op;
+	
+	private String isDivi;
+	
+	private GjfSetBaseInfo sedInfo;
+	
+	private String isActivityMember;
+	
+
+	/**
+	 * 獲取全部會員
+	 * @return
+	 */
+	public String findAllMember(){
+		try {
+			pager=memberInfoDubbo.findMembersByPager(pageNo, pageSize, name,nickName,mobile,type,identity,realNameState,isActivityMember);
+		} catch (Exception e) {
+			//resultVo = LoggerPrint.getResult(e, MemberInfoAction.class);
+			e.printStackTrace();
+		}
+		return SUCCESS;
+	}
+	
+	/**
+	 * 獲取全部會員
+	 * @return
+	 */
+	public String findAllMerchantInfo(){
+		try {
+			pager=memberInfoDubbo.findMembersByPager(pageNo, pageSize, name,nickName,mobile,type,identity,realNameState,isActivityMember);
+		} catch (Exception e) {
+			//resultVo = LoggerPrint.getResult(e, MemberInfoAction.class);
+			e.printStackTrace();
+		}
+		return "merchantInfo";
+	}
+	
+	/**
+	 * 跳轉到查看頁面
+	 * @return
+	 */
+	public String views(){
+		try{	
+			member = (GjfMemberInfo) memberInfoDubbo.findMemberByIdAndToken(id, token).getResult();
+			if(ObjValid.isValid(member)){
+				if (member.getSuperId() != 0) {
+					//上级用户
+					GjfMemberInfo superMember = (GjfMemberInfo) memberInfoDubbo.findMemberById(member.getSuperId()).getResult();
+					if (ObjValid.isValid(superMember)) {	
+						this.setSuperName(superMember.getName());
+					}
+				}else {
+					this.setSuperName("平台推荐");
+				}
+			}	
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "views";
+	}
+	
+	/**
+	 * 跳转到审核页面
+	 * @return
+	 */
+	public String goMemberAudit(){
+		try{	
+			member = (GjfMemberInfo) memberInfoDubbo.findMemberByIdAndToken(id, token).getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "goAuditPage";
+	}
+	
+	/**
+	 * 审核用户实名认证状态
+	 * @return
+	 */
+	public String updateMemberAuditState(){
+		try{
+			memberInfoDubbo.updateMemberIdCardStatus(mobile, realNameState, token);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "auditState";
+	}
+	
+	/**
+	 * 跳轉到編輯頁面
+	 * @return
+	 */
+	public String goEditPage(){
+		try{	
+			member = (GjfMemberInfo) memberInfoDubbo.findMemberByIdAndToken(id, token).getResult();
+			if(null != member){
+				if (member.getSuperId() != 0) {
+					//上级用户
+					MemberInfoVo superMember = (MemberInfoVo) memberInfoDubbo.findMemberById(member.getSuperId()).getResult();
+					if (ObjValid.isValid(superMember)) {	
+						this.setSuperName(superMember.getName());
+						this.setSuperMobile(superMember.getMobile());
+					}else{
+						this.setSuperName("推荐人不存在");
+					}
+				}else {
+					this.setSuperName("平台推荐");
+				}
+				this.setSuperId(member.getSuperId());
+				//所有会员
+				/*List<GjfMemberInfo> memberInfos = (List<GjfMemberInfo>) memberInfoDubbo.findAllMembers(pageNo, pageSize).getResult();
+				//所有下级会员
+				pager = (Pager) memberInfoDubbo.findLowLevelByMemberId(pageNo, pageSize, member.getId()).getResult();
+				List<GjfMemberInfo> temp = new ArrayList<>();
+				if (null != pager.getResultList()) {
+					List<GjfMemberInfo> lowers = pager.getResultList();
+					for(GjfMemberInfo gjfMemberInfo : memberInfos){
+						for(GjfMemberInfo gjfMemberInfo2 : lowers){
+							if (gjfMemberInfo2.getId() == gjfMemberInfo.getId()) {
+								temp.add(gjfMemberInfo);
+							}
+						}
+					}
+				}
+				//移除下级
+				memberInfos.removeAll(temp);
+				temp.clear();
+				for(GjfMemberInfo gjfMemberInfo : memberInfos){
+					if (gjfMemberInfo.getId() == member.getId()) {
+						temp.add(gjfMemberInfo);
+					}
+				}
+				//移除自己
+				memberInfos.removeAll(temp);
+				//可作为上级的会员
+				this.setSuperiors(memberInfos);*/
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "goEditPage";
+	}
+	
+	public String updateMemberInfo(){
+		try{
+			GjfMemberInfo member=(GjfMemberInfo) memberInfoDubbo.findMemberByIdAndToken(id,token).getResult();
+			if (null != adrress) {
+				member.setAdrress(adrress);
+			}
+			member.setUnionId(unionId);
+			member.setSex(sex);
+			SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			String time=sdf.format(new Date());
+			member.setEditTime(sdf.parse(time));
+			member.setEmail(email);
+			member.setIdCard(idCard);
+			member.setMobile(mobile);
+			member.setName(name);
+			member.setNickName(nickName);
+			member.setSuperId(superId);
+			member.setRealNameState(realNameState);
+			if ("2".equals(realNameState)) {
+				member.setIsReadName("1");
+			}else{
+				member.setIsReadName("0");
+				member.setIdCard("");
+			}
+			member.setIsDivi(isDivi);
+			if (uploadImage != null) {
+				comUpload.setUpload(uploadImage);// 上传的File文件
+				comUpload.setUploadFileName(uploadImageFileName);// 上传文件的文件名
+				if (!comUpload.uploadFile()) {
+					return ActionConstants.INPUT_KEY;
+				} else {
+					member.setImgHeadUrl(CommonProperties.GJFENG_MCCMS_PROJECT_URL+savePath+comUpload.getUploadFileName());
+				}
+			}
+			//member.setImgHeadUrl(imgHeadUrl);
+			member.setIsBuy(isBuy);
+			member.setIsComments(isComments);
+			member.setIsDel(isDel);
+			member.setIsMessage(isMessage);
+			member.setIsReport(isReport);
+			member.setStatus(status);
+			member.setIsActiveMember(isActivityMember);
+			/*member.setDividendsNum(dividendsNum);
+			member.setWithdrawalMoney(balanceMoney);
+			member.setBalanceMoney(balanceMoney);*/
+			memberInfoDubbo.updateMember(member);
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "edit_memberInfo";
+	}
+	
+	public String delMember(){
+		try{
+			 memberInfoDubbo.removeMemberById(id);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "delete_member";
+	}
+	
+	/**
+	 * 查找会员下级
+	 * @return
+	 */
+	public String findLowerMembers(){
+		try {
+			resultVo = memberInfoDubbo.findLowLevelByMemberId(pageNo, pageSize, id);
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "lower_member_list";	
+	}
+	
+	/**
+	 * 查找所有商家会员
+	 * @return
+	 */
+	public String findAllSeller(){
+		try {
+			resultVo = memberInfoDubbo.findMembersByCondition(pageNo, pageSize, name, null,mobile, "1");
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "sellersList";
+	}
+	
+	/**
+	 * 财务结算
+	 */
+	public String settlement(){
+		try {
+			GjfMemberInfo memberInfo =  (GjfMemberInfo) memberInfoDubbo.findMemberByIdAndToken(id, token).getResult();
+			this.setAgentMoney(agentMoney);
+			//可提现金额
+			if (ObjValid.isValid(memberInfo)) {
+				this.withdrawalMoney = memberInfo.getWithdrawalMoney();
+			}else {
+				this.withdrawalMoney = new BigDecimal("0.00");
+			}
+			//销售总额
+			GjfStoreInfo storeInfo = (GjfStoreInfo) storeInfoDubbo.findStoreByMemberId(id).getResult();
+			if (ObjValid.isValid(storeInfo)) {
+				this.storeSaleTotalMoney = storeInfo.getStoreSaleTotalMoney();
+			}else {
+				this.storeSaleTotalMoney = new BigDecimal("0.00");
+			}
+			//提现金额
+			this.withdrawHistoryMoney = (BigDecimal) tradeDubbo.findMemberWithdrawHistoryMoney(id, token).getResult();
+			resultVo = tradeDubbo.findAgentDiviByMemberId(pageNo, pageSize, id, memberInfo.getIdentity());
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "settlement";
+	}
+	
+	/**
+	 * 查看会员分销商品
+	 * @return
+	 */
+	public String findLowersProducts(){
+		try {
+			pager = (Pager) orderInfoDubbo.findLowersOrderGoodsById(pageNo, pageSize, id).getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "lowersProducts";
+	}
+	
+	/**
+	 * 查找所有代理商
+	 * @return
+	 */
+	public String findAllAgents(){
+		try {
+			resultVo = memberInfoDubbo.findAllAgents(pageNo, pageSize,name,startDate,identity,status);
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "agent_list";
+	}
+	
+	/**
+	 * 代理商金额结算
+	 * @return
+	 */
+	public String agentClearing(){
+		JSONObject json = new JSONObject();
+	    try {
+			resultVo = benefitInfoDubbo.updateAgentBenefit(id,token);
+	    	json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "结算出错", null));
+		}
+	    return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 跳转成为代理
+	 * @return
+	 */
+	public String toBeAgent(){
+		this.setUnionId(unionId);
+		this.setToken(token);
+		return "toBeAgent";
+	}
+	
+	/**
+	 * 跳转修改代理
+	 * @return
+	 */
+	public String toUpdateAgent(){
+		try {
+			GjfMemberInfo member = memberInfoDubbo.findMember(unionId);
+			proviceId = member.getProviceId();
+			cityId = member.getCityId();
+			areaId = member.getAreaId();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "toUpdateAgent";
+	}
+	
+	/**
+	 * 成为\修改代理
+	 * @return
+	 */
+	public String updateToAgent(){
+		JSONObject json = new JSONObject();
+		try {
+			GjfMemberInfo memberInfo = memberInfoDubbo.findMember(unionId);
+			if (ObjValid.isNotValid(memberInfo)) {
+				json = JSONObject.fromObject(new ResultVo(400, "用户信息不存在!", null));
+			}else {
+				resultVo = memberInfoDubbo.updateMemberAgent(area, pri, city, memberInfo, type,startTime,endTime);
+				json = JSONObject.fromObject(resultVo);
+			}	
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "出错啦!", null));
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 取消代理身份
+	 * @return
+	 */
+	public String updateAgent(){
+		JSONObject json = new JSONObject();
+		try {
+			resultVo = memberInfoDubbo.updateAgent(id, token);
+			json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "出错啦!", null));
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+
+	/**
+	 * 设置上传图片通用信息
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unused")
+	private void setPic() throws Exception {
+		comUpload.setMaxSize(comUpload.getPhotoMaxSize());//上传文件最大尺寸
+		comUpload.setSavePath("/upload/enterprice");//上传文件保存路径
+		comUpload.setAllowTypes(comUpload.getAllowTypePhoto());//上传文件所允许的格式
+	}
+	
+	/**
+	 * 查询用户流水记录
+	 * @return
+	 */
+	public String findMoneyHistoryByMemberId(){
+		try {
+			resultVo = tradeDubbo.findBalanceMoneyHistoryByMemberId(pageNo, pageSize, id, token,tradeType);
+			pager = (Pager) resultVo.getResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "moneyHistory";
+	}
+	
+	/**
+	 * 根据Id查询用户历史分红金额和分红权流水
+	 * @return
+	 */
+	public String findDiviHistoryById(){
+		try {
+			resultVo = tradeDubbo.findDiviHistoryByMemberId(pageNo, pageSize, id);
+			pager = (Pager) resultVo.getResult();
+			if ("0".equals(op)) {
+				return "Divi_Money_History";
+			}else if ("1".equals(op)) {
+				return "Divi_Num_History";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * 查询用户历史消费额流水
+	 * @return
+	 */
+	public String findCumulativeMoneyById(){
+		try {
+			//网上商城订单消费
+			if ("0".equals(op)) {
+				resultVo = orderInfoDubbo.findOrderByMemberId(pageNo, pageSize, id, null, null);
+				this.pager = (Pager) resultVo.getResult();
+				return "StoreConsumHistory";
+			}else if ("1".equals(op)) {//O2O消费流水
+				resultVo = tradeDubbo.findMemberO2OHistory(pageNo, pageSize, id, token);
+				this.pager = (Pager) resultVo.getResult();
+				return "O2OConsumHistory";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * 获取运营中心列表
+	 * @return
+	 */
+	public String findMemberOpcenter(){
+		try{
+			pager=(Pager) memberInfoDubbo.findMemberOpcenterByCondition(pageNo, pageSize, name).getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "opcenter_list";
+	}
+	
+	/**
+	 * 结算运营中心数据
+	 * @return
+	 */
+	public String modifyMemberOpcenter(){
+		JSONObject json = new JSONObject();
+		try {
+			resultVo = memberInfoDubbo.updateMemberOpcenter(mobile, agentMoney.doubleValue());
+			json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "出错啦!", null));
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 获取用户运营中心历史记录
+	 * @return
+	 */
+	public String findMemberOpcenterHistory(){
+		try{
+			resultVo=memberInfoDubbo.findOpcenterHistory(pageNo, pageSize, id);
+			pager=(Pager) resultVo.getResult();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "opcenter_history";
+	}
+	
+	
+	
+	/**
+	 * 设置商户联盟商家
+	 * @return
+	 */
+	public String addMerchantModelInBack(){
+		JSONObject json = new JSONObject();
+		try {
+			resultVo = tradeDubbo.addMerchantModelInBack(type, mobile, agentMoney.doubleValue(),area, pri, city,startTime,endTime);
+			json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "出错啦!", null));
+		}
+		return renderText(json == null ? null : json.toString());
+	}
+	
+	/**
+	 * 获取用户赠送列表
+	 * @param type 
+	 * @return
+	 */
+	public String findMerchantGiveModel(){
+		try{			
+			resultVo=tradeDubbo.findGiveMerchantModelByType(type,id);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		return "merchant-give-list";
+	}
+	
+	
+	
+	/**
+	 * 添加商家赠送记录
+	 * @return
+	 */
+	public String addMerchantGiveHiosty(){
+		JSONObject json = new JSONObject();
+		try {
+			tradeDubbo.addMerchantGiveHistory(mobile, id, tradeType);
+			json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "出错啦!", null));
+		}
+		return renderText(json == null ? null : json.toString());				
+	}
+	
+	/**
+	 * 跳转成为商家联盟
+	 * @return
+	 */
+	public String toSetMerchantModel(){
+		this.setMobile(mobile);
+		return "toSetMerchantModel";
+	}
+	
+	
+	public String findSetBaseInfo(){
+		try {
+			resultVo = memberInfoDubbo.findAllSetBaseInfo(pageNo,pageSize);	
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "findSetBaseInfo";
+	}
+	
+	public String setBaseInfo(){
+		try {
+			resultVo = memberInfoDubbo.updateSetBaseInfo(id);	
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return findSetBaseInfo();
+	}
+	
+	public String aduBaseInfo(){
+		try {
+			resultVo = memberInfoDubbo.findAllSetBaseInfo(pageNo,pageSize);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return findSetBaseInfo();
+	}
+	
+	
+	/**
+	 * 代理商金额结算
+	 * @return
+	 */
+	public String updateSuperMember(){
+		JSONObject json = new JSONObject();
+	    try {
+			resultVo = memberInfoDubbo.updateMemberSuperInfo(mobile, id);
+	    	json = JSONObject.fromObject(resultVo);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = JSONObject.fromObject(new ResultVo(400, "修改出错", null));
+		}
+	    return renderText(json == null ? null : json.toString());
+	}
+
+	public String getLikeValue() {
+		return likeValue;
+	}
+
+	public void setLikeValue(String likeValue) {
+		this.likeValue = likeValue;
+	}
+
+	public String getMobile() {
+		return mobile;
+	}
+
+	public void setMobile(String mobile) {
+		this.mobile = mobile;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getUnionId() {
+		return unionId;
+	}
+
+	public void setUnionId(String unionId) {
+		this.unionId = unionId;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getPayPassword() {
+		return payPassword;
+	}
+
+	public void setPayPassword(String payPassword) {
+		this.payPassword = payPassword;
+	}
+
+	public String getNickName() {
+		return nickName;
+	}
+
+	public void setNickName(String nickName) {
+		this.nickName = nickName;
+	}
+
+	public String getSex() {
+		return sex;
+	}
+
+	public void setSex(String sex) {
+		this.sex = sex;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public String getIdCard() {
+		return idCard;
+	}
+
+	public void setIdCard(String idCard) {
+		this.idCard = idCard;
+	}
+
+	public String getImgIdCardBeforeUrl() {
+		return imgIdCardBeforeUrl;
+	}
+
+	public void setImgIdCardBeforeUrl(String imgIdCardBeforeUrl) {
+		this.imgIdCardBeforeUrl = imgIdCardBeforeUrl;
+	}
+
+	public String getImgIdCardBehindUrl() {
+		return imgIdCardBehindUrl;
+	}
+
+	public void setImgIdCardBehindUrl(String imgIdCardBehindUrl) {
+		this.imgIdCardBehindUrl = imgIdCardBehindUrl;
+	}
+
+	public String getImgHeadUrl() {
+		return imgHeadUrl;
+	}
+
+	public void setImgHeadUrl(String imgHeadUrl) {
+		this.imgHeadUrl = imgHeadUrl;
+	}
+
+	public String getImgQrUrl() {
+		return imgQrUrl;
+	}
+
+	public void setImgQrUrl(String imgQrUrl) {
+		this.imgQrUrl = imgQrUrl;
+	}
+
+	public Long getSuperId() {
+		return superId;
+	}
+
+	public void setSuperId(Long superId) {
+		this.superId = superId;
+	}
+
+	public GjfAddressProvince getProviceId() {
+		return proviceId;
+	}
+
+	public void setProviceId(GjfAddressProvince proviceId) {
+		this.proviceId = proviceId;
+	}
+
+	public GjfAddressCity getCityId() {
+		return cityId;
+	}
+
+	public void setCityId(GjfAddressCity cityId) {
+		this.cityId = cityId;
+	}
+
+	public GjfAddressArea getAreaId() {
+		return areaId;
+	}
+
+	public void setAreaId(GjfAddressArea areaId) {
+		this.areaId = areaId;
+	}
+
+	public String getAdrress() {
+		return adrress;
+	}
+
+	public void setAdrress(String adrress) {
+		this.adrress = adrress;
+	}
+
+	public String getRemark() {
+		return remark;
+	}
+
+	public void setRemark(String remark) {
+		this.remark = remark;
+	}
+
+	public BigDecimal getBalanceMoney() {
+		return balanceMoney;
+	}
+
+	public void setBalanceMoney(BigDecimal balanceMoney) {
+		this.balanceMoney = balanceMoney;
+	}
+
+	public BigDecimal getConsumptionMoney() {
+		return consumptionMoney;
+	}
+
+	public void setConsumptionMoney(BigDecimal consumptionMoney) {
+		this.consumptionMoney = consumptionMoney;
+	}
+
+	public BigDecimal getCumulativeMoney() {
+		return cumulativeMoney;
+	}
+
+	public void setCumulativeMoney(BigDecimal cumulativeMoney) {
+		this.cumulativeMoney = cumulativeMoney;
+	}
+
+	public BigDecimal getWithdrawalMoney() {
+		return withdrawalMoney;
+	}
+
+	public void setWithdrawalMoney(BigDecimal withdrawalMoney) {
+		this.withdrawalMoney = withdrawalMoney;
+	}
+
+	public BigDecimal getDividendsMoney() {
+		return dividendsMoney;
+	}
+
+	public void setDividendsMoney(BigDecimal dividendsMoney) {
+		this.dividendsMoney = dividendsMoney;
+	}
+
+	public BigDecimal getDividendsMoneyBla() {
+		return dividendsMoneyBla;
+	}
+
+	public void setDividendsMoneyBla(BigDecimal dividendsMoneyBla) {
+		this.dividendsMoneyBla = dividendsMoneyBla;
+	}
+
+	public BigDecimal getDividendsTotalMoney() {
+		return dividendsTotalMoney;
+	}
+
+	public void setDividendsTotalMoney(BigDecimal dividendsTotalMoney) {
+		this.dividendsTotalMoney = dividendsTotalMoney;
+	}
+
+	public BigDecimal getDividendsNum() {
+		return dividendsNum;
+	}
+
+	public void setDividendsNum(BigDecimal dividendsNum) {
+		this.dividendsNum = dividendsNum;
+	}
+
+	public Date getAddTime() {
+		return addTime;
+	}
+
+	public void setAddTime(Date addTime) {
+		this.addTime = addTime;
+	}
+
+	public Date getEditTime() {
+		return editTime;
+	}
+
+	public void setEditTime(Date editTime) {
+		this.editTime = editTime;
+	}
+
+	public Date getLastLoginTime() {
+		return lastLoginTime;
+	}
+
+	public void setLastLoginTime(Date lastLoginTime) {
+		this.lastLoginTime = lastLoginTime;
+	}
+
+	public String getIsReadName() {
+		return isReadName;
+	}
+
+	public void setIsReadName(String isReadName) {
+		this.isReadName = isReadName;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getIdentity() {
+		return identity;
+	}
+
+	public void setIdentity(String identity) {
+		this.identity = identity;
+	}
+
+	public String getIsReport() {
+		return isReport;
+	}
+
+	public void setIsReport(String isReport) {
+		this.isReport = isReport;
+	}
+
+	public String getIsBuy() {
+		return isBuy;
+	}
+
+	public void setIsBuy(String isBuy) {
+		this.isBuy = isBuy;
+	}
+
+	public String getIsMessage() {
+		return isMessage;
+	}
+
+	public void setIsMessage(String isMessage) {
+		this.isMessage = isMessage;
+	}
+
+	public String getIsComments() {
+		return isComments;
+	}
+
+	public void setIsComments(String isComments) {
+		this.isComments = isComments;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public String getIsDel() {
+		return isDel;
+	}
+
+	public void setIsDel(String isDel) {
+		this.isDel = isDel;
+	}
+
+	public GjfMemberInfo getMember() {
+		return member;
+	}
+
+	public void setMember(GjfMemberInfo member) {
+		this.member = member;
+	}
+
+	public String getUploadImageFileName() {
+		return uploadImageFileName;
+	}
+
+	public void setUploadImageFileName(String uploadImageFileName) {
+		this.uploadImageFileName = uploadImageFileName;
+	}
+	
+	/**
+	 * 获取图片保存路径，放在配置文件app.properties
+	 * @return
+	 * @throws Exception
+	 */
+	public String getSaveImgPath() throws Exception {
+		String imgPath = PropertiesFileReader.get("gjfeng.client.project.url", "/conf.properties");
+		String realPath = ServletActionContext.getRequest().getSession().getServletContext().getRealPath(imgPath);
+		return realPath;
+	}
+	
+	public String getSaveImgPath0() throws Exception {
+		String imgPath = PropertiesFileReader.get("upload.member.head.path", "/upload.properties");
+		//String realPath = ServletActionContext.getRequest().getSession().getServletContext().getRealPath(imgPath);
+		return imgPath;
+	}
+
+	public File getUploadImage() {
+		return uploadImage;
+	}
+
+	public void setUploadImage(File uploadImage) {
+		this.uploadImage = uploadImage;
+	}
+
+	public CommonUpload getComUpload() {
+		return comUpload;
+	}
+
+	public void setComUpload(CommonUpload comUpload) {
+		this.comUpload = comUpload;
+	}
+
+	public String getRealNameState() {
+		return realNameState;
+	}
+
+	public void setRealNameState(String realNameState) {
+		this.realNameState = realNameState;
+	}
+
+	public String getSuperName() {
+		return superName;
+	}
+
+	public void setSuperName(String superName) {
+		this.superName = superName;
+	}
+
+	public List<GjfMemberInfo> getSuperiors() {
+		return superiors;
+	}
+
+	public void setSuperiors(List<GjfMemberInfo> superiors) {
+		this.superiors = superiors;
+	}
+
+	public BigDecimal getStoreSaleTotalMoney() {
+		return storeSaleTotalMoney;
+	}
+
+	public void setStoreSaleTotalMoney(BigDecimal storeSaleTotalMoney) {
+		this.storeSaleTotalMoney = storeSaleTotalMoney;
+	}
+
+	public BigDecimal getWithdrawHistoryMoney() {
+		return withdrawHistoryMoney;
+	}
+
+	public void setWithdrawHistoryMoney(BigDecimal withdrawHistoryMoney) {
+		this.withdrawHistoryMoney = withdrawHistoryMoney;
+	}
+
+	public String getSuperMobile() {
+		return superMobile;
+	}
+
+	public void setSuperMobile(String superMobile) {
+		this.superMobile = superMobile;
+	}
+
+	public Long getPri() {
+		return pri;
+	}
+
+	public void setPri(Long pri) {
+		this.pri = pri;
+	}
+
+	public Long getCity() {
+		return city;
+	}
+
+	public void setCity(Long city) {
+		this.city = city;
+	}
+
+	public Long getArea() {
+		return area;
+	}
+
+	public void setArea(Long area) {
+		this.area = area;
+	}
+
+	public Date getStartTime() {
+		return startTime;
+	}
+
+	public void setStartTime(Date startTime) {
+		this.startTime = startTime;
+	}
+
+	public Date getEndTime() {
+		return endTime;
+	}
+
+	public void setEndTime(Date endTime) {
+		this.endTime = endTime;
+	}
+
+	public String getStartDate() {
+		return startDate;
+	}
+
+	public void setStartDate(String startDate) {
+		this.startDate = startDate;
+	}
+
+	public BigDecimal getAgentMoney() {
+		return agentMoney;
+	}
+
+	public void setAgentMoney(BigDecimal agentMoney) {
+		this.agentMoney = agentMoney;
+	}
+
+	public String getTradeType() {
+		return tradeType;
+	}
+
+	public void setTradeType(String tradeType) {
+		this.tradeType = tradeType;
+	}
+
+	public String getOp() {
+		return op;
+	}
+
+	public void setOp(String op) {
+		this.op = op;
+	}
+
+	public String getIsDivi() {
+		return isDivi;
+	}
+
+	public void setIsDivi(String isDivi) {
+		this.isDivi = isDivi;
+	}
+
+	public GjfSetBaseInfo getSedInfo() {
+		return sedInfo;
+	}
+
+	public void setSedInfo(GjfSetBaseInfo sedInfo) {
+		this.sedInfo = sedInfo;
+	}
+
+	public String getIsActivityMember() {
+		return isActivityMember;
+	}
+
+	public void setIsActivityMember(String isActivityMember) {
+		this.isActivityMember = isActivityMember;
+	}
+
+	
+}
