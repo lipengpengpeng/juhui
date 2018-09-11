@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="gjfeng-server-sms:war">
+    <output-path>$PROJECT_DIR$/gjfeng-server-sms/target</output-path>
+    <root id="archive" name="gjfeng-server-sms.war">
+      <element id="artifact" artifact-name="gjfeng-server-sms:war exploded" />
+    </root>
+  </artifact>
+</component>

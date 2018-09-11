@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="gjfeng-web-client:war">
+    <output-path>$PROJECT_DIR$/gjfeng-web-client/target</output-path>
+    <root id="archive" name="gjfeng-web-client.war">
+      <element id="artifact" artifact-name="gjfeng-web-client:war exploded" />
+    </root>
+  </artifact>
+</component>

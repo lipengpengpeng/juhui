@@ -1,0 +1,16 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="gjfeng-web-quartz:war exploded">
+    <output-path>$PROJECT_DIR$/gjfeng-web-quartz/target/gjfeng-web-quartz</output-path>
+    <root id="root">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="classes">
+          <element id="module-output" name="gjfeng-web-quartz" />
+        </element>
+      </element>
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/gjfeng-web-quartz/target/gjfeng-web-quartz/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="javaee-facet-resources" facet="gjfeng-web-quartz/web/Web" />
+    </root>
+  </artifact>
+</component>

@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="gjfeng-web-quartz:war">
+    <output-path>$PROJECT_DIR$/gjfeng-web-quartz/target</output-path>
+    <root id="archive" name="gjfeng-web-quartz.war">
+      <element id="artifact" artifact-name="gjfeng-web-quartz:war exploded" />
+    </root>
+  </artifact>
+</component>

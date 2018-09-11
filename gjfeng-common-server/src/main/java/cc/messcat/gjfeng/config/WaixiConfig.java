@@ -21,7 +21,7 @@ import cc.messcat.gjfeng.entity.GjfWeiXinPayInfo;
  * @author Jimmy
  *
  */
-public class WaixiConfig implements InitializingBean {
+public class WaixiConfig implements InitializingBean  {
 
 	private static Logger log = Logger.getLogger(WaixiConfig.class);
 	/**

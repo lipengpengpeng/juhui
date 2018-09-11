@@ -1,0 +1,18 @@
+<component name="libraryTable">
+  <library name="juhui">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/gjfeng-common-server/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-common/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-server-benefit/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-server-core/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-server-sms/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-web-client/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-web-mccms/src/main/java" />
+      <root url="file://$PROJECT_DIR$/gjfeng-web-quartz/src/main/java" />
+    </SOURCES>
+  </library>
+</component>

@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="gjfeng-server-core:war">
+    <output-path>$PROJECT_DIR$/gjfeng-server-core/target</output-path>
+    <root id="archive" name="gjfeng-server-core.war">
+      <element id="artifact" artifact-name="gjfeng-server-core:war exploded" />
+    </root>
+  </artifact>
+</component>

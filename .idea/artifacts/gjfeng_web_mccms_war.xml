@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="gjfeng-web-mccms:war">
+    <output-path>$PROJECT_DIR$/gjfeng-web-mccms/target</output-path>
+    <root id="archive" name="gjfeng-web-mccms.war">
+      <element id="artifact" artifact-name="gjfeng-web-mccms:war exploded" />
+    </root>
+  </artifact>
+</component>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-common/gjfeng-common.iml" filepath="$PROJECT_DIR$/gjfeng-common/gjfeng-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-common-server/gjfeng-common-server.iml" filepath="$PROJECT_DIR$/gjfeng-common-server/gjfeng-common-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-server-benefit/gjfeng-server-benefit.iml" filepath="$PROJECT_DIR$/gjfeng-server-benefit/gjfeng-server-benefit.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-server-core/gjfeng-server-core.iml" filepath="$PROJECT_DIR$/gjfeng-server-core/gjfeng-server-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-server-sms/gjfeng-server-sms.iml" filepath="$PROJECT_DIR$/gjfeng-server-sms/gjfeng-server-sms.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-web-client/gjfeng-web-client.iml" filepath="$PROJECT_DIR$/gjfeng-web-client/gjfeng-web-client.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-web-mccms/gjfeng-web-mccms.iml" filepath="$PROJECT_DIR$/gjfeng-web-mccms/gjfeng-web-mccms.iml" />
+      <module fileurl="file://$PROJECT_DIR$/gjfeng-web-quartz/gjfeng-web-quartz.iml" filepath="$PROJECT_DIR$/gjfeng-web-quartz/gjfeng-web-quartz.iml" />
+    </modules>
+  </component>
+</project>

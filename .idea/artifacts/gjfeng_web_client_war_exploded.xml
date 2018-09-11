@@ -1,0 +1,16 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="gjfeng-web-client:war exploded">
+    <output-path>$PROJECT_DIR$/gjfeng-web-client/target/gjfeng-web-client</output-path>
+    <root id="root">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="classes">
+          <element id="module-output" name="gjfeng-web-client" />
+        </element>
+      </element>
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/gjfeng-web-client/target/gjfeng-web-client/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="javaee-facet-resources" facet="gjfeng-web-client/web/Web" />
+    </root>
+  </artifact>
+</component>

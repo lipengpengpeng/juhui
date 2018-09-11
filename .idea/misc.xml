@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="FrameworkDetectionExcludesConfiguration">
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-server-benefit" />
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-server-core" />
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-server-sms" />
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-web-client" />
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-web-mccms" />
+    <file type="web" url="file://$PROJECT_DIR$/gjfeng-web-quartz" />
+  </component>
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/gjfeng-common/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-common-server/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-server-benefit/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-server-core/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-server-sms/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-web-client/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-web-mccms/pom.xml" />
+        <option value="$PROJECT_DIR$/gjfeng-web-quartz/pom.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_7" project-jdk-name="1.7" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+  <component name="SvnBranchConfigurationManager">
+    <option name="mySupportsUserInfoFilter" value="true" />
+  </component>
+</project>
